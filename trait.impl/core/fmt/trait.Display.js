@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"marketplace_builder_core":[["impl&lt;TYPES: <a class=\"trait\" href=\"marketplace_builder_core/testing/basic_test/trait.NodeType.html\" title=\"trait marketplace_builder_core::testing::basic_test::NodeType\">NodeType</a>&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.79.0/core/fmt/trait.Display.html\" title=\"trait core::fmt::Display\">Display</a> for <a class=\"struct\" href=\"marketplace_builder_core/builder_state/struct.BuiltFromProposedBlock.html\" title=\"struct marketplace_builder_core::builder_state::BuiltFromProposedBlock\">BuiltFromProposedBlock</a>&lt;TYPES&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
