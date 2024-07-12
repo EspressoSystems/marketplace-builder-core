@@ -2,8 +2,8 @@ use hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
     types::SystemContextHandle,
 };
-use hotshot_builder_api::{
-    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
+use hotshot_builder_api::v0_3::{
+    block_info::{AvailableBlockData, AvailableBlockInfo},
     builder::BuildError,
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
@@ -26,18 +26,13 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 use crate::builder_state::{
-    BuildBlockInfo, DaProposalMessage, DecideMessage, QCMessage, TransactionSource, TriggerStatus,
+    BuildBlockInfo, DaProposalMessage, DecideMessage, QCMessage, TransactionSource,
 };
 use crate::builder_state::{MessageType, RequestMessage, ResponseMessage};
-use crate::WaitAndKeep;
 use anyhow::{anyhow, Context};
 use async_broadcast::Sender as BroadcastSender;
 pub use async_broadcast::{broadcast, RecvError, TryRecvError};
-use async_compatibility_layer::{
-    art::async_sleep,
-    art::async_timeout,
-    channel::{unbounded, OneShotSender},
-};
+use async_compatibility_layer::{art::async_sleep, art::async_timeout, channel::unbounded};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::{Commitment, Committable};
@@ -616,7 +611,18 @@ where
                     message: format!("Signing over builder commitment failed: {:?}", e),
                 })?;
 
+            let signature_over_fee =
+                <Types as NodeType>::BuilderSignatureKey::sign_sequencing_fee_marketplace(
+                    &sign_key,
+                    block_info.offered_fee,
+                )
+                .map_err(|e| BuildError::Error {
+                    message: format!("Signing over sequencing fee failed: {:?}", e),
+                })?;
+
             let block_data = AvailableBlockData::<Types> {
+                fee: block_info.offered_fee,
+                fee_signature: signature_over_fee,
                 block_payload: block_info.block_payload.clone(),
                 metadata: block_info.metadata.clone(),
                 signature: signature_over_builder_commitment,
@@ -634,20 +640,6 @@ where
                 message: "Block data not found".to_string(),
             })
         }
-    }
-
-    /// Implemented for compatibility with trait, removal pending
-    ///
-    /// # Errors
-    /// Always
-    async fn claim_block_header_input(
-        &self,
-        _block_hash: &BuilderCommitment,
-        _view_number: u64,
-        _sender: Types::SignatureKey,
-        _signature: &<<Types as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ) -> Result<AvailableBlockHeaderInput<Types>, BuildError> {
-        Err(BuildError::Missing)
     }
 
     async fn builder_address(

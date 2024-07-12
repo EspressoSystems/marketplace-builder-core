@@ -3072,7 +3072,7 @@ dependencies = [
 [[package]]
 name = "hotshot"
 version = "0.5.60"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.61#b7f5fa34f22df7af6fcfde92caa1b2153102d1df"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=ag/novid2#d9ca72af773b6b1f9e72871b59dc7f2f0e40d015"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3118,7 +3118,7 @@ dependencies = [
 [[package]]
 name = "hotshot-builder-api"
 version = "0.1.7"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.61#b7f5fa34f22df7af6fcfde92caa1b2153102d1df"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=ag/novid2#d9ca72af773b6b1f9e72871b59dc7f2f0e40d015"
 dependencies = [
  "async-trait",
  "clap",
@@ -3135,39 +3135,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotshot-builder-core"
-version = "0.1.26"
-dependencies = [
- "anyhow",
- "async-broadcast",
- "async-compatibility-layer",
- "async-lock 2.8.0",
- "async-std",
- "async-trait",
- "clap",
- "committable",
- "derivative",
- "futures",
- "hotshot",
- "hotshot-builder-api",
- "hotshot-events-service",
- "hotshot-example-types",
- "hotshot-types",
- "serde",
- "sha2 0.10.8",
- "snafu",
- "surf-disco",
- "tagged-base64",
- "tide-disco",
- "tokio",
- "tracing",
- "vbs",
-]
-
-[[package]]
 name = "hotshot-events-service"
 version = "0.1.27"
-source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?tag=rc-0.1.32#1cab5bc0cb738a89b97c32e786a4fc469869b031"
+source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?branch=ag/novid2#f45a5c59af94f77ea3fddc6610579d9275f46b12"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3192,7 +3162,7 @@ dependencies = [
 [[package]]
 name = "hotshot-example-types"
 version = "0.5.60"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.61#b7f5fa34f22df7af6fcfde92caa1b2153102d1df"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=ag/novid2#d9ca72af773b6b1f9e72871b59dc7f2f0e40d015"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3210,6 +3180,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "rand 0.8.5",
+ "reqwest",
  "serde",
  "sha2 0.10.8",
  "sha3",
@@ -3224,7 +3195,7 @@ dependencies = [
 [[package]]
 name = "hotshot-orchestrator"
 version = "0.5.60"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.61#b7f5fa34f22df7af6fcfde92caa1b2153102d1df"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=ag/novid2#d9ca72af773b6b1f9e72871b59dc7f2f0e40d015"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3254,7 +3225,7 @@ dependencies = [
 [[package]]
 name = "hotshot-task"
 version = "0.5.60"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.61#b7f5fa34f22df7af6fcfde92caa1b2153102d1df"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=ag/novid2#d9ca72af773b6b1f9e72871b59dc7f2f0e40d015"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3269,7 +3240,7 @@ dependencies = [
 [[package]]
 name = "hotshot-task-impls"
 version = "0.5.60"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.61#b7f5fa34f22df7af6fcfde92caa1b2153102d1df"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=ag/novid2#d9ca72af773b6b1f9e72871b59dc7f2f0e40d015"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3305,7 +3276,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.11"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.61#b7f5fa34f22df7af6fcfde92caa1b2153102d1df"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=ag/novid2#d9ca72af773b6b1f9e72871b59dc7f2f0e40d015"
 dependencies = [
  "anyhow",
  "ark-bls12-381",
@@ -4429,7 +4400,7 @@ dependencies = [
 [[package]]
 name = "libp2p-networking"
 version = "0.5.60"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.61#b7f5fa34f22df7af6fcfde92caa1b2153102d1df"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=ag/novid2#d9ca72af773b6b1f9e72871b59dc7f2f0e40d015"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -4918,6 +4889,36 @@ dependencies = [
  "lazy_static",
  "pipeline",
  "regex",
+]
+
+[[package]]
+name = "marketplace-builder-core"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "async-broadcast",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
+ "async-trait",
+ "clap",
+ "committable",
+ "derivative",
+ "futures",
+ "hotshot",
+ "hotshot-builder-api",
+ "hotshot-events-service",
+ "hotshot-example-types",
+ "hotshot-types",
+ "serde",
+ "sha2 0.10.8",
+ "snafu",
+ "surf-disco",
+ "tagged-base64",
+ "tide-disco",
+ "tokio",
+ "tracing",
+ "vbs",
 ]
 
 [[package]]
