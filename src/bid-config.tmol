@@ -1,0 +1,5 @@
+account_seed = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+account_index = 3
+gas_price = 4
+bid_amount = 5
+namespaces = [6, 7]

@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 async-broadcast = "0.7"
-async-compatibility-layer = { version = "1.1", default-features = false, features = [
+async-compatibility-layer = { version = "1.2.1", default-features = false, features = [
     "logging-utils",
 ] }
 async-lock = "2.8"
@@ -16,12 +16,16 @@ async-trait = "0.1"
 clap = { version = "4.4", features = ["derive", "env"] }
 committable = "0.2"
 derivative = "2.2"
+espresso-types = { git = "https://github.com/EspressoSystems/espresso-sequencer.git", branch = "main", features = ["testing"] }
+ethers = { version = "2.0.4" }
 futures = "0.3"
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/novid2" }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/novid2" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", branch = "ag/novid2" }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/novid2" }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git" }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", branch = "main" }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git" }
+marketplace-solver = { git = "ssh://git@github.com/EspressoSystems/marketplace-solver.git", branch = "main" }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 sha2 = "0.10"
 snafu = "0.8"
 surf-disco = "0.9"
@@ -29,7 +33,8 @@ tagged-base64 = "0.4"
 tide-disco = "0.9"
 tokio = "1"
 tracing = "0.1"
+url = "2.3"
 vbs = "0.1"
 
 [dev-dependencies]
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/novid2" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git" }

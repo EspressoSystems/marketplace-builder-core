@@ -8,7 +8,7 @@ use hotshot_builder_api::v0_3::{
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
 use hotshot_types::{
-    data::{DaProposal, Leaf, QuorumProposal},
+    data::{DaProposal, Leaf, QuorumProposal, ViewNumber},
     event::EventType,
     message::Proposal,
     traits::{
@@ -25,11 +25,14 @@ use hotshot_types::{
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use crate::builder_state::{
-    BuildBlockInfo, DaProposalMessage, DecideMessage, QCMessage, TransactionSource,
+use crate::{
+    bid::{from_bid_config, BidConfig},
+    builder_state::{
+        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, RequestMessage,
+        ResponseMessage, TransactionSource,
+    },
 };
-use crate::builder_state::{MessageType, RequestMessage, ResponseMessage};
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use async_broadcast::Sender as BroadcastSender;
 pub use async_broadcast::{broadcast, RecvError, TryRecvError};
 use async_compatibility_layer::{art::async_sleep, art::async_timeout, channel::unbounded};
@@ -50,6 +53,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{fmt::Display, time::Instant};
+use surf_disco::Client;
 use tagged_base64::TaggedBase64;
 use tide_disco::{method::ReadState, Url};
 
@@ -73,28 +77,28 @@ pub trait BuilderTransaction {
 
 // It holds all the necessary information for a block
 #[derive(Debug)]
-pub struct BlockInfo<Types: NodeType>
+pub struct BlockInfo<TYPES: NodeType>
 where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
-    pub block_payload: Types::BlockPayload,
-    pub metadata: <<Types as NodeType>::BlockPayload as BlockPayload<Types>>::Metadata,
+    pub block_payload: TYPES::BlockPayload,
+    pub metadata: <<TYPES as NodeType>::BlockPayload as BlockPayload<TYPES>>::Metadata,
     pub offered_fee: u64,
 }
 
 // It holds the information for the proposed block
 #[derive(Debug)]
-pub struct ProposedBlockId<Types: NodeType> {
+pub struct ProposedBlockId<TYPES: NodeType> {
     pub parent_commitment: VidCommitment,
     pub payload_commitment: BuilderCommitment,
-    pub parent_view: Types::Time,
+    pub parent_view: TYPES::Time,
 }
 
-impl<Types: NodeType> ProposedBlockId<Types> {
+impl<TYPES: NodeType> ProposedBlockId<TYPES> {
     pub fn new(
         parent_commitment: VidCommitment,
         payload_commitment: BuilderCommitment,
-        parent_view: Types::Time,
+        parent_view: TYPES::Time,
     ) -> Self {
         ProposedBlockId {
             parent_commitment,
@@ -106,19 +110,19 @@ impl<Types: NodeType> ProposedBlockId<Types> {
 
 #[derive(Debug, Derivative)]
 #[derivative(Default(bound = ""))]
-pub struct BuilderStatesInfo<Types: NodeType> {
+pub struct BuilderStatesInfo<TYPES: NodeType> {
     // list of all the builder states spawned for a view
     pub vid_commitments: Vec<VidCommitment>,
     // list of all the proposed blocks for a view
-    pub block_ids: Vec<ProposedBlockId<Types>>,
+    pub block_ids: Vec<ProposedBlockId<TYPES>>,
 }
 
 #[derive(Debug)]
-pub struct ReceivedTransaction<Types: NodeType> {
+pub struct ReceivedTransaction<TYPES: NodeType> {
     // the transaction
-    pub tx: Types::Transaction,
+    pub tx: TYPES::Transaction,
     // its hash
-    pub commit: Commitment<Types::Transaction>,
+    pub commit: Commitment<TYPES::Transaction>,
     // its source
     pub source: TransactionSource,
     // received time
@@ -127,50 +131,50 @@ pub struct ReceivedTransaction<Types: NodeType> {
 
 #[allow(clippy::type_complexity)]
 #[derive(Debug)]
-pub struct GlobalState<Types: NodeType>
+pub struct GlobalState<TYPES: NodeType>
 where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
     /// id of namespace builder is building for. None if the builder builds for all namespaces
-    pub namespace_id: Option<<Types::Transaction as BuilderTransaction>::NamespaceId>,
+    pub namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
 
     // data store for the blocks
-    pub block_hash_to_block: HashMap<(BuilderCommitment, Types::Time), BlockInfo<Types>>,
+    pub block_hash_to_block: HashMap<(BuilderCommitment, TYPES::Time), BlockInfo<TYPES>>,
 
     // registered builder states
     pub spawned_builder_states:
-        HashMap<(VidCommitment, Types::Time), BroadcastSender<MessageType<Types>>>,
+        HashMap<(VidCommitment, TYPES::Time), BroadcastSender<MessageType<TYPES>>>,
 
     // builder state -> last built block , it is used to respond the client
     // if the req channel times out during get_available_blocks
-    pub builder_state_to_last_built_block: HashMap<(VidCommitment, Types::Time), ResponseMessage>,
+    pub builder_state_to_last_built_block: HashMap<(VidCommitment, TYPES::Time), ResponseMessage>,
 
     // // scheduled GC by view number
-    // pub view_to_cleanup_targets: BTreeMap<Types::Time, BuilderStatesInfo<Types>>,
+    // pub view_to_cleanup_targets: BTreeMap<TYPES::Time, BuilderStatesInfo<TYPES>>,
 
     // sending a transaction from the hotshot/private mempool to the builder states
     // NOTE: Currently, we don't differentiate between the transactions from the hotshot and the private mempool
-    pub tx_sender: BroadcastSender<Arc<ReceivedTransaction<Types>>>,
+    pub tx_sender: BroadcastSender<Arc<ReceivedTransaction<TYPES>>>,
 
     // last garbage collected view number
-    pub last_garbage_collected_view_num: Types::Time,
+    pub last_garbage_collected_view_num: TYPES::Time,
 
     // highest view running builder task
-    pub highest_view_num_builder_id: (VidCommitment, Types::Time),
+    pub highest_view_num_builder_id: (VidCommitment, TYPES::Time),
 }
 
-impl<Types: NodeType> GlobalState<Types>
+impl<TYPES: NodeType> GlobalState<TYPES>
 where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        namespace_id: Option<<Types::Transaction as BuilderTransaction>::NamespaceId>,
-        bootstrap_sender: BroadcastSender<MessageType<Types>>,
-        tx_sender: BroadcastSender<Arc<ReceivedTransaction<Types>>>,
+        namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
+        bootstrap_sender: BroadcastSender<MessageType<TYPES>>,
+        tx_sender: BroadcastSender<Arc<ReceivedTransaction<TYPES>>>,
         bootstrapped_builder_state_id: VidCommitment,
-        bootstrapped_view_num: Types::Time,
-        last_garbage_collected_view_num: Types::Time,
+        bootstrapped_view_num: TYPES::Time,
+        last_garbage_collected_view_num: TYPES::Time,
         _buffer_view_num_count: u64,
     ) -> Self {
         let mut spawned_builder_states = HashMap::new();
@@ -192,8 +196,8 @@ where
     pub fn register_builder_state(
         &mut self,
         vid_commmit: VidCommitment,
-        view_num: Types::Time,
-        request_sender: BroadcastSender<MessageType<Types>>,
+        view_num: TYPES::Time,
+        request_sender: BroadcastSender<MessageType<TYPES>>,
     ) {
         // register the builder state
         self.spawned_builder_states
@@ -220,9 +224,9 @@ where
 
     pub fn update_global_state(
         &mut self,
-        build_block_info: BuildBlockInfo<Types>,
+        build_block_info: BuildBlockInfo<TYPES>,
         builder_vid_commitment: VidCommitment,
-        view_num: Types::Time,
+        view_num: TYPES::Time,
         response_msg: ResponseMessage,
     ) {
         self.block_hash_to_block
@@ -239,7 +243,7 @@ where
     }
 
     // remove the builder state handles based on the decide event
-    pub fn remove_handles(&mut self, on_decide_view: Types::Time) -> Types::Time {
+    pub fn remove_handles(&mut self, on_decide_view: TYPES::Time) -> TYPES::Time {
         // remove everything from the spawned builder states when view_num <= on_decide_view;
         // if we don't have a highest view > decide, use highest view as cutoff.
         let cutoff = std::cmp::min(self.highest_view_num_builder_id.1, on_decide_view);
@@ -249,7 +253,7 @@ where
         let cutoff_u64 = cutoff.u64();
         let gc_view = if cutoff_u64 > 0 { cutoff_u64 - 1 } else { 0 };
 
-        self.last_garbage_collected_view_num = Types::Time::new(gc_view);
+        self.last_garbage_collected_view_num = TYPES::Time::new(gc_view);
 
         cutoff
     }
@@ -258,8 +262,8 @@ where
     // Currently, we don't differentiate between the transactions from the hotshot and the private mempool
     pub async fn submit_client_txns(
         &self,
-        txns: Vec<<Types as NodeType>::Transaction>,
-    ) -> Result<Vec<Commitment<<Types as NodeType>::Transaction>>, BuildError> {
+        txns: Vec<<TYPES as NodeType>::Transaction>,
+    ) -> Result<Vec<Commitment<<TYPES as NodeType>::Transaction>>, BuildError> {
         handle_received_txns(
             &self.tx_sender,
             txns,
@@ -271,8 +275,8 @@ where
 
     pub fn get_channel_for_matching_builder_or_highest_view_buider(
         &self,
-        key: &(VidCommitment, Types::Time),
-    ) -> Result<&BroadcastSender<MessageType<Types>>, BuildError> {
+        key: &(VidCommitment, TYPES::Time),
+    ) -> Result<&BroadcastSender<MessageType<TYPES>>, BuildError> {
         if let Some(channel) = self.spawned_builder_states.get(key) {
             tracing::info!("Got matching builder for parent {:?}@{:?}", key.0, key.1);
             Ok(channel)
@@ -294,7 +298,7 @@ where
     }
 
     // check for the existence of the builder state for a view
-    pub fn check_builder_state_existence_for_a_view(&self, key: &Types::Time) -> bool {
+    pub fn check_builder_state_existence_for_a_view(&self, key: &TYPES::Time) -> bool {
         // iterate over the spawned builder states and check if the view number exists
         self.spawned_builder_states
             .iter()
@@ -303,42 +307,42 @@ where
 
     pub fn should_view_handle_other_proposals(
         &self,
-        builder_view: &Types::Time,
-        proposal_view: &Types::Time,
+        builder_view: &TYPES::Time,
+        proposal_view: &TYPES::Time,
     ) -> bool {
         *builder_view == self.highest_view_num_builder_id.1
             && !self.check_builder_state_existence_for_a_view(proposal_view)
     }
 }
 
-pub struct ProxyGlobalState<Types: NodeType>
+pub struct ProxyGlobalState<TYPES: NodeType>
 where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
     // global state
-    global_state: Arc<RwLock<GlobalState<Types>>>,
+    global_state: Arc<RwLock<GlobalState<TYPES>>>,
 
     // identity keys for the builder
     // May be ideal place as GlobalState interacts with hotshot apis
     // and then can sign on responders as desired
     builder_keys: (
-        Types::BuilderSignatureKey, // pub key
-        <<Types as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey, // private key
+        TYPES::BuilderSignatureKey, // pub key
+        <<TYPES as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey, // private key
     ),
 
     // max waiting time to serve first api request
     max_api_waiting_time: Duration,
 }
 
-impl<Types: NodeType> ProxyGlobalState<Types>
+impl<TYPES: NodeType> ProxyGlobalState<TYPES>
 where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
     pub fn new(
-        global_state: Arc<RwLock<GlobalState<Types>>>,
+        global_state: Arc<RwLock<GlobalState<TYPES>>>,
         builder_keys: (
-            Types::BuilderSignatureKey,
-            <<Types as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
+            TYPES::BuilderSignatureKey,
+            <<TYPES as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
         ),
         max_api_waiting_time: Duration,
     ) -> Self {
@@ -354,21 +358,21 @@ where
 Handling Builder API responses
 */
 #[async_trait]
-impl<Types: NodeType> BuilderDataSource<Types> for ProxyGlobalState<Types>
+impl<TYPES: NodeType> BuilderDataSource<TYPES> for ProxyGlobalState<TYPES>
 where
-    Types::Transaction: BuilderTransaction,
-    for<'a> <<Types::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
+    TYPES::Transaction: BuilderTransaction,
+    for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
         &'a TaggedBase64,
     >>::Error: Display,
-    for<'a> <Types::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
+    for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
     async fn available_blocks(
         &self,
         for_parent: &VidCommitment,
         view_number: u64,
-        sender: Types::SignatureKey,
-        signature: &<Types::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ) -> Result<Vec<AvailableBlockInfo<Types>>, BuildError> {
+        sender: TYPES::SignatureKey,
+        signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
         let starting_time = Instant::now();
 
         // verify the signature
@@ -385,7 +389,7 @@ where
             view_number
         );
 
-        let view_num = <<Types as NodeType>::Time as ConsensusTime>::new(view_number);
+        let view_num = <<TYPES as NodeType>::Time as ConsensusTime>::new(view_number);
         // check in the local spawned builder states
         // if it doesn't exist; there are three cases
         // 1) it has already been garbage collected (view < decide) and we should return an error
@@ -523,7 +527,7 @@ where
                 let (pub_key, sign_key) = self.builder_keys.clone();
                 // sign over the block info
                 let signature_over_block_info =
-                    <Types as NodeType>::BuilderSignatureKey::sign_block_info(
+                    <TYPES as NodeType>::BuilderSignatureKey::sign_block_info(
                         &sign_key,
                         response.block_size,
                         response.offered_fee,
@@ -534,7 +538,7 @@ where
                     })?;
 
                 // insert the block info into local hashmap
-                let initial_block_info = AvailableBlockInfo::<Types> {
+                let initial_block_info = AvailableBlockInfo::<TYPES> {
                     block_hash: response.builder_hash.clone(),
                     block_size: response.block_size,
                     offered_fee: response.offered_fee,
@@ -566,9 +570,9 @@ where
         &self,
         block_hash: &BuilderCommitment,
         view_number: u64,
-        sender: Types::SignatureKey,
-        signature: &<<Types as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ) -> Result<AvailableBlockData<Types>, BuildError> {
+        sender: TYPES::SignatureKey,
+        signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    ) -> Result<AvailableBlockData<TYPES>, BuildError> {
         tracing::info!(
             "Received request for claiming block for (block_hash {:?}, view_num: {:?})",
             block_hash,
@@ -582,7 +586,7 @@ where
             });
         }
         let (pub_key, sign_key) = self.builder_keys.clone();
-        let view_num = <<Types as NodeType>::Time as ConsensusTime>::new(view_number);
+        let view_num = <<TYPES as NodeType>::Time as ConsensusTime>::new(view_number);
 
         if let Some(block_info) = self
             .global_state
@@ -603,7 +607,7 @@ where
                 .block_payload
                 .builder_commitment(&block_info.metadata);
             let signature_over_builder_commitment =
-                <Types as NodeType>::BuilderSignatureKey::sign_builder_message(
+                <TYPES as NodeType>::BuilderSignatureKey::sign_builder_message(
                     &sign_key,
                     response_block_hash.as_ref(),
                 )
@@ -612,7 +616,7 @@ where
                 })?;
 
             let signature_over_fee =
-                <Types as NodeType>::BuilderSignatureKey::sign_sequencing_fee_marketplace(
+                <TYPES as NodeType>::BuilderSignatureKey::sign_sequencing_fee_marketplace(
                     &sign_key,
                     block_info.offered_fee,
                 )
@@ -620,7 +624,7 @@ where
                     message: format!("Signing over sequencing fee failed: {:?}", e),
                 })?;
 
-            let block_data = AvailableBlockData::<Types> {
+            let block_data = AvailableBlockData::<TYPES> {
                 fee: block_info.offered_fee,
                 fee_signature: signature_over_fee,
                 block_payload: block_info.block_payload.clone(),
@@ -644,19 +648,19 @@ where
 
     async fn builder_address(
         &self,
-    ) -> Result<<Types as NodeType>::BuilderSignatureKey, BuildError> {
+    ) -> Result<<TYPES as NodeType>::BuilderSignatureKey, BuildError> {
         Ok(self.builder_keys.0.clone())
     }
 }
 #[async_trait]
-impl<Types: NodeType> AcceptsTxnSubmits<Types> for ProxyGlobalState<Types>
+impl<TYPES: NodeType> AcceptsTxnSubmits<TYPES> for ProxyGlobalState<TYPES>
 where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
     async fn submit_txns(
         &self,
-        txns: Vec<<Types as NodeType>::Transaction>,
-    ) -> Result<Vec<Commitment<<Types as NodeType>::Transaction>>, BuildError> {
+        txns: Vec<<TYPES as NodeType>::Transaction>,
+    ) -> Result<Vec<Commitment<<TYPES as NodeType>::Transaction>>, BuildError> {
         tracing::debug!(
             "Submitting {:?} transactions to the builder states{:?}",
             txns.len(),
@@ -678,11 +682,11 @@ where
     }
 }
 #[async_trait]
-impl<Types: NodeType> ReadState for ProxyGlobalState<Types>
+impl<TYPES: NodeType> ReadState for ProxyGlobalState<TYPES>
 where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
-    type State = ProxyGlobalState<Types>;
+    type State = ProxyGlobalState<TYPES>;
 
     async fn read<T>(
         &self,
@@ -692,21 +696,21 @@ where
     }
 }
 
-async fn connect_to_events_service<Types: NodeType>(
+async fn connect_to_events_service<TYPES: NodeType>(
     hotshot_events_api_url: Url,
 ) -> Option<(
     surf_disco::socket::Connection<
-        BuilderEvent<Types>,
+        BuilderEvent<TYPES>,
         surf_disco::socket::Unsupported,
         EventStreamError,
-        Types::Base,
+        TYPES::Base,
     >,
-    GeneralStaticCommittee<Types, <Types as NodeType>::SignatureKey>,
+    GeneralStaticCommittee<TYPES, <TYPES as NodeType>::SignatureKey>,
 )>
 where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
-    let client = surf_disco::Client::<hotshot_events_service::events::Error, Types::Base>::new(
+    let client = surf_disco::Client::<hotshot_events_service::events::Error, TYPES::Base>::new(
         hotshot_events_api_url.clone(),
     );
 
@@ -719,7 +723,7 @@ where
     // client subscrive to hotshot events
     let mut subscribed_events = client
         .socket("hotshot-events/events")
-        .subscribe::<BuilderEvent<Types>>()
+        .subscribe::<BuilderEvent<TYPES>>()
         .await
         .ok()?;
 
@@ -730,9 +734,9 @@ where
                 known_node_with_stake,
                 non_staked_node_count,
             } => {
-                let membership: GeneralStaticCommittee<Types, <Types as NodeType>::SignatureKey> = GeneralStaticCommittee::<
-                        Types,
-                        <Types as NodeType>::SignatureKey,
+                let membership: GeneralStaticCommittee<TYPES, <TYPES as NodeType>::SignatureKey> = GeneralStaticCommittee::<
+                        TYPES,
+                        <TYPES as NodeType>::SignatureKey,
                     >::create_election(
                         known_node_with_stake.clone(),
                         known_node_with_stake.clone(),
@@ -756,30 +760,61 @@ where
     };
     membership.map(|membership| (subscribed_events, membership))
 }
+
+async fn connect_to_solver_service<TYPES: NodeType>(
+    solver_api_url: Url,
+) -> Option<Client<hotshot_events_service::events::Error, TYPES::Base>>
+where
+    TYPES::Transaction: BuilderTransaction,
+{
+    let client = surf_disco::Client::<hotshot_events_service::events::Error, TYPES::Base>::new(
+        solver_api_url.clone(),
+    );
+
+    if !(client.connect(None).await) {
+        return None;
+    }
+
+    tracing::info!("Builder client connected to the solver api");
+
+    Some(client)
+}
+
 /*
 Running Non-Permissioned Builder Service
 */
-pub async fn run_non_permissioned_standalone_builder_service<Types: NodeType>(
+pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType>(
     // id of namespace to build for
-    namespace_id: Option<<Types::Transaction as BuilderTransaction>::NamespaceId>,
+    namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
 
     // sending a DA proposal from the hotshot to the builder states
-    da_sender: BroadcastSender<MessageType<Types>>,
+    da_sender: BroadcastSender<MessageType<TYPES>>,
 
     // sending a QC proposal from the hotshot to the builder states
-    qc_sender: BroadcastSender<MessageType<Types>>,
+    qc_sender: BroadcastSender<MessageType<TYPES>>,
 
     // sending a Decide event from the hotshot to the builder states
-    decide_sender: BroadcastSender<MessageType<Types>>,
+    decide_sender: BroadcastSender<MessageType<TYPES>>,
 
     // shared accumulated transactions handle
-    tx_sender: BroadcastSender<Arc<ReceivedTransaction<Types>>>,
+    tx_sender: BroadcastSender<Arc<ReceivedTransaction<TYPES>>>,
 
     // Url to (re)connect to for the events stream
     hotshot_events_api_url: Url,
+
+    // URL to submit the bid.
+    solver_api_url: Url,
+
+    // Base URL to get the bid.
+    //
+    // Forms a bid ULR with appended view number and "bundle".
+    bid_base_url: Url,
+
+    // Bid configuration.
+    bid_config: BidConfig,
 ) -> Result<(), anyhow::Error>
 where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
     // connection to the events stream
     let connected = connect_to_events_service(hotshot_events_api_url.clone()).await;
@@ -847,6 +882,16 @@ where
                         let leader = membership.leader(proposal.data.view_number);
                         handle_qc_event(&qc_sender, Arc::new(proposal), sender, leader).await;
                     }
+                    // View finished event
+                    BuilderEventType::ViewFinished {
+                        view_number,
+                        solver_api_url,
+                        bid_base_url,
+                        bid_config,
+                    } => {
+                        handle_view_finished(view_number, solver_api_url, bid_base_url, bid_config)
+                            .await;
+                    }
                     _ => {
                         tracing::error!("Unhandled event from Builder");
                     }
@@ -874,28 +919,39 @@ where
 Running Permissioned Builder Service
 */
 pub async fn run_permissioned_standalone_builder_service<
-    Types: NodeType,
-    I: NodeImplementation<Types>,
+    TYPES: NodeType<Time = ViewNumber>,
+    I: NodeImplementation<TYPES>,
 >(
     // id of namespace to build for. None if building for all namespaces
-    namespace_id: Option<<Types::Transaction as BuilderTransaction>::NamespaceId>,
+    namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
 
     // sending received transactions
-    tx_sender: BroadcastSender<Arc<ReceivedTransaction<Types>>>,
+    tx_sender: BroadcastSender<Arc<ReceivedTransaction<TYPES>>>,
 
     // sending a DA proposal from the hotshot to the builder states
-    da_sender: BroadcastSender<MessageType<Types>>,
+    da_sender: BroadcastSender<MessageType<TYPES>>,
 
     // sending a QC proposal from the hotshot to the builder states
-    qc_sender: BroadcastSender<MessageType<Types>>,
+    qc_sender: BroadcastSender<MessageType<TYPES>>,
 
     // sending a Decide event from the hotshot to the builder states
-    decide_sender: BroadcastSender<MessageType<Types>>,
+    decide_sender: BroadcastSender<MessageType<TYPES>>,
 
     // hotshot context handle
-    hotshot_handle: Arc<SystemContextHandle<Types, I>>,
+    hotshot_handle: Arc<SystemContextHandle<TYPES, I>>,
+
+    // URL to submit the bid.
+    solver_api_url: Url,
+
+    // Base URL to get the bid.
+    //
+    // Forms a bid ULR with appended view number and "bundle".
+    bid_base_url: Url,
+
+    // Bid configuration.
+    bid_config: BidConfig,
 ) where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
     let mut event_stream = hotshot_handle.event_stream();
     loop {
@@ -952,6 +1008,16 @@ pub async fn run_permissioned_standalone_builder_service<
                         let leader = hotshot_handle.leader(proposal.data.view_number).await;
                         handle_qc_event(&qc_sender, Arc::new(proposal), sender, leader).await;
                     }
+                    // View finished event
+                    EventType::ViewFinished { view_number } => {
+                        handle_view_finished::<TYPES>(
+                            view_number,
+                            solver_api_url.clone(),
+                            bid_base_url.clone(),
+                            bid_config.clone(),
+                        )
+                        .await;
+                    }
                     _ => {
                         tracing::error!("Unhandled event from Builder: {:?}", event.event);
                     }
@@ -964,15 +1030,15 @@ pub async fn run_permissioned_standalone_builder_service<
 /*
 Utility functions to handle the hotshot events
 */
-async fn handle_da_event<Types: NodeType>(
-    da_channel_sender: &BroadcastSender<MessageType<Types>>,
-    da_proposal: Proposal<Types, DaProposal<Types>>,
-    sender: <Types as NodeType>::SignatureKey,
-    leader: <Types as NodeType>::SignatureKey,
+async fn handle_da_event<TYPES: NodeType>(
+    da_channel_sender: &BroadcastSender<MessageType<TYPES>>,
+    da_proposal: Proposal<TYPES, DaProposal<TYPES>>,
+    sender: <TYPES as NodeType>::SignatureKey,
+    leader: <TYPES as NodeType>::SignatureKey,
     total_nodes: NonZeroUsize,
-    namespace_id: Option<<Types::Transaction as BuilderTransaction>::NamespaceId>,
+    namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
 ) where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
     tracing::debug!(
         "DaProposal: Leader: {:?} for the view: {:?}",
@@ -991,7 +1057,7 @@ async fn handle_da_event<Types: NodeType>(
         );
 
         // form a block payload from the encoded transactions
-        let block_payload = <Types::BlockPayload as BlockPayload<Types>>::from_bytes(
+        let block_payload = <TYPES::BlockPayload as BlockPayload<TYPES>>::from_bytes(
             &da_proposal.data.encoded_transactions,
             &da_proposal.data.metadata,
         );
@@ -1035,13 +1101,13 @@ async fn handle_da_event<Types: NodeType>(
     }
 }
 
-async fn handle_qc_event<Types: NodeType>(
-    qc_channel_sender: &BroadcastSender<MessageType<Types>>,
-    qc_proposal: Arc<Proposal<Types, QuorumProposal<Types>>>,
-    sender: <Types as NodeType>::SignatureKey,
-    leader: <Types as NodeType>::SignatureKey,
+async fn handle_qc_event<TYPES: NodeType>(
+    qc_channel_sender: &BroadcastSender<MessageType<TYPES>>,
+    qc_proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
+    sender: <TYPES as NodeType>::SignatureKey,
+    leader: <TYPES as NodeType>::SignatureKey,
 ) where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
     tracing::debug!(
         "QCProposal: Leader: {:?} for the view: {:?}",
@@ -1053,7 +1119,7 @@ async fn handle_qc_event<Types: NodeType>(
 
     // check if the sender is the leader and the signature is valid; if yes, broadcast the QC proposal
     if sender == leader && sender.validate(&qc_proposal.signature, leaf.commit().as_ref()) {
-        let qc_msg = QCMessage::<Types> {
+        let qc_msg = QCMessage::<TYPES> {
             proposal: qc_proposal,
             sender: leader,
         };
@@ -1076,13 +1142,13 @@ async fn handle_qc_event<Types: NodeType>(
     }
 }
 
-async fn handle_decide_event<Types: NodeType>(
-    decide_channel_sender: &BroadcastSender<MessageType<Types>>,
-    latest_decide_view_number: Types::Time,
+async fn handle_decide_event<TYPES: NodeType>(
+    decide_channel_sender: &BroadcastSender<MessageType<TYPES>>,
+    latest_decide_view_number: TYPES::Time,
 ) where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
-    let decide_msg: DecideMessage<Types> = DecideMessage::<Types> {
+    let decide_msg: DecideMessage<TYPES> = DecideMessage::<TYPES> {
         latest_decide_view_number,
     };
     tracing::debug!(
@@ -1100,14 +1166,14 @@ async fn handle_decide_event<Types: NodeType>(
     }
 }
 
-pub(crate) async fn handle_received_txns<Types: NodeType>(
-    tx_sender: &BroadcastSender<Arc<ReceivedTransaction<Types>>>,
-    mut txns: Vec<Types::Transaction>,
+pub(crate) async fn handle_received_txns<TYPES: NodeType>(
+    tx_sender: &BroadcastSender<Arc<ReceivedTransaction<TYPES>>>,
+    mut txns: Vec<TYPES::Transaction>,
     source: TransactionSource,
-    namespace_id: Option<<Types::Transaction as BuilderTransaction>::NamespaceId>,
-) -> Result<Vec<Commitment<<Types as NodeType>::Transaction>>, BuildError>
+    namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
+) -> Result<Vec<Commitment<<TYPES as NodeType>::Transaction>>, BuildError>
 where
-    Types::Transaction: BuilderTransaction,
+    TYPES::Transaction: BuilderTransaction,
 {
     if let Some(namespace_id) = namespace_id {
         txns.retain(|txn| txn.namespace_id() == namespace_id);
@@ -1130,4 +1196,40 @@ where
         }
     }
     Ok(results)
+}
+
+pub(crate) async fn handle_view_finished<TYPES: NodeType<Time = ViewNumber>>(
+    view_number: TYPES::Time,
+    solver_api_url: Url,
+    bid_base_url: Url,
+    bid_config: BidConfig,
+) -> Result<(), BuildError>
+where
+    TYPES::Transaction: BuilderTransaction,
+{
+    // We submit a bid three views in advance.
+    let bid_tx = from_bid_config(bid_config, view_number + 3, bid_base_url)?;
+
+    let solver_client = match connect_to_solver_service::<TYPES>(solver_api_url).await {
+        Some(client) => client,
+        None => {
+            return Err(BuildError::Error {
+                message: format!("Failed to connect to the solver service."),
+            });
+        }
+    };
+
+    if let Err(e) = solver_client
+        .post::<()>("api/submit_bid")
+        .body_binary(&bid_tx)
+        .unwrap()
+        .send()
+        .await
+    {
+        return Err(BuildError::Error {
+            message: format!("Failed to submit the bid: {}", e),
+        });
+    }
+
+    Ok(())
 }
