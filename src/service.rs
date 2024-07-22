@@ -1,3 +1,4 @@
+use anyhow::Context;
 use hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
     types::{Event, SystemContextHandle},
@@ -697,7 +698,7 @@ async fn connect_to_events_service<TYPES: NodeType>(
     hotshot_events_api_url: Url,
 ) -> Option<(
     surf_disco::socket::Connection<
-        Event<Types>,
+        Event<TYPES>,
         surf_disco::socket::Unsupported,
         EventStreamError,
         TYPES::Base,
@@ -720,13 +721,13 @@ where
     // client subscrive to hotshot events
     let subscribed_events = client
         .socket("hotshot-events/events")
-        .subscribe::<Event<Types>>()
+        .subscribe::<Event<TYPES>>()
         .await
         .ok()?;
 
     // handle the startup event at the start
     let membership = if let Ok(response) = client
-        .get::<StartupInfo<Types>>("hotshot-events/startup_info")
+        .get::<StartupInfo<TYPES>>("hotshot-events/startup_info")
         .send()
         .await
     {
@@ -734,8 +735,8 @@ where
             known_node_with_stake,
             non_staked_node_count,
         } = response;
-        let membership: GeneralStaticCommittee<Types, <Types as NodeType>::SignatureKey> =
-            GeneralStaticCommittee::<Types, <Types as NodeType>::SignatureKey>::create_election(
+        let membership: GeneralStaticCommittee<TYPES, <TYPES as NodeType>::SignatureKey> =
+            GeneralStaticCommittee::<TYPES, <TYPES as NodeType>::SignatureKey>::create_election(
                 known_node_with_stake.clone(),
                 known_node_with_stake.clone(),
                 0,
@@ -873,7 +874,7 @@ where
                         handle_qc_event(&qc_sender, Arc::new(proposal), sender, leader).await;
                     }
                     // View finished event
-                    BuilderEventType::ViewFinished {
+                    EventType::ViewFinished {
                         view_number,
                         solver_api_url,
                         bid_base_url,
@@ -1210,7 +1211,7 @@ where
     };
 
     if let Err(e) = solver_client
-        .post::<()>("api/submit_bid")
+        .post::<()>("submit_bid")
         .body_binary(&bid_tx)
         .unwrap()
         .send()

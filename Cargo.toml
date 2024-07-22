@@ -16,7 +16,7 @@ async-trait = "0.1"
 clap = { version = "4.4", features = ["derive", "env"] }
 committable = "0.2"
 derivative = "2.2"
-espresso-types = { git = "https://github.com/EspressoSystems/espresso-sequencer.git", branch = "main", features = ["testing"] }
+espresso-types = { git = "https://github.com/EspressoSystems/espresso-sequencer.git", branch = "hotshot/rc-0.5.63", features = ["testing"] }
 ethers = { version = "2.0.4" }
 futures = "0.3"
 hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.63" }

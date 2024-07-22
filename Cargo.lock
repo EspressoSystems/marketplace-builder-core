@@ -1943,6 +1943,15 @@ checksum = "f7144d30dcf0fafbce74250a3963025d8d52177934239851c917d29f1df280c2"
 [[package]]
 name = "contract-bindings"
 version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=hotshot/rc-0.5.63#c7324fdb2dd415c40105f9dabd8c0ca8c9ae5632"
+dependencies = [
+ "ethers",
+ "serde",
+]
+
+[[package]]
+name = "contract-bindings"
+version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=main#8709a14b36c63088edf97cbccfa367f2745596cf"
 dependencies = [
  "ethers",
@@ -2825,6 +2834,61 @@ source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.4
 [[package]]
 name = "espresso-types"
 version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=hotshot/rc-0.5.63#c7324fdb2dd415c40105f9dabd8c0ca8c9ae5632"
+dependencies = [
+ "anyhow",
+ "ark-serialize",
+ "async-compatibility-layer",
+ "async-once-cell",
+ "async-std",
+ "async-trait",
+ "base64-bytes",
+ "bincode",
+ "blake3",
+ "bytesize",
+ "clap",
+ "cld",
+ "committable",
+ "contract-bindings 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=hotshot/rc-0.5.63)",
+ "derivative",
+ "derive_more",
+ "es-version",
+ "ethers",
+ "fluent-asserter",
+ "futures",
+ "hotshot 0.5.63",
+ "hotshot-orchestrator 0.5.63",
+ "hotshot-query-service 0.1.45",
+ "hotshot-testing 0.5.63",
+ "hotshot-types 0.1.11 (git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.63)",
+ "itertools 0.12.1",
+ "jf-merkle-tree",
+ "jf-utils",
+ "jf-vid",
+ "num-traits",
+ "paste",
+ "pretty_assertions",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "rand_distr",
+ "sequencer-utils 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=hotshot/rc-0.5.63)",
+ "serde",
+ "serde_json",
+ "sha2 0.10.8",
+ "snafu 0.8.4",
+ "static_assertions",
+ "tagged-base64",
+ "thiserror",
+ "time 0.3.36",
+ "tracing",
+ "trait-set",
+ "url",
+ "vbs",
+]
+
+[[package]]
+name = "espresso-types"
+version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=main#8709a14b36c63088edf97cbccfa367f2745596cf"
 dependencies = [
  "anyhow",
@@ -2840,7 +2904,7 @@ dependencies = [
  "clap",
  "cld",
  "committable",
- "contract-bindings",
+ "contract-bindings 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=main)",
  "derivative",
  "derive_more",
  "es-version",
@@ -2849,8 +2913,8 @@ dependencies = [
  "futures",
  "hotshot 0.5.60",
  "hotshot-orchestrator 0.5.60",
- "hotshot-query-service",
- "hotshot-testing",
+ "hotshot-query-service 0.1.39",
+ "hotshot-testing 0.5.60",
  "hotshot-types 0.1.11 (git+https://github.com/EspressoSystems/hotshot?tag=rc-0.5.61)",
  "itertools 0.12.1",
  "jf-merkle-tree",
@@ -2862,7 +2926,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rand_distr",
- "sequencer-utils",
+ "sequencer-utils 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=main)",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -4104,6 +4168,30 @@ dependencies = [
 [[package]]
 name = "hotshot-contract-adapter"
 version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=hotshot/rc-0.5.63#c7324fdb2dd415c40105f9dabd8c0ca8c9ae5632"
+dependencies = [
+ "anyhow",
+ "ark-bn254",
+ "ark-ec",
+ "ark-ed-on-bn254",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "ark-std",
+ "contract-bindings 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=hotshot/rc-0.5.63)",
+ "diff-test-bn254",
+ "ethers",
+ "hotshot-types 0.1.11 (git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.63)",
+ "jf-pcs",
+ "jf-plonk",
+ "jf-utils",
+ "num-bigint",
+ "num-traits",
+]
+
+[[package]]
+name = "hotshot-contract-adapter"
+version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=main#8709a14b36c63088edf97cbccfa367f2745596cf"
 dependencies = [
  "anyhow",
@@ -4114,7 +4202,7 @@ dependencies = [
  "ark-poly",
  "ark-serialize",
  "ark-std",
- "contract-bindings",
+ "contract-bindings 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=main)",
  "diff-test-bn254",
  "ethers",
  "hotshot-types 0.1.11 (git+https://github.com/EspressoSystems/hotshot?tag=rc-0.5.61)",
@@ -4243,9 +4331,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-fakeapi"
+version = "0.5.63"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.63#00ec3cf6cd3abfb37471ab55fba352a01e923d3e"
+dependencies = [
+ "anyhow",
+ "async-lock 2.8.0",
+ "async-trait",
+ "futures",
+ "hotshot-example-types 0.5.63",
+ "hotshot-types 0.1.11 (git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.63)",
+ "rand 0.8.5",
+ "serde",
+ "tide-disco",
+ "toml",
+ "tracing",
+ "vbs",
+]
+
+[[package]]
 name = "hotshot-macros"
 version = "0.5.60"
 source = "git+https://github.com/EspressoSystems/hotshot?tag=rc-0.5.61#b7f5fa34f22df7af6fcfde92caa1b2153102d1df"
+dependencies = [
+ "derive_builder",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.72",
+]
+
+[[package]]
+name = "hotshot-macros"
+version = "0.5.63"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.63#00ec3cf6cd3abfb37471ab55fba352a01e923d3e"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -4337,8 +4455,64 @@ dependencies = [
  "futures",
  "hotshot 0.5.60",
  "hotshot-example-types 0.5.60",
- "hotshot-testing",
+ "hotshot-testing 0.5.60",
  "hotshot-types 0.1.11 (git+https://github.com/EspressoSystems/hotshot?tag=rc-0.5.61)",
+ "include_dir",
+ "itertools 0.12.1",
+ "jf-merkle-tree",
+ "jf-vid",
+ "native-tls",
+ "portpicker",
+ "postgres-native-tls",
+ "prometheus",
+ "rand 0.8.5",
+ "refinery",
+ "serde",
+ "serde_json",
+ "snafu 0.8.4",
+ "spin_sleep",
+ "surf-disco",
+ "tagged-base64",
+ "tempfile",
+ "tide-disco",
+ "time 0.3.36",
+ "tokio",
+ "tokio-postgres",
+ "toml",
+ "tracing",
+ "trait-variant",
+ "typenum",
+ "url",
+ "vbs",
+ "vec1",
+]
+
+[[package]]
+name = "hotshot-query-service"
+version = "0.1.45"
+source = "git+https://github.com/EspressoSystems/hotshot-query-service?tag=rc-0.1.45#ce06223267a4d417031667fc1358fb1a47656b47"
+dependencies = [
+ "anyhow",
+ "ark-serialize",
+ "async-compatibility-layer",
+ "async-lock 3.4.0",
+ "async-std",
+ "async-trait",
+ "atomic_store",
+ "bincode",
+ "bit-vec",
+ "chrono",
+ "committable",
+ "custom_debug 0.6.1",
+ "derivative",
+ "derive_more",
+ "either",
+ "espresso-macros",
+ "futures",
+ "hotshot 0.5.63",
+ "hotshot-example-types 0.5.63",
+ "hotshot-testing 0.5.63",
+ "hotshot-types 0.1.11 (git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.63)",
  "include_dir",
  "itertools 0.12.1",
  "jf-merkle-tree",
@@ -4491,7 +4665,7 @@ dependencies = [
  "hotshot 0.5.60",
  "hotshot-builder-api 0.1.7 (git+https://github.com/EspressoSystems/hotshot?tag=rc-0.5.61)",
  "hotshot-example-types 0.5.60",
- "hotshot-macros",
+ "hotshot-macros 0.5.60",
  "hotshot-orchestrator 0.5.60",
  "hotshot-task 0.5.60",
  "hotshot-task-impls 0.5.60",
@@ -4509,6 +4683,51 @@ dependencies = [
  "tide-disco",
  "tokio",
  "tracing",
+ "vbs",
+ "vec1",
+]
+
+[[package]]
+name = "hotshot-testing"
+version = "0.5.63"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.63#00ec3cf6cd3abfb37471ab55fba352a01e923d3e"
+dependencies = [
+ "anyhow",
+ "async-broadcast",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
+ "async-trait",
+ "automod",
+ "bitvec",
+ "committable",
+ "either",
+ "ethereum-types",
+ "futures",
+ "hotshot 0.5.63",
+ "hotshot-builder-api 0.1.7 (git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.63)",
+ "hotshot-example-types 0.5.63",
+ "hotshot-fakeapi",
+ "hotshot-macros 0.5.63",
+ "hotshot-orchestrator 0.5.63",
+ "hotshot-task 0.5.63",
+ "hotshot-task-impls 0.5.63",
+ "hotshot-types 0.1.11 (git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.63)",
+ "jf-signature",
+ "jf-vid",
+ "lru 0.12.3",
+ "portpicker",
+ "rand 0.8.5",
+ "reqwest 0.12.5",
+ "serde",
+ "sha2 0.10.8",
+ "sha3",
+ "snafu 0.8.4",
+ "tagged-base64",
+ "tide-disco",
+ "tokio",
+ "tracing",
+ "url",
  "vbs",
  "vec1",
 ]
@@ -6400,7 +6619,7 @@ dependencies = [
  "clap",
  "committable",
  "derivative",
- "espresso-types",
+ "espresso-types 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=hotshot/rc-0.5.63)",
  "ethers",
  "futures",
  "hotshot 0.5.63",
@@ -6433,7 +6652,7 @@ dependencies = [
  "async-trait",
  "clap",
  "cld",
- "espresso-types",
+ "espresso-types 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=main)",
  "futures",
  "hotshot 0.5.60",
  "hotshot-events-service 0.1.27",
@@ -8748,6 +8967,30 @@ checksum = "cd0b0ec5f1c1ca621c432a25813d8d60c88abe6d3e08a3eb9cf37d97a0fe3d73"
 [[package]]
 name = "sequencer-utils"
 version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=hotshot/rc-0.5.63#c7324fdb2dd415c40105f9dabd8c0ca8c9ae5632"
+dependencies = [
+ "anyhow",
+ "ark-serialize",
+ "async-std",
+ "clap",
+ "committable",
+ "contract-bindings 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=hotshot/rc-0.5.63)",
+ "derive_more",
+ "ethers",
+ "futures",
+ "hotshot-contract-adapter 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=hotshot/rc-0.5.63)",
+ "portpicker",
+ "serde",
+ "serde_json",
+ "surf",
+ "tempfile",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "sequencer-utils"
+version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=main#8709a14b36c63088edf97cbccfa367f2745596cf"
 dependencies = [
  "anyhow",
@@ -8755,11 +8998,11 @@ dependencies = [
  "async-std",
  "clap",
  "committable",
- "contract-bindings",
+ "contract-bindings 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=main)",
  "derive_more",
  "ethers",
  "futures",
- "hotshot-contract-adapter",
+ "hotshot-contract-adapter 0.1.0 (git+https://github.com/EspressoSystems/espresso-sequencer.git?branch=main)",
  "portpicker",
  "serde",
  "serde_json",
