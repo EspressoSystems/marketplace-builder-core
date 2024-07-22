@@ -1,6 +1,6 @@
 use hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
-    types::SystemContextHandle,
+    types::{Event, SystemContextHandle},
 };
 use hotshot_builder_api::v0_3::{
     block_info::{AvailableBlockData, AvailableBlockInfo},
@@ -39,10 +39,7 @@ use committable::{Commitment, Committable};
 use derivative::Derivative;
 use futures::future::BoxFuture;
 use futures::stream::StreamExt;
-use hotshot_events_service::{
-    events::Error as EventStreamError,
-    events_source::{BuilderEvent, BuilderEventType},
-};
+use hotshot_events_service::{events::Error as EventStreamError, events_source::StartupInfo};
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -696,7 +693,7 @@ async fn connect_to_events_service<Types: NodeType>(
     hotshot_events_api_url: Url,
 ) -> Option<(
     surf_disco::socket::Connection<
-        BuilderEvent<Types>,
+        Event<Types>,
         surf_disco::socket::Unsupported,
         EventStreamError,
         Types::Base,
@@ -717,40 +714,35 @@ where
     tracing::info!("Builder client connected to the hotshot events api");
 
     // client subscrive to hotshot events
-    let mut subscribed_events = client
+    let subscribed_events = client
         .socket("hotshot-events/events")
-        .subscribe::<BuilderEvent<Types>>()
+        .subscribe::<Event<Types>>()
         .await
         .ok()?;
 
     // handle the startup event at the start
-    let membership = if let Some(Ok(event)) = subscribed_events.next().await {
-        match event.event {
-            BuilderEventType::StartupInfo {
-                known_node_with_stake,
-                non_staked_node_count,
-            } => {
-                let membership: GeneralStaticCommittee<Types, <Types as NodeType>::SignatureKey> = GeneralStaticCommittee::<
-                        Types,
-                        <Types as NodeType>::SignatureKey,
-                    >::create_election(
-                        known_node_with_stake.clone(),
-                        known_node_with_stake.clone(),
-                        0
-                    );
+    let membership = if let Ok(response) = client
+        .get::<StartupInfo<Types>>("hotshot-events/startup_info")
+        .send()
+        .await
+    {
+        let StartupInfo {
+            known_node_with_stake,
+            non_staked_node_count,
+        } = response;
+        let membership: GeneralStaticCommittee<Types, <Types as NodeType>::SignatureKey> =
+            GeneralStaticCommittee::<Types, <Types as NodeType>::SignatureKey>::create_election(
+                known_node_with_stake.clone(),
+                known_node_with_stake.clone(),
+                0,
+            );
 
-                tracing::info!(
-                    "Startup info: Known nodes with stake: {:?}, Non-staked node count: {:?}",
-                    known_node_with_stake,
-                    non_staked_node_count
-                );
-                Some(membership)
-            }
-            _ => {
-                tracing::error!("Startup info event not received as first event");
-                None
-            }
-        }
+        tracing::info!(
+            "Startup info: Known nodes with stake: {:?}, Non-staked node count: {:?}",
+            known_node_with_stake,
+            non_staked_node_count
+        );
+        Some(membership)
     } else {
         None
     };
@@ -797,15 +789,11 @@ where
         match event {
             Some(Ok(event)) => {
                 match event.event {
-                    BuilderEventType::HotshotError { error } => {
+                    EventType::Error { error } => {
                         tracing::error!("Error event in HotShot: {:?}", error);
                     }
-                    // startup event
-                    BuilderEventType::StartupInfo { .. } => {
-                        tracing::warn!("Startup info event received again");
-                    }
                     // tx event
-                    BuilderEventType::HotshotTransactions { transactions } => {
+                    EventType::Transactions { transactions } => {
                         if let Err(e) = handle_received_txns(
                             &tx_sender,
                             transactions,
@@ -818,14 +806,16 @@ where
                         }
                     }
                     // decide event
-                    BuilderEventType::HotshotDecide {
-                        latest_decide_view_num,
+                    EventType::Decide {
                         block_size: _,
+                        leaf_chain,
+                        qc: _,
                     } => {
+                        let latest_decide_view_num = leaf_chain[0].leaf.view_number();
                         handle_decide_event(&decide_sender, latest_decide_view_num).await;
                     }
                     // DA proposal event
-                    BuilderEventType::HotshotDaProposal { proposal, sender } => {
+                    EventType::DaProposal { proposal, sender } => {
                         // get the leader for current view
                         let leader = membership.leader(proposal.data.view_number);
                         // get the committee mstatked node count
@@ -842,7 +832,7 @@ where
                         .await;
                     }
                     // QC proposal event
-                    BuilderEventType::HotshotQuorumProposal { proposal, sender } => {
+                    EventType::QuorumProposal { proposal, sender } => {
                         // get the leader for current view
                         let leader = membership.leader(proposal.data.view_number);
                         handle_qc_event(&qc_sender, Arc::new(proposal), sender, leader).await;
