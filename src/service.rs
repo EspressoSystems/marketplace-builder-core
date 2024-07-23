@@ -776,7 +776,7 @@ where
 /*
 Running Non-Permissioned Builder Service
 */
-pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType>(
+pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Time = ViewNumber>>(
     // id of namespace to build for
     namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
 
@@ -874,14 +874,14 @@ where
                         handle_qc_event(&qc_sender, Arc::new(proposal), sender, leader).await;
                     }
                     // View finished event
-                    EventType::ViewFinished {
-                        view_number,
-                        solver_api_url,
-                        bid_base_url,
-                        bid_config,
-                    } => {
-                        handle_view_finished(view_number, solver_api_url, bid_base_url, bid_config)
-                            .await;
+                    EventType::ViewFinished { view_number } => {
+                        handle_view_finished::<TYPES>(
+                            view_number,
+                            solver_api_url.clone(),
+                            bid_base_url.clone(),
+                            bid_config.clone(),
+                        )
+                        .await?
                     }
                     _ => {
                         tracing::error!("Unhandled event from Builder");
@@ -941,7 +941,8 @@ pub async fn run_permissioned_standalone_builder_service<
 
     // Bid configuration.
     bid_config: BidConfig,
-) where
+) -> Result<(), anyhow::Error>
+where
     TYPES::Transaction: BuilderTransaction,
 {
     let mut event_stream = hotshot_handle.event_stream();
@@ -1007,7 +1008,7 @@ pub async fn run_permissioned_standalone_builder_service<
                             bid_base_url.clone(),
                             bid_config.clone(),
                         )
-                        .await;
+                        .await?
                     }
                     _ => {
                         tracing::error!("Unhandled event from Builder: {:?}", event.event);
@@ -1212,7 +1213,7 @@ where
 
     if let Err(e) = solver_client
         .post::<()>("submit_bid")
-        .body_binary(&bid_tx)
+        .body_json(&bid_tx)
         .unwrap()
         .send()
         .await

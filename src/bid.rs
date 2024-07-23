@@ -19,7 +19,6 @@ use url::Url;
 pub struct BidConfig {
     account_seed: [u8; 32],
     account_index: u64,
-    gas_price: U256,
     bid_amount: U256,
     namespaces: Vec<u32>,
 }
@@ -43,11 +42,10 @@ pub fn from_bid_config(
 ) -> Result<BidTx, BuildError> {
     let (account, key) =
         FeeAccount::generated_from_seed_indexed(bid_config.account_seed, bid_config.account_index);
-    let gas_price = FeeAmount(bid_config.gas_price);
     let bid_amount = FeeAmount(bid_config.bid_amount);
     let url = Url::parse(&format!("{}/{:?}/bundle", bid_base_url, view_number)).map_err(|e| {
         BuildError::Error {
-            message: "Failed to parse the bid URL".to_string(),
+            message: format!("Failed to parse the bid URL: {:?}", e),
         }
     })?;
     let namespaces = bid_config
@@ -56,16 +54,9 @@ pub fn from_bid_config(
         .map(|id| NamespaceId::from(id))
         .collect();
 
-    BidTxBody {
-        account,
-        gas_price,
-        bid_amount,
-        url,
-        view: view_number,
-        namespaces,
-    }
-    .signed(key)
-    .map_err(|e| BuildError::Error {
-        message: "Failed to sign the bid".to_string(),
-    })
+    BidTxBody::new(account, bid_amount, view_number, namespaces, url)
+        .signed(&key)
+        .map_err(|e| BuildError::Error {
+            message: format!("Failed to sign the bid: {:?}", e),
+        })
 }
