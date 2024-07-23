@@ -51,7 +51,7 @@ pub fn from_bid_config(
     let namespaces = bid_config
         .namespaces
         .into_iter()
-        .map(|id| NamespaceId::from(id))
+        .map(NamespaceId::from)
         .collect();
 
     BidTxBody::new(account, bid_amount, view_number, namespaces, url)

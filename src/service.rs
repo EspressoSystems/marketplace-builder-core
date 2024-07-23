@@ -694,6 +694,21 @@ where
     }
 }
 
+// Senders to broadcast data from HotShot to the builder states.
+pub struct BroadcastSenders<TYPES: NodeType>
+where
+    TYPES::Transaction: BuilderTransaction,
+{
+    /// For transactions, shared.
+    transactions: BroadcastSender<Arc<ReceivedTransaction<TYPES>>>,
+    /// For the DA proposal.
+    da_proposal: BroadcastSender<MessageType<TYPES>>,
+    /// For the quorum proposal.
+    quorum_proposal: BroadcastSender<MessageType<TYPES>>,
+    /// For the decide.
+    decide: BroadcastSender<MessageType<TYPES>>,
+}
+
 async fn connect_to_events_service<TYPES: NodeType>(
     hotshot_events_api_url: Url,
 ) -> Option<(
@@ -780,17 +795,8 @@ pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Tim
     // id of namespace to build for
     namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
 
-    // sending a DA proposal from the hotshot to the builder states
-    da_sender: BroadcastSender<MessageType<TYPES>>,
-
-    // sending a QC proposal from the hotshot to the builder states
-    qc_sender: BroadcastSender<MessageType<TYPES>>,
-
-    // sending a Decide event from the hotshot to the builder states
-    decide_sender: BroadcastSender<MessageType<TYPES>>,
-
-    // shared accumulated transactions handle
-    tx_sender: BroadcastSender<Arc<ReceivedTransaction<TYPES>>>,
+    // Sending from the hotshot to the builder states.
+    senders: BroadcastSenders<TYPES>,
 
     // Url to (re)connect to for the events stream
     hotshot_events_api_url: Url,
@@ -831,7 +837,7 @@ where
                     // tx event
                     EventType::Transactions { transactions } => {
                         if let Err(e) = handle_received_txns(
-                            &tx_sender,
+                            &senders.transactions,
                             transactions,
                             TransactionSource::HotShot,
                             namespace_id,
@@ -848,7 +854,7 @@ where
                         qc: _,
                     } => {
                         let latest_decide_view_num = leaf_chain[0].leaf.view_number();
-                        handle_decide_event(&decide_sender, latest_decide_view_num).await;
+                        handle_decide_event(&senders.decide, latest_decide_view_num).await;
                     }
                     // DA proposal event
                     EventType::DaProposal { proposal, sender } => {
@@ -858,7 +864,7 @@ where
                         let total_nodes = membership.total_nodes();
 
                         handle_da_event(
-                            &da_sender,
+                            &senders.da_proposal,
                             proposal,
                             sender,
                             leader,
@@ -871,7 +877,13 @@ where
                     EventType::QuorumProposal { proposal, sender } => {
                         // get the leader for current view
                         let leader = membership.leader(proposal.data.view_number);
-                        handle_qc_event(&qc_sender, Arc::new(proposal), sender, leader).await;
+                        handle_qc_event(
+                            &senders.quorum_proposal,
+                            Arc::new(proposal),
+                            sender,
+                            leader,
+                        )
+                        .await;
                     }
                     // View finished event
                     EventType::ViewFinished { view_number } => {
@@ -916,17 +928,8 @@ pub async fn run_permissioned_standalone_builder_service<
     // id of namespace to build for. None if building for all namespaces
     namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
 
-    // sending received transactions
-    tx_sender: BroadcastSender<Arc<ReceivedTransaction<TYPES>>>,
-
-    // sending a DA proposal from the hotshot to the builder states
-    da_sender: BroadcastSender<MessageType<TYPES>>,
-
-    // sending a QC proposal from the hotshot to the builder states
-    qc_sender: BroadcastSender<MessageType<TYPES>>,
-
-    // sending a Decide event from the hotshot to the builder states
-    decide_sender: BroadcastSender<MessageType<TYPES>>,
+    // Sending from the hotshot to the builder states.
+    senders: BroadcastSenders<TYPES>,
 
     // hotshot context handle
     hotshot_handle: Arc<SystemContextHandle<TYPES, I>>,
@@ -961,7 +964,7 @@ where
                     // tx event
                     EventType::Transactions { transactions } => {
                         if let Err(e) = handle_received_txns(
-                            &tx_sender,
+                            &senders.transactions,
                             transactions,
                             TransactionSource::HotShot,
                             namespace_id,
@@ -975,7 +978,7 @@ where
                     EventType::Decide { leaf_chain, .. } => {
                         let latest_decide_view_number = leaf_chain[0].leaf.view_number();
 
-                        handle_decide_event(&decide_sender, latest_decide_view_number).await;
+                        handle_decide_event(&senders.decide, latest_decide_view_number).await;
                     }
                     // DA proposal event
                     EventType::DaProposal { proposal, sender } => {
@@ -985,7 +988,7 @@ where
                         let total_nodes = hotshot_handle.total_nodes();
 
                         handle_da_event(
-                            &da_sender,
+                            &senders.da_proposal,
                             proposal,
                             sender,
                             leader,
@@ -998,7 +1001,13 @@ where
                     EventType::QuorumProposal { proposal, sender } => {
                         // get the leader for current view
                         let leader = hotshot_handle.leader(proposal.data.view_number).await;
-                        handle_qc_event(&qc_sender, Arc::new(proposal), sender, leader).await;
+                        handle_qc_event(
+                            &senders.quorum_proposal,
+                            Arc::new(proposal),
+                            sender,
+                            leader,
+                        )
+                        .await;
                     }
                     // View finished event
                     EventType::ViewFinished { view_number } => {
@@ -1206,7 +1215,7 @@ where
         Some(client) => client,
         None => {
             return Err(BuildError::Error {
-                message: format!("Failed to connect to the solver service."),
+                message: "Failed to connect to the solver service.".to_string(),
             });
         }
     };
