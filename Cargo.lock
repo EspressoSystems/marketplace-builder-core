@@ -6144,7 +6144,7 @@ dependencies = [
 [[package]]
 name = "marketplace-solver"
 version = "0.1.0"
-source = "git+ssh://git@github.com/EspressoSystems/marketplace-solver.git?branch=keyao/update-hotshot#4f6ab78a9820d090932b03e66ccebe2f23a2c74d"
+source = "git+ssh://git@github.com/EspressoSystems/marketplace-solver.git?tag=0.1.0#f688b153983b1e7899b30ca1dbecbb6c668e22bb"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
