@@ -1,5 +1,4 @@
-use std::fs::File;
-use std::io::Read;
+use std::fs;
 
 use espresso_types::{
     v0_3::{BidTx, BidTxBody},
@@ -25,10 +24,7 @@ pub struct BidConfig {
 
 /// Read the bid configuration file.
 pub fn read_bid_config_file(file_path: &str) -> Result<BidConfig, serde_json::Error> {
-    let mut file = File::open(file_path).expect("Failed to open bid config file");
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)
-        .expect("Failed to read bid config file");
+    let contents = fs::read_to_string(file_path).expect("Failed to open or read bid config file");
     from_str(&contents)
 }
 
@@ -43,18 +39,13 @@ pub fn from_bid_config(
     let (account, key) =
         FeeAccount::generated_from_seed_indexed(bid_config.account_seed, bid_config.account_index);
     let bid_amount = FeeAmount(bid_config.bid_amount);
-    let url = Url::parse(&format!("{}/{:?}/bundle", bid_base_url, view_number)).map_err(|e| {
-        BuildError::Error {
-            message: format!("Failed to parse the bid URL: {:?}", e),
-        }
-    })?;
     let namespaces = bid_config
         .namespaces
         .into_iter()
         .map(NamespaceId::from)
         .collect();
 
-    BidTxBody::new(account, bid_amount, view_number, namespaces, url)
+    BidTxBody::new(account, bid_amount, view_number, namespaces, bid_base_url)
         .signed(&key)
         .map_err(|e| BuildError::Error {
             message: format!("Failed to sign the bid: {:?}", e),
