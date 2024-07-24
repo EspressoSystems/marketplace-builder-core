@@ -6127,7 +6127,6 @@ dependencies = [
  "hotshot-events-service",
  "hotshot-example-types",
  "hotshot-types",
- "marketplace-solver",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -6138,33 +6137,6 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
- "vbs",
-]
-
-[[package]]
-name = "marketplace-solver"
-version = "0.1.0"
-source = "git+ssh://git@github.com/EspressoSystems/marketplace-solver.git?tag=0.1.0#f688b153983b1e7899b30ca1dbecbb6c668e22bb"
-dependencies = [
- "anyhow",
- "async-compatibility-layer",
- "async-std",
- "async-trait",
- "clap",
- "cld",
- "espresso-types",
- "futures",
- "hotshot",
- "hotshot-events-service",
- "hotshot-types",
- "rand 0.8.5",
- "serde",
- "snafu 0.8.4",
- "sqlx",
- "surf-disco",
- "tide-disco",
- "toml",
- "tracing",
  "vbs",
 ]
 
