@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/service.rs`."><title>service.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-081576b923113409.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="marketplace_builder_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.79.0 (129f3b996 2024-06-10)" data-channel="1.79.0" data-search-js="search-bf21c90c8c1d92b1.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-e32f0c247825364d.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-09095024cf37855e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../marketplace_builder_core/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Type ‘S’ or ‘/’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings">Settings</a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/service.rs`."><title>service.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="marketplace_builder_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.0 (051478957 2024-07-21)" data-channel="1.80.0" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1121,7 +1121,121 @@
 <a href="#1121" id="1121">1121</a>
 <a href="#1122" id="1122">1122</a>
 <a href="#1123" id="1123">1123</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
     types::{Event, SystemContextHandle},
 };
@@ -1131,7 +1245,7 @@
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
 <span class="kw">use </span>hotshot_types::{
-    data::{DaProposal, Leaf, QuorumProposal},
+    data::{DaProposal, Leaf, QuorumProposal, ViewNumber},
     event::EventType,
     message::Proposal,
     traits::{
@@ -1144,15 +1258,19 @@
     utils::BuilderCommitment,
     vid::VidCommitment,
 };
+<span class="kw">use </span>tracing::error;
 
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::hash::Hash;
 
-<span class="kw">use </span><span class="kw">crate</span>::builder_state::{
-    BuildBlockInfo, DaProposalMessage, DecideMessage, QCMessage, TransactionSource,
+<span class="kw">use crate</span>::{
+    bid::{from_bid_config, BidConfig},
+    builder_state::{
+        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, RequestMessage,
+        ResponseMessage, TransactionSource,
+    },
 };
-<span class="kw">use </span><span class="kw">crate</span>::builder_state::{MessageType, RequestMessage, ResponseMessage};
-<span class="kw">use </span>anyhow::{anyhow, Context};
+<span class="kw">use </span>anyhow::anyhow;
 <span class="kw">use </span>async_broadcast::Sender <span class="kw">as </span>BroadcastSender;
 <span class="kw">pub use </span>async_broadcast::{broadcast, RecvError, TryRecvError};
 <span class="kw">use </span>async_compatibility_layer::{art::async_sleep, art::async_timeout, channel::unbounded};
@@ -1170,6 +1288,7 @@
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::time::Duration;
 <span class="kw">use </span>std::{fmt::Display, time::Instant};
+<span class="kw">use </span>surf_disco::Client;
 <span class="kw">use </span>tagged_base64::TaggedBase64;
 <span class="kw">use </span>tide_disco::{method::ReadState, Url};
 
@@ -1193,28 +1312,28 @@
 
 <span class="comment">// It holds all the necessary information for a block
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>BlockInfo&lt;Types: NodeType&gt;
+</span><span class="kw">pub struct </span>BlockInfo&lt;TYPES: NodeType&gt;
 <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
-    <span class="kw">pub </span>block_payload: Types::BlockPayload,
-    <span class="kw">pub </span>metadata: &lt;&lt;Types <span class="kw">as </span>NodeType&gt;::BlockPayload <span class="kw">as </span>BlockPayload&lt;Types&gt;&gt;::Metadata,
+    <span class="kw">pub </span>block_payload: TYPES::BlockPayload,
+    <span class="kw">pub </span>metadata: &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
     <span class="kw">pub </span>offered_fee: u64,
 }
 
 <span class="comment">// It holds the information for the proposed block
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>ProposedBlockId&lt;Types: NodeType&gt; {
+</span><span class="kw">pub struct </span>ProposedBlockId&lt;TYPES: NodeType&gt; {
     <span class="kw">pub </span>parent_commitment: VidCommitment,
     <span class="kw">pub </span>payload_commitment: BuilderCommitment,
-    <span class="kw">pub </span>parent_view: Types::Time,
+    <span class="kw">pub </span>parent_view: TYPES::Time,
 }
 
-<span class="kw">impl</span>&lt;Types: NodeType&gt; ProposedBlockId&lt;Types&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ProposedBlockId&lt;TYPES&gt; {
     <span class="kw">pub fn </span>new(
         parent_commitment: VidCommitment,
         payload_commitment: BuilderCommitment,
-        parent_view: Types::Time,
+        parent_view: TYPES::Time,
     ) -&gt; <span class="self">Self </span>{
         ProposedBlockId {
             parent_commitment,
@@ -1226,19 +1345,19 @@
 
 <span class="attr">#[derive(Debug, Derivative)]
 #[derivative(Default(bound = <span class="string">""</span>))]
-</span><span class="kw">pub struct </span>BuilderStatesInfo&lt;Types: NodeType&gt; {
+</span><span class="kw">pub struct </span>BuilderStatesInfo&lt;TYPES: NodeType&gt; {
     <span class="comment">// list of all the builder states spawned for a view
     </span><span class="kw">pub </span>vid_commitments: Vec&lt;VidCommitment&gt;,
     <span class="comment">// list of all the proposed blocks for a view
-    </span><span class="kw">pub </span>block_ids: Vec&lt;ProposedBlockId&lt;Types&gt;&gt;,
+    </span><span class="kw">pub </span>block_ids: Vec&lt;ProposedBlockId&lt;TYPES&gt;&gt;,
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>ReceivedTransaction&lt;Types: NodeType&gt; {
+</span><span class="kw">pub struct </span>ReceivedTransaction&lt;TYPES: NodeType&gt; {
     <span class="comment">// the transaction
-    </span><span class="kw">pub </span>tx: Types::Transaction,
+    </span><span class="kw">pub </span>tx: TYPES::Transaction,
     <span class="comment">// its hash
-    </span><span class="kw">pub </span>commit: Commitment&lt;Types::Transaction&gt;,
+    </span><span class="kw">pub </span>commit: Commitment&lt;TYPES::Transaction&gt;,
     <span class="comment">// its source
     </span><span class="kw">pub </span>source: TransactionSource,
     <span class="comment">// received time
@@ -1247,50 +1366,50 @@
 
 <span class="attr">#[allow(clippy::type_complexity)]
 #[derive(Debug)]
-</span><span class="kw">pub struct </span>GlobalState&lt;Types: NodeType&gt;
+</span><span class="kw">pub struct </span>GlobalState&lt;TYPES: NodeType&gt;
 <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
     <span class="doccomment">/// id of namespace builder is building for. None if the builder builds for all namespaces
-    </span><span class="kw">pub </span>namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;Types::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
+    </span><span class="kw">pub </span>namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
 
     <span class="comment">// data store for the blocks
-    </span><span class="kw">pub </span>block_hash_to_block: HashMap&lt;(BuilderCommitment, Types::Time), BlockInfo&lt;Types&gt;&gt;,
+    </span><span class="kw">pub </span>block_hash_to_block: HashMap&lt;(BuilderCommitment, TYPES::Time), BlockInfo&lt;TYPES&gt;&gt;,
 
     <span class="comment">// registered builder states
     </span><span class="kw">pub </span>spawned_builder_states:
-        HashMap&lt;(VidCommitment, Types::Time), BroadcastSender&lt;MessageType&lt;Types&gt;&gt;&gt;,
+        HashMap&lt;(VidCommitment, TYPES::Time), BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;&gt;,
 
     <span class="comment">// builder state -&gt; last built block , it is used to respond the client
     // if the req channel times out during get_available_blocks
-    </span><span class="kw">pub </span>builder_state_to_last_built_block: HashMap&lt;(VidCommitment, Types::Time), ResponseMessage&gt;,
+    </span><span class="kw">pub </span>builder_state_to_last_built_block: HashMap&lt;(VidCommitment, TYPES::Time), ResponseMessage&gt;,
 
     <span class="comment">// // scheduled GC by view number
-    // pub view_to_cleanup_targets: BTreeMap&lt;Types::Time, BuilderStatesInfo&lt;Types&gt;&gt;,
+    // pub view_to_cleanup_targets: BTreeMap&lt;TYPES::Time, BuilderStatesInfo&lt;TYPES&gt;&gt;,
 
     // sending a transaction from the hotshot/private mempool to the builder states
     // NOTE: Currently, we don't differentiate between the transactions from the hotshot and the private mempool
-    </span><span class="kw">pub </span>tx_sender: BroadcastSender&lt;Arc&lt;ReceivedTransaction&lt;Types&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>tx_sender: BroadcastSender&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
 
     <span class="comment">// last garbage collected view number
-    </span><span class="kw">pub </span>last_garbage_collected_view_num: Types::Time,
+    </span><span class="kw">pub </span>last_garbage_collected_view_num: TYPES::Time,
 
     <span class="comment">// highest view running builder task
-    </span><span class="kw">pub </span>highest_view_num_builder_id: (VidCommitment, Types::Time),
+    </span><span class="kw">pub </span>highest_view_num_builder_id: (VidCommitment, TYPES::Time),
 }
 
-<span class="kw">impl</span>&lt;Types: NodeType&gt; GlobalState&lt;Types&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; GlobalState&lt;TYPES&gt;
 <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
     <span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>new(
-        namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;Types::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
-        bootstrap_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
-        tx_sender: BroadcastSender&lt;Arc&lt;ReceivedTransaction&lt;Types&gt;&gt;&gt;,
+        namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
+        bootstrap_sender: BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
+        tx_sender: BroadcastSender&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
         bootstrapped_builder_state_id: VidCommitment,
-        bootstrapped_view_num: Types::Time,
-        last_garbage_collected_view_num: Types::Time,
+        bootstrapped_view_num: TYPES::Time,
+        last_garbage_collected_view_num: TYPES::Time,
         _buffer_view_num_count: u64,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>spawned_builder_states = HashMap::new();
@@ -1312,8 +1431,8 @@
     <span class="kw">pub fn </span>register_builder_state(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         vid_commmit: VidCommitment,
-        view_num: Types::Time,
-        request_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
+        view_num: TYPES::Time,
+        request_sender: BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
     ) {
         <span class="comment">// register the builder state
         </span><span class="self">self</span>.spawned_builder_states
@@ -1340,9 +1459,9 @@
 
     <span class="kw">pub fn </span>update_global_state(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        build_block_info: BuildBlockInfo&lt;Types&gt;,
+        build_block_info: BuildBlockInfo&lt;TYPES&gt;,
         builder_vid_commitment: VidCommitment,
-        view_num: Types::Time,
+        view_num: TYPES::Time,
         response_msg: ResponseMessage,
     ) {
         <span class="self">self</span>.block_hash_to_block
@@ -1359,7 +1478,7 @@
     }
 
     <span class="comment">// remove the builder state handles based on the decide event
-    </span><span class="kw">pub fn </span>remove_handles(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on_decide_view: Types::Time) -&gt; Types::Time {
+    </span><span class="kw">pub fn </span>remove_handles(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on_decide_view: TYPES::Time) -&gt; TYPES::Time {
         <span class="comment">// remove everything from the spawned builder states when view_num &lt;= on_decide_view;
         // if we don't have a highest view &gt; decide, use highest view as cutoff.
         </span><span class="kw">let </span>cutoff = std::cmp::min(<span class="self">self</span>.highest_view_num_builder_id.<span class="number">1</span>, on_decide_view);
@@ -1369,7 +1488,7 @@
         <span class="kw">let </span>cutoff_u64 = cutoff.u64();
         <span class="kw">let </span>gc_view = <span class="kw">if </span>cutoff_u64 &gt; <span class="number">0 </span>{ cutoff_u64 - <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">0 </span>};
 
-        <span class="self">self</span>.last_garbage_collected_view_num = Types::Time::new(gc_view);
+        <span class="self">self</span>.last_garbage_collected_view_num = TYPES::Time::new(gc_view);
 
         cutoff
     }
@@ -1378,8 +1497,8 @@
     // Currently, we don't differentiate between the transactions from the hotshot and the private mempool
     </span><span class="kw">pub async fn </span>submit_client_txns(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        txns: Vec&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Transaction&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Commitment&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Transaction&gt;&gt;, BuildError&gt; {
+        txns: Vec&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Transaction&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Commitment&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Transaction&gt;&gt;, BuildError&gt; {
         handle_received_txns(
             <span class="kw-2">&amp;</span><span class="self">self</span>.tx_sender,
             txns,
@@ -1391,8 +1510,8 @@
 
     <span class="kw">pub fn </span>get_channel_for_matching_builder_or_highest_view_buider(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        key: <span class="kw-2">&amp;</span>(VidCommitment, Types::Time),
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;Types&gt;&gt;, BuildError&gt; {
+        key: <span class="kw-2">&amp;</span>(VidCommitment, TYPES::Time),
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;, BuildError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(channel) = <span class="self">self</span>.spawned_builder_states.get(key) {
             <span class="macro">tracing::info!</span>(<span class="string">"Got matching builder for parent {:?}@{:?}"</span>, key.<span class="number">0</span>, key.<span class="number">1</span>);
             <span class="prelude-val">Ok</span>(channel)
@@ -1414,7 +1533,7 @@
     }
 
     <span class="comment">// check for the existence of the builder state for a view
-    </span><span class="kw">pub fn </span>check_builder_state_existence_for_a_view(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Types::Time) -&gt; bool {
+    </span><span class="kw">pub fn </span>check_builder_state_existence_for_a_view(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>TYPES::Time) -&gt; bool {
         <span class="comment">// iterate over the spawned builder states and check if the view number exists
         </span><span class="self">self</span>.spawned_builder_states
             .iter()
@@ -1423,42 +1542,42 @@
 
     <span class="kw">pub fn </span>should_view_handle_other_proposals(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        builder_view: <span class="kw-2">&amp;</span>Types::Time,
-        proposal_view: <span class="kw-2">&amp;</span>Types::Time,
+        builder_view: <span class="kw-2">&amp;</span>TYPES::Time,
+        proposal_view: <span class="kw-2">&amp;</span>TYPES::Time,
     ) -&gt; bool {
         <span class="kw-2">*</span>builder_view == <span class="self">self</span>.highest_view_num_builder_id.<span class="number">1
             </span>&amp;&amp; !<span class="self">self</span>.check_builder_state_existence_for_a_view(proposal_view)
     }
 }
 
-<span class="kw">pub struct </span>ProxyGlobalState&lt;Types: NodeType&gt;
+<span class="kw">pub struct </span>ProxyGlobalState&lt;TYPES: NodeType&gt;
 <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
     <span class="comment">// global state
-    </span>global_state: Arc&lt;RwLock&lt;GlobalState&lt;Types&gt;&gt;&gt;,
+    </span>global_state: Arc&lt;RwLock&lt;GlobalState&lt;TYPES&gt;&gt;&gt;,
 
     <span class="comment">// identity keys for the builder
     // May be ideal place as GlobalState interacts with hotshot apis
     // and then can sign on responders as desired
     </span>builder_keys: (
-        Types::BuilderSignatureKey, <span class="comment">// pub key
-        </span>&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey, <span class="comment">// private key
+        TYPES::BuilderSignatureKey, <span class="comment">// pub key
+        </span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey, <span class="comment">// private key
     </span>),
 
     <span class="comment">// max waiting time to serve first api request
     </span>max_api_waiting_time: Duration,
 }
 
-<span class="kw">impl</span>&lt;Types: NodeType&gt; ProxyGlobalState&lt;Types&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ProxyGlobalState&lt;TYPES&gt;
 <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
     <span class="kw">pub fn </span>new(
-        global_state: Arc&lt;RwLock&lt;GlobalState&lt;Types&gt;&gt;&gt;,
+        global_state: Arc&lt;RwLock&lt;GlobalState&lt;TYPES&gt;&gt;&gt;,
         builder_keys: (
-            Types::BuilderSignatureKey,
-            &lt;&lt;Types <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
+            TYPES::BuilderSignatureKey,
+            &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
         ),
         max_api_waiting_time: Duration,
     ) -&gt; <span class="self">Self </span>{
@@ -1474,26 +1593,26 @@
 Handling Builder API responses
 */
 </span><span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;Types: NodeType&gt; BuilderDataSource&lt;Types&gt; <span class="kw">for </span>ProxyGlobalState&lt;Types&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderDataSource&lt;TYPES&gt; <span class="kw">for </span>ProxyGlobalState&lt;TYPES&gt;
 <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
-    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;Types::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
+    </span>TYPES::Transaction: BuilderTransaction,
+    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
     &gt;&gt;::Error: Display,
-    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;Types::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
+    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
 {
     <span class="kw">async fn </span>available_blocks(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         for_parent: <span class="kw-2">&amp;</span>VidCommitment,
         view_number: u64,
-        sender: Types::SignatureKey,
-        signature: <span class="kw-2">&amp;</span>&lt;Types::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AvailableBlockInfo&lt;Types&gt;&gt;, BuildError&gt; {
+        sender: TYPES::SignatureKey,
+        signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AvailableBlockInfo&lt;TYPES&gt;&gt;, BuildError&gt; {
         <span class="kw">let </span>starting_time = Instant::now();
 
         <span class="comment">// verify the signature
         </span><span class="kw">if </span>!sender.validate(signature, for_parent.as_ref()) {
-            <span class="macro">tracing::error!</span>(<span class="string">"Signature validation failed in get_available_blocks"</span>);
+            <span class="macro">error!</span>(<span class="string">"Signature validation failed in get_available_blocks"</span>);
             <span class="kw">return </span><span class="prelude-val">Err</span>(BuildError::Error {
                 message: <span class="string">"Signature validation failed in get_available_blocks"</span>.to_string(),
             });
@@ -1505,7 +1624,7 @@ Handling Builder API responses
             view_number
         );
 
-        <span class="kw">let </span>view_num = &lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Time <span class="kw">as </span>ConsensusTime&gt;::new(view_number);
+        <span class="kw">let </span>view_num = &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time <span class="kw">as </span>ConsensusTime&gt;::new(view_number);
         <span class="comment">// check in the local spawned builder states
         // if it doesn't exist; there are three cases
         // 1) it has already been garbage collected (view &lt; decide) and we should return an error
@@ -1628,7 +1747,7 @@ Handling Builder API responses
                 }
                 <span class="prelude-val">Ok</span>(recv_attempt) =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) = recv_attempt {
-                        <span class="macro">tracing::error!</span>(%e, <span class="string">"Channel closed while getting available blocks for parent {:?}@{view_number}"</span>, req_msg.requested_vid_commitment);
+                        <span class="macro">error!</span>(%e, <span class="string">"Channel closed while getting available blocks for parent {:?}@{view_number}"</span>, req_msg.requested_vid_commitment);
                     }
                     <span class="kw">break </span>recv_attempt.map_err(|<span class="kw">_</span>| BuildError::Error {
                         message: <span class="string">"channel unexpectedly closed"</span>.to_string(),
@@ -1643,7 +1762,7 @@ Handling Builder API responses
                 <span class="kw">let </span>(pub_key, sign_key) = <span class="self">self</span>.builder_keys.clone();
                 <span class="comment">// sign over the block info
                 </span><span class="kw">let </span>signature_over_block_info =
-                    &lt;Types <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey::sign_block_info(
+                    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey::sign_block_info(
                         <span class="kw-2">&amp;</span>sign_key,
                         response.block_size,
                         response.offered_fee,
@@ -1654,7 +1773,7 @@ Handling Builder API responses
                     })<span class="question-mark">?</span>;
 
                 <span class="comment">// insert the block info into local hashmap
-                </span><span class="kw">let </span>initial_block_info = AvailableBlockInfo::&lt;Types&gt; {
+                </span><span class="kw">let </span>initial_block_info = AvailableBlockInfo::&lt;TYPES&gt; {
                     block_hash: response.builder_hash.clone(),
                     block_size: response.block_size,
                     offered_fee: response.offered_fee,
@@ -1686,9 +1805,9 @@ Handling Builder API responses
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_hash: <span class="kw-2">&amp;</span>BuilderCommitment,
         view_number: u64,
-        sender: Types::SignatureKey,
-        signature: <span class="kw-2">&amp;</span>&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockData&lt;Types&gt;, BuildError&gt; {
+        sender: TYPES::SignatureKey,
+        signature: <span class="kw-2">&amp;</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockData&lt;TYPES&gt;, BuildError&gt; {
         <span class="macro">tracing::info!</span>(
             <span class="string">"Received request for claiming block for (block_hash {:?}, view_num: {:?})"</span>,
             block_hash,
@@ -1696,13 +1815,13 @@ Handling Builder API responses
         );
         <span class="comment">// verify the signature
         </span><span class="kw">if </span>!sender.validate(signature, block_hash.as_ref()) {
-            <span class="macro">tracing::error!</span>(<span class="string">"Signature validation failed in claim block"</span>);
+            <span class="macro">error!</span>(<span class="string">"Signature validation failed in claim block"</span>);
             <span class="kw">return </span><span class="prelude-val">Err</span>(BuildError::Error {
                 message: <span class="string">"Signature validation failed in claim block"</span>.to_string(),
             });
         }
         <span class="kw">let </span>(pub_key, sign_key) = <span class="self">self</span>.builder_keys.clone();
-        <span class="kw">let </span>view_num = &lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Time <span class="kw">as </span>ConsensusTime&gt;::new(view_number);
+        <span class="kw">let </span>view_num = &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time <span class="kw">as </span>ConsensusTime&gt;::new(view_number);
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(block_info) = <span class="self">self
             </span>.global_state
@@ -1723,7 +1842,7 @@ Handling Builder API responses
                 .block_payload
                 .builder_commitment(<span class="kw-2">&amp;</span>block_info.metadata);
             <span class="kw">let </span>signature_over_builder_commitment =
-                &lt;Types <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey::sign_builder_message(
+                &lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey::sign_builder_message(
                     <span class="kw-2">&amp;</span>sign_key,
                     response_block_hash.as_ref(),
                 )
@@ -1732,7 +1851,7 @@ Handling Builder API responses
                 })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>signature_over_fee =
-                &lt;Types <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey::sign_sequencing_fee_marketplace(
+                &lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey::sign_sequencing_fee_marketplace(
                     <span class="kw-2">&amp;</span>sign_key,
                     block_info.offered_fee,
                 )
@@ -1740,7 +1859,7 @@ Handling Builder API responses
                     message: <span class="macro">format!</span>(<span class="string">"Signing over sequencing fee failed: {:?}"</span>, e),
                 })<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>block_data = AvailableBlockData::&lt;Types&gt; {
+            <span class="kw">let </span>block_data = AvailableBlockData::&lt;TYPES&gt; {
                 fee: block_info.offered_fee,
                 fee_signature: signature_over_fee,
                 block_payload: block_info.block_payload.clone(),
@@ -1764,19 +1883,19 @@ Handling Builder API responses
 
     <span class="kw">async fn </span>builder_address(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey, BuildError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey, BuildError&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.builder_keys.<span class="number">0</span>.clone())
     }
 }
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;Types: NodeType&gt; AcceptsTxnSubmits&lt;Types&gt; <span class="kw">for </span>ProxyGlobalState&lt;Types&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; AcceptsTxnSubmits&lt;TYPES&gt; <span class="kw">for </span>ProxyGlobalState&lt;TYPES&gt;
 <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
     <span class="kw">async fn </span>submit_txns(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        txns: Vec&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Transaction&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Commitment&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Transaction&gt;&gt;, BuildError&gt; {
+        txns: Vec&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Transaction&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Commitment&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Transaction&gt;&gt;, BuildError&gt; {
         <span class="macro">tracing::debug!</span>(
             <span class="string">"Submitting {:?} transactions to the builder states{:?}"</span>,
             txns.len(),
@@ -1798,11 +1917,11 @@ Handling Builder API responses
     }
 }
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;Types: NodeType&gt; ReadState <span class="kw">for </span>ProxyGlobalState&lt;Types&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; ReadState <span class="kw">for </span>ProxyGlobalState&lt;TYPES&gt;
 <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
-    <span class="kw">type </span>State = ProxyGlobalState&lt;Types&gt;;
+    <span class="kw">type </span>State = ProxyGlobalState&lt;TYPES&gt;;
 
     <span class="kw">async fn </span>read&lt;T&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1812,21 +1931,36 @@ Handling Builder API responses
     </span>}
 }
 
-<span class="kw">async fn </span>connect_to_events_service&lt;Types: NodeType&gt;(
+<span class="comment">// Senders to broadcast data from HotShot to the builder states.
+</span><span class="kw">pub struct </span>BroadcastSenders&lt;TYPES: NodeType&gt;
+<span class="kw">where
+    </span>TYPES::Transaction: BuilderTransaction,
+{
+    <span class="doccomment">/// For transactions, shared.
+    </span>transactions: BroadcastSender&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
+    <span class="doccomment">/// For the DA proposal.
+    </span>da_proposal: BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// For the quorum proposal.
+    </span>quorum_proposal: BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// For the decide.
+    </span>decide: BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
+}
+
+<span class="kw">async fn </span>connect_to_events_service&lt;TYPES: NodeType&gt;(
     hotshot_events_api_url: Url,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;(
     surf_disco::socket::Connection&lt;
-        Event&lt;Types&gt;,
+        Event&lt;TYPES&gt;,
         surf_disco::socket::Unsupported,
         EventStreamError,
-        Types::Base,
+        TYPES::Base,
     &gt;,
-    GeneralStaticCommittee&lt;Types, &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
+    GeneralStaticCommittee&lt;TYPES, &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
 )&gt;
 <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
-    <span class="kw">let </span>client = surf_disco::Client::&lt;hotshot_events_service::events::Error, Types::Base&gt;::new(
+    <span class="kw">let </span>client = surf_disco::Client::&lt;hotshot_events_service::events::Error, TYPES::Base&gt;::new(
         hotshot_events_api_url.clone(),
     );
 
@@ -1839,13 +1973,13 @@ Handling Builder API responses
     <span class="comment">// client subscrive to hotshot events
     </span><span class="kw">let </span>subscribed_events = client
         .socket(<span class="string">"hotshot-events/events"</span>)
-        .subscribe::&lt;Event&lt;Types&gt;&gt;()
+        .subscribe::&lt;Event&lt;TYPES&gt;&gt;()
         .<span class="kw">await
         </span>.ok()<span class="question-mark">?</span>;
 
     <span class="comment">// handle the startup event at the start
     </span><span class="kw">let </span>membership = <span class="kw">if let </span><span class="prelude-val">Ok</span>(response) = client
-        .get::&lt;StartupInfo&lt;Types&gt;&gt;(<span class="string">"hotshot-events/startup_info"</span>)
+        .get::&lt;StartupInfo&lt;TYPES&gt;&gt;(<span class="string">"hotshot-events/startup_info"</span>)
         .send()
         .<span class="kw">await
     </span>{
@@ -1853,8 +1987,8 @@ Handling Builder API responses
             known_node_with_stake,
             non_staked_node_count,
         } = response;
-        <span class="kw">let </span>membership: GeneralStaticCommittee&lt;Types, &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; =
-            GeneralStaticCommittee::&lt;Types, &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;::create_election(
+        <span class="kw">let </span>membership: GeneralStaticCommittee&lt;TYPES, &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; =
+            GeneralStaticCommittee::&lt;TYPES, &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;::create_election(
                 known_node_with_stake.clone(),
                 known_node_with_stake.clone(),
                 <span class="number">0</span>,
@@ -1871,30 +2005,52 @@ Handling Builder API responses
     </span>};
     membership.map(|membership| (subscribed_events, membership))
 }
+
+<span class="kw">async fn </span>connect_to_solver_service&lt;TYPES: NodeType&gt;(
+    solver_api_url: Url,
+) -&gt; <span class="prelude-ty">Option</span>&lt;Client&lt;hotshot_events_service::events::Error, TYPES::Base&gt;&gt;
+<span class="kw">where
+    </span>TYPES::Transaction: BuilderTransaction,
+{
+    <span class="kw">let </span>client = surf_disco::Client::&lt;hotshot_events_service::events::Error, TYPES::Base&gt;::new(
+        solver_api_url.clone(),
+    );
+
+    <span class="kw">if </span>!(client.connect(<span class="prelude-val">None</span>).<span class="kw">await</span>) {
+        <span class="kw">return </span><span class="prelude-val">None</span>;
+    }
+
+    <span class="macro">tracing::info!</span>(<span class="string">"Builder client connected to the solver api"</span>);
+
+    <span class="prelude-val">Some</span>(client)
+}
+
 <span class="comment">/*
 Running Non-Permissioned Builder Service
 */
-</span><span class="kw">pub async fn </span>run_non_permissioned_standalone_builder_service&lt;Types: NodeType&gt;(
+</span><span class="kw">pub async fn </span>run_non_permissioned_standalone_builder_service&lt;TYPES: NodeType&lt;Time = ViewNumber&gt;&gt;(
     <span class="comment">// id of namespace to build for
-    </span>namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;Types::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
+    </span>namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
 
-    <span class="comment">// sending a DA proposal from the hotshot to the builder states
-    </span>da_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
-
-    <span class="comment">// sending a QC proposal from the hotshot to the builder states
-    </span>qc_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
-
-    <span class="comment">// sending a Decide event from the hotshot to the builder states
-    </span>decide_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
-
-    <span class="comment">// shared accumulated transactions handle
-    </span>tx_sender: BroadcastSender&lt;Arc&lt;ReceivedTransaction&lt;Types&gt;&gt;&gt;,
+    <span class="comment">// Sending from the hotshot to the builder states.
+    </span>senders: BroadcastSenders&lt;TYPES&gt;,
 
     <span class="comment">// Url to (re)connect to for the events stream
     </span>hotshot_events_api_url: Url,
+
+    <span class="comment">// URL to submit the bid.
+    </span>solver_api_url: Url,
+
+    <span class="comment">// Base URL to get the bid.
+    //
+    // Forms a bid ULR with appended view number and "bundle".
+    </span>bid_base_url: Url,
+
+    <span class="comment">// Bid configuration.
+    </span>bid_config: BidConfig,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt;
 <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
     <span class="comment">// connection to the events stream
     </span><span class="kw">let </span>connected = connect_to_events_service(hotshot_events_api_url.clone()).<span class="kw">await</span>;
@@ -1913,12 +2069,12 @@ Running Non-Permissioned Builder Service
             <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(event)) =&gt; {
                 <span class="kw">match </span>event.event {
                     EventType::Error { error } =&gt; {
-                        <span class="macro">tracing::error!</span>(<span class="string">"Error event in HotShot: {:?}"</span>, error);
+                        <span class="macro">error!</span>(<span class="string">"Error event in HotShot: {:?}"</span>, error);
                     }
                     <span class="comment">// tx event
                     </span>EventType::Transactions { transactions } =&gt; {
                         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_received_txns(
-                            <span class="kw-2">&amp;</span>tx_sender,
+                            <span class="kw-2">&amp;</span>senders.transactions,
                             transactions,
                             TransactionSource::HotShot,
                             namespace_id,
@@ -1935,7 +2091,7 @@ Running Non-Permissioned Builder Service
                         qc: <span class="kw">_</span>,
                     } =&gt; {
                         <span class="kw">let </span>latest_decide_view_num = leaf_chain[<span class="number">0</span>].leaf.view_number();
-                        handle_decide_event(<span class="kw-2">&amp;</span>decide_sender, latest_decide_view_num).<span class="kw">await</span>;
+                        handle_decide_event(<span class="kw-2">&amp;</span>senders.decide, latest_decide_view_num).<span class="kw">await</span>;
                     }
                     <span class="comment">// DA proposal event
                     </span>EventType::DaProposal { proposal, sender } =&gt; {
@@ -1945,7 +2101,7 @@ Running Non-Permissioned Builder Service
                         </span><span class="kw">let </span>total_nodes = membership.total_nodes();
 
                         handle_da_event(
-                            <span class="kw-2">&amp;</span>da_sender,
+                            <span class="kw-2">&amp;</span>senders.da_proposal,
                             proposal,
                             sender,
                             leader,
@@ -1958,18 +2114,34 @@ Running Non-Permissioned Builder Service
                     </span>EventType::QuorumProposal { proposal, sender } =&gt; {
                         <span class="comment">// get the leader for current view
                         </span><span class="kw">let </span>leader = membership.leader(proposal.data.view_number);
-                        handle_qc_event(<span class="kw-2">&amp;</span>qc_sender, Arc::new(proposal), sender, leader).<span class="kw">await</span>;
+                        handle_qc_event(
+                            <span class="kw-2">&amp;</span>senders.quorum_proposal,
+                            Arc::new(proposal),
+                            sender,
+                            leader,
+                        )
+                        .<span class="kw">await</span>;
                     }
+                    <span class="comment">// View finished event
+                    </span>EventType::ViewFinished { view_number } =&gt; {
+                        handle_view_finished::&lt;TYPES&gt;(
+                            view_number,
+                            solver_api_url.clone(),
+                            bid_base_url.clone(),
+                            bid_config.clone(),
+                        )
+                        .<span class="kw">await
+                    </span>}
                     <span class="kw">_ </span>=&gt; {
-                        <span class="macro">tracing::error!</span>(<span class="string">"Unhandled event from Builder"</span>);
+                        <span class="macro">error!</span>(<span class="string">"Unhandled event from Builder"</span>);
                     }
                 }
             }
             <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
-                <span class="macro">tracing::error!</span>(<span class="string">"Error in the event stream: {:?}"</span>, e);
+                <span class="macro">error!</span>(<span class="string">"Error in the event stream: {:?}"</span>, e);
             }
             <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">tracing::error!</span>(<span class="string">"Event stream ended"</span>);
+                <span class="macro">error!</span>(<span class="string">"Event stream ended"</span>);
                 <span class="kw">let </span>connected = connect_to_events_service(hotshot_events_api_url.clone()).<span class="kw">await</span>;
                 <span class="kw">if </span>connected.is_none() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
@@ -1987,46 +2159,49 @@ Running Non-Permissioned Builder Service
 Running Permissioned Builder Service
 */
 </span><span class="kw">pub async fn </span>run_permissioned_standalone_builder_service&lt;
-    Types: NodeType,
-    I: NodeImplementation&lt;Types&gt;,
+    TYPES: NodeType&lt;Time = ViewNumber&gt;,
+    I: NodeImplementation&lt;TYPES&gt;,
 &gt;(
     <span class="comment">// id of namespace to build for. None if building for all namespaces
-    </span>namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;Types::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
+    </span>namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
 
-    <span class="comment">// sending received transactions
-    </span>tx_sender: BroadcastSender&lt;Arc&lt;ReceivedTransaction&lt;Types&gt;&gt;&gt;,
-
-    <span class="comment">// sending a DA proposal from the hotshot to the builder states
-    </span>da_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
-
-    <span class="comment">// sending a QC proposal from the hotshot to the builder states
-    </span>qc_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
-
-    <span class="comment">// sending a Decide event from the hotshot to the builder states
-    </span>decide_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
+    <span class="comment">// Sending from the hotshot to the builder states.
+    </span>senders: BroadcastSenders&lt;TYPES&gt;,
 
     <span class="comment">// hotshot context handle
-    </span>hotshot_handle: Arc&lt;SystemContextHandle&lt;Types, I&gt;&gt;,
-) <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>hotshot_handle: Arc&lt;SystemContextHandle&lt;TYPES, I&gt;&gt;,
+
+    <span class="comment">// URL to submit the bid.
+    </span>solver_api_url: Url,
+
+    <span class="comment">// Base URL to get the bid.
+    //
+    // Forms a bid ULR with appended view number and "bundle".
+    </span>bid_base_url: Url,
+
+    <span class="comment">// Bid configuration.
+    </span>bid_config: BidConfig,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt;
+<span class="kw">where
+    </span>TYPES::Transaction: BuilderTransaction,
 {
     <span class="kw">let </span><span class="kw-2">mut </span>event_stream = hotshot_handle.event_stream();
     <span class="kw">loop </span>{
         <span class="macro">tracing::debug!</span>(<span class="string">"Waiting for events from HotShot"</span>);
         <span class="kw">match </span>event_stream.next().<span class="kw">await </span>{
             <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">tracing::error!</span>(<span class="string">"Didn't receive any event from the HotShot event stream"</span>);
+                <span class="macro">error!</span>(<span class="string">"Didn't receive any event from the HotShot event stream"</span>);
             }
             <span class="prelude-val">Some</span>(event) =&gt; {
                 <span class="kw">match </span>event.event {
                     <span class="comment">// error event
                     </span>EventType::Error { error } =&gt; {
-                        <span class="macro">tracing::error!</span>(<span class="string">"Error event in HotShot: {:?}"</span>, error);
+                        <span class="macro">error!</span>(<span class="string">"Error event in HotShot: {:?}"</span>, error);
                     }
                     <span class="comment">// tx event
                     </span>EventType::Transactions { transactions } =&gt; {
                         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_received_txns(
-                            <span class="kw-2">&amp;</span>tx_sender,
+                            <span class="kw-2">&amp;</span>senders.transactions,
                             transactions,
                             TransactionSource::HotShot,
                             namespace_id,
@@ -2040,7 +2215,7 @@ Running Permissioned Builder Service
                     </span>EventType::Decide { leaf_chain, .. } =&gt; {
                         <span class="kw">let </span>latest_decide_view_number = leaf_chain[<span class="number">0</span>].leaf.view_number();
 
-                        handle_decide_event(<span class="kw-2">&amp;</span>decide_sender, latest_decide_view_number).<span class="kw">await</span>;
+                        handle_decide_event(<span class="kw-2">&amp;</span>senders.decide, latest_decide_view_number).<span class="kw">await</span>;
                     }
                     <span class="comment">// DA proposal event
                     </span>EventType::DaProposal { proposal, sender } =&gt; {
@@ -2050,7 +2225,7 @@ Running Permissioned Builder Service
                         </span><span class="kw">let </span>total_nodes = hotshot_handle.total_nodes();
 
                         handle_da_event(
-                            <span class="kw-2">&amp;</span>da_sender,
+                            <span class="kw-2">&amp;</span>senders.da_proposal,
                             proposal,
                             sender,
                             leader,
@@ -2063,10 +2238,26 @@ Running Permissioned Builder Service
                     </span>EventType::QuorumProposal { proposal, sender } =&gt; {
                         <span class="comment">// get the leader for current view
                         </span><span class="kw">let </span>leader = hotshot_handle.leader(proposal.data.view_number).<span class="kw">await</span>;
-                        handle_qc_event(<span class="kw-2">&amp;</span>qc_sender, Arc::new(proposal), sender, leader).<span class="kw">await</span>;
+                        handle_qc_event(
+                            <span class="kw-2">&amp;</span>senders.quorum_proposal,
+                            Arc::new(proposal),
+                            sender,
+                            leader,
+                        )
+                        .<span class="kw">await</span>;
                     }
+                    <span class="comment">// View finished event
+                    </span>EventType::ViewFinished { view_number } =&gt; {
+                        handle_view_finished::&lt;TYPES&gt;(
+                            view_number,
+                            solver_api_url.clone(),
+                            bid_base_url.clone(),
+                            bid_config.clone(),
+                        )
+                        .<span class="kw">await
+                    </span>}
                     <span class="kw">_ </span>=&gt; {
-                        <span class="macro">tracing::error!</span>(<span class="string">"Unhandled event from Builder: {:?}"</span>, event.event);
+                        <span class="macro">error!</span>(<span class="string">"Unhandled event from Builder: {:?}"</span>, event.event);
                     }
                 }
             }
@@ -2077,15 +2268,15 @@ Running Permissioned Builder Service
 <span class="comment">/*
 Utility functions to handle the hotshot events
 */
-</span><span class="kw">async fn </span>handle_da_event&lt;Types: NodeType&gt;(
-    da_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
-    da_proposal: Proposal&lt;Types, DaProposal&lt;Types&gt;&gt;,
-    sender: &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey,
-    leader: &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey,
+</span><span class="kw">async fn </span>handle_da_event&lt;TYPES: NodeType&gt;(
+    da_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
+    da_proposal: Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;,
+    sender: &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
+    leader: &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
     total_nodes: NonZeroUsize,
-    namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;Types::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
+    namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
 ) <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
     <span class="macro">tracing::debug!</span>(
         <span class="string">"DaProposal: Leader: {:?} for the view: {:?}"</span>,
@@ -2104,7 +2295,7 @@ Utility functions to handle the hotshot events
         );
 
         <span class="comment">// form a block payload from the encoded transactions
-        </span><span class="kw">let </span>block_payload = &lt;Types::BlockPayload <span class="kw">as </span>BlockPayload&lt;Types&gt;&gt;::from_bytes(
+        </span><span class="kw">let </span>block_payload = &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::from_bytes(
             <span class="kw-2">&amp;</span>da_proposal.data.encoded_transactions,
             <span class="kw-2">&amp;</span>da_proposal.data.metadata,
         );
@@ -2144,17 +2335,17 @@ Utility functions to handle the hotshot events
             );
         }
     } <span class="kw">else </span>{
-        <span class="macro">tracing::error!</span>(<span class="string">"Validation Failure on DaProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}"</span>, da_proposal.data.view_number, leader, sender);
+        <span class="macro">error!</span>(<span class="string">"Validation Failure on DaProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}"</span>, da_proposal.data.view_number, leader, sender);
     }
 }
 
-<span class="kw">async fn </span>handle_qc_event&lt;Types: NodeType&gt;(
-    qc_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
-    qc_proposal: Arc&lt;Proposal&lt;Types, QuorumProposal&lt;Types&gt;&gt;&gt;,
-    sender: &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey,
-    leader: &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey,
+<span class="kw">async fn </span>handle_qc_event&lt;TYPES: NodeType&gt;(
+    qc_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
+    qc_proposal: Arc&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
+    sender: &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
+    leader: &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
 ) <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
     <span class="macro">tracing::debug!</span>(
         <span class="string">"QCProposal: Leader: {:?} for the view: {:?}"</span>,
@@ -2166,7 +2357,7 @@ Utility functions to handle the hotshot events
 
     <span class="comment">// check if the sender is the leader and the signature is valid; if yes, broadcast the QC proposal
     </span><span class="kw">if </span>sender == leader &amp;&amp; sender.validate(<span class="kw-2">&amp;</span>qc_proposal.signature, leaf.commit().as_ref()) {
-        <span class="kw">let </span>qc_msg = QCMessage::&lt;Types&gt; {
+        <span class="kw">let </span>qc_msg = QCMessage::&lt;TYPES&gt; {
             proposal: qc_proposal,
             sender: leader,
         };
@@ -2185,17 +2376,17 @@ Utility functions to handle the hotshot events
             );
         }
     } <span class="kw">else </span>{
-        <span class="macro">tracing::error!</span>(<span class="string">"Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}"</span>, qc_proposal.data.view_number, leader, sender);
+        <span class="macro">error!</span>(<span class="string">"Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}"</span>, qc_proposal.data.view_number, leader, sender);
     }
 }
 
-<span class="kw">async fn </span>handle_decide_event&lt;Types: NodeType&gt;(
-    decide_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
-    latest_decide_view_number: Types::Time,
+<span class="kw">async fn </span>handle_decide_event&lt;TYPES: NodeType&gt;(
+    decide_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
+    latest_decide_view_number: TYPES::Time,
 ) <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
-    <span class="kw">let </span>decide_msg: DecideMessage&lt;Types&gt; = DecideMessage::&lt;Types&gt; {
+    <span class="kw">let </span>decide_msg: DecideMessage&lt;TYPES&gt; = DecideMessage::&lt;TYPES&gt; {
         latest_decide_view_number,
     };
     <span class="macro">tracing::debug!</span>(
@@ -2213,14 +2404,14 @@ Utility functions to handle the hotshot events
     }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_received_txns&lt;Types: NodeType&gt;(
-    tx_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;Arc&lt;ReceivedTransaction&lt;Types&gt;&gt;&gt;,
-    <span class="kw-2">mut </span>txns: Vec&lt;Types::Transaction&gt;,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_received_txns&lt;TYPES: NodeType&gt;(
+    tx_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
+    <span class="kw-2">mut </span>txns: Vec&lt;TYPES::Transaction&gt;,
     source: TransactionSource,
-    namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;Types::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Commitment&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Transaction&gt;&gt;, BuildError&gt;
+    namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Commitment&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Transaction&gt;&gt;, BuildError&gt;
 <span class="kw">where
-    </span>Types::Transaction: BuilderTransaction,
+    </span>TYPES::Transaction: BuilderTransaction,
 {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(namespace_id) = namespace_id {
         txns.retain(|txn| txn.namespace_id() == namespace_id);
@@ -2239,9 +2430,44 @@ Utility functions to handle the hotshot events
             }))
             .<span class="kw">await</span>;
         <span class="kw">if </span>res.is_err() {
-            <span class="macro">tracing::warn!</span>(<span class="string">"failed to broadcast txn with commit {:?}"</span>, commit);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(BuildError::Error {
+                message: <span class="macro">format!</span>(<span class="string">"Failed to broadcast txn with commit {:?}"</span>, commit),
+            });
         }
     }
     <span class="prelude-val">Ok</span>(results)
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_view_finished&lt;TYPES: NodeType&lt;Time = ViewNumber&gt;&gt;(
+    view_number: TYPES::Time,
+    solver_api_url: Url,
+    bid_base_url: Url,
+    bid_config: BidConfig,
+) <span class="kw">where
+    </span>TYPES::Transaction: BuilderTransaction,
+{
+    <span class="comment">// We submit a bid three views in advance.
+    </span><span class="kw">let </span>bid_tx = <span class="kw">match </span>from_bid_config(bid_config, view_number + <span class="number">3</span>, bid_base_url) {
+        <span class="prelude-val">Ok</span>(bid) =&gt; bid,
+        <span class="prelude-val">Err</span>(e) =&gt; {
+            <span class="macro">error!</span>(<span class="string">"Failed to construct the bid txn: {:?}."</span>, e);
+            <span class="kw">return</span>;
+        }
+    };
+
+    <span class="kw">let </span><span class="prelude-val">Some</span>(solver_client) = connect_to_solver_service::&lt;TYPES&gt;(solver_api_url).<span class="kw">await else </span>{
+        <span class="macro">error!</span>(<span class="string">"Failed to connect to the solver service."</span>);
+        <span class="kw">return</span>;
+    };
+
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = solver_client
+        .post::&lt;()&gt;(<span class="string">"submit_bid"</span>)
+        .body_json(<span class="kw-2">&amp;</span>bid_tx)
+        .unwrap()
+        .send()
+        .<span class="kw">await
+    </span>{
+        <span class="macro">error!</span>(<span class="string">"Failed to submit the bid: {:?}."</span>, e);
+    }
 }
 </code></pre></div></section></main></body></html>
