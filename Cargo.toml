@@ -16,12 +16,15 @@ async-trait = "0.1"
 clap = { version = "4.4", features = ["derive", "env"] }
 committable = "0.2"
 derivative = "2.2"
+espresso-types = { git = "https://github.com/EspressoSystems/espresso-sequencer.git", branch = "main", features = ["testing"] }
+ethers = { version = "2.0.4" }
 futures = "0.3"
 hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.63" }
 hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.63" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", branch = "hotshot/rc-0.5.63" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "rc-0.1.33" }
 hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.63" }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 sha2 = "0.10"
 snafu = "0.8"
 surf-disco = "0.9"
@@ -29,6 +32,7 @@ tagged-base64 = "0.4"
 tide-disco = "0.9"
 tokio = "1"
 tracing = "0.1"
+url = "2.3"
 vbs = "0.1"
 
 [dev-dependencies]
