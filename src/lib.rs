@@ -20,6 +20,9 @@ pub mod service;
 // Support bid construction and submission.
 pub mod bid;
 
+// Provide builder API.
+pub mod api;
+
 // tracking the testing
 pub mod testing;
 

@@ -22,6 +22,7 @@ futures = "0.3"
 hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.63" }
 hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.63" }
 hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "rc-0.1.33" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.63" }
 hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.63" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -31,6 +32,7 @@ surf-disco = "0.9"
 tagged-base64 = "0.4"
 tide-disco = "0.9"
 tokio = "1"
+toml = "0.8"
 tracing = "0.1"
 url = "2.3"
 vbs = "0.1"
