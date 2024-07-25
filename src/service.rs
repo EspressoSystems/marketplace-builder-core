@@ -22,6 +22,7 @@ use hotshot_types::{
     utils::BuilderCommitment,
     vid::VidCommitment,
 };
+use tracing::error;
 
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -375,7 +376,7 @@ where
 
         // verify the signature
         if !sender.validate(signature, for_parent.as_ref()) {
-            tracing::error!("Signature validation failed in get_available_blocks");
+            error!("Signature validation failed in get_available_blocks");
             return Err(BuildError::Error {
                 message: "Signature validation failed in get_available_blocks".to_string(),
             });
@@ -510,7 +511,7 @@ where
                 }
                 Ok(recv_attempt) => {
                     if let Err(ref e) = recv_attempt {
-                        tracing::error!(%e, "Channel closed while getting available blocks for parent {:?}@{view_number}", req_msg.requested_vid_commitment);
+                        error!(%e, "Channel closed while getting available blocks for parent {:?}@{view_number}", req_msg.requested_vid_commitment);
                     }
                     break recv_attempt.map_err(|_| BuildError::Error {
                         message: "channel unexpectedly closed".to_string(),
@@ -578,7 +579,7 @@ where
         );
         // verify the signature
         if !sender.validate(signature, block_hash.as_ref()) {
-            tracing::error!("Signature validation failed in claim block");
+            error!("Signature validation failed in claim block");
             return Err(BuildError::Error {
                 message: "Signature validation failed in claim block".to_string(),
             });
@@ -832,7 +833,7 @@ where
             Some(Ok(event)) => {
                 match event.event {
                     EventType::Error { error } => {
-                        tracing::error!("Error event in HotShot: {:?}", error);
+                        error!("Error event in HotShot: {:?}", error);
                     }
                     // tx event
                     EventType::Transactions { transactions } => {
@@ -893,18 +894,18 @@ where
                             bid_base_url.clone(),
                             bid_config.clone(),
                         )
-                        .await?
+                        .await
                     }
                     _ => {
-                        tracing::error!("Unhandled event from Builder");
+                        error!("Unhandled event from Builder");
                     }
                 }
             }
             Some(Err(e)) => {
-                tracing::error!("Error in the event stream: {:?}", e);
+                error!("Error in the event stream: {:?}", e);
             }
             None => {
-                tracing::error!("Event stream ended");
+                error!("Event stream ended");
                 let connected = connect_to_events_service(hotshot_events_api_url.clone()).await;
                 if connected.is_none() {
                     return Err(anyhow!(
@@ -953,13 +954,13 @@ where
         tracing::debug!("Waiting for events from HotShot");
         match event_stream.next().await {
             None => {
-                tracing::error!("Didn't receive any event from the HotShot event stream");
+                error!("Didn't receive any event from the HotShot event stream");
             }
             Some(event) => {
                 match event.event {
                     // error event
                     EventType::Error { error } => {
-                        tracing::error!("Error event in HotShot: {:?}", error);
+                        error!("Error event in HotShot: {:?}", error);
                     }
                     // tx event
                     EventType::Transactions { transactions } => {
@@ -1017,10 +1018,10 @@ where
                             bid_base_url.clone(),
                             bid_config.clone(),
                         )
-                        .await?
+                        .await
                     }
                     _ => {
-                        tracing::error!("Unhandled event from Builder: {:?}", event.event);
+                        error!("Unhandled event from Builder: {:?}", event.event);
                     }
                 }
             }
@@ -1098,7 +1099,7 @@ async fn handle_da_event<TYPES: NodeType>(
             );
         }
     } else {
-        tracing::error!("Validation Failure on DaProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}", da_proposal.data.view_number, leader, sender);
+        error!("Validation Failure on DaProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}", da_proposal.data.view_number, leader, sender);
     }
 }
 
@@ -1139,7 +1140,7 @@ async fn handle_qc_event<TYPES: NodeType>(
             );
         }
     } else {
-        tracing::error!("Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}", qc_proposal.data.view_number, leader, sender);
+        error!("Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}", qc_proposal.data.view_number, leader, sender);
     }
 }
 
@@ -1193,7 +1194,9 @@ where
             }))
             .await;
         if res.is_err() {
-            tracing::warn!("failed to broadcast txn with commit {:?}", commit);
+            return Err(BuildError::Error {
+                message: format!("Failed to broadcast txn with commit {:?}", commit),
+            });
         }
     }
     Ok(results)
@@ -1204,20 +1207,21 @@ pub(crate) async fn handle_view_finished<TYPES: NodeType<Time = ViewNumber>>(
     solver_api_url: Url,
     bid_base_url: Url,
     bid_config: BidConfig,
-) -> Result<(), BuildError>
-where
+) where
     TYPES::Transaction: BuilderTransaction,
 {
     // We submit a bid three views in advance.
-    let bid_tx = from_bid_config(bid_config, view_number + 3, bid_base_url)?;
-
-    let solver_client = match connect_to_solver_service::<TYPES>(solver_api_url).await {
-        Some(client) => client,
-        None => {
-            return Err(BuildError::Error {
-                message: "Failed to connect to the solver service.".to_string(),
-            });
+    let bid_tx = match from_bid_config(bid_config, view_number + 3, bid_base_url) {
+        Ok(bid) => bid,
+        Err(e) => {
+            error!("Failed to construct the bid txn: {:?}.", e);
+            return;
         }
+    };
+
+    let Some(solver_client) = connect_to_solver_service::<TYPES>(solver_api_url).await else {
+        error!("Failed to connect to the solver service.");
+        return;
     };
 
     if let Err(e) = solver_client
@@ -1227,10 +1231,6 @@ where
         .send()
         .await
     {
-        return Err(BuildError::Error {
-            message: format!("Failed to submit the bid: {}", e),
-        });
+        error!("Failed to submit the bid: {:?}.", e);
     }
-
-    Ok(())
 }
