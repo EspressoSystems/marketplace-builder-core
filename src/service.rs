@@ -74,6 +74,13 @@ pub trait BuilderTransaction {
     fn namespace_id(&self) -> Self::NamespaceId;
 }
 
+impl BuilderTransaction for espresso_types::v0_3::Transaction {
+    type NamespaceId = espresso_types::v0_3::NamespaceId;
+    fn namespace_id(&self) -> Self::NamespaceId {
+        self.namespace()
+    }
+}
+
 // It holds all the necessary information for a block
 #[derive(Debug)]
 pub struct BlockInfo<TYPES: NodeType>
