@@ -20,7 +20,7 @@ espresso-types = { git = "https://github.com/EspressoSystems/espresso-sequencer.
 ethers = { version = "2.0.4" }
 futures = "0.3"
 hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.63" }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.63" }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.66" }
 hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "rc-0.1.33" }
 hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.63" }
 serde = { version = "1.0", features = ["derive"] }
