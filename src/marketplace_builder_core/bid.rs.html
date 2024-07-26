@@ -51,15 +51,23 @@
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs;
 
 <span class="kw">use </span>espresso_types::{
     v0_3::{BidTx, BidTxBody},
-    FeeAccount, FeeAmount, NamespaceId,
+    FeeAccount, FeeAmount,
 };
 <span class="kw">use </span>ethers::types::U256;
 <span class="kw">use </span>hotshot_builder_api::v0_3::builder::BuildError;
-<span class="kw">use </span>hotshot_types::{data::ViewNumber, traits::signature_key::BuilderSignatureKey};
+<span class="kw">use </span>hotshot_types::data::ViewNumber;
+<span class="kw">use </span>hotshot_types_old::traits::{
+    node_implementation::ConsensusTime <span class="kw">as _</span>, signature_key::BuilderSignatureKey <span class="kw">as _</span>,
+};
 <span class="kw">use </span>serde::Deserialize;
 <span class="kw">use </span>serde_json::from_str;
 <span class="kw">use </span>url::Url;
@@ -72,7 +80,6 @@
     account_seed: [u8; <span class="number">32</span>],
     account_index: u64,
     bid_amount: U256,
-    namespaces: Vec&lt;u32&gt;,
 }
 
 <span class="doccomment">/// Read the bid configuration file.
@@ -88,20 +95,23 @@
     bid_config: BidConfig,
     view_number: ViewNumber,
     bid_base_url: Url,
+    namespace: u32,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BidTx, BuildError&gt; {
     <span class="kw">let </span>(account, key) =
         FeeAccount::generated_from_seed_indexed(bid_config.account_seed, bid_config.account_index);
     <span class="kw">let </span>bid_amount = FeeAmount(bid_config.bid_amount);
-    <span class="kw">let </span>namespaces = bid_config
-        .namespaces
-        .into_iter()
-        .map(NamespaceId::from)
-        .collect();
+    <span class="kw">let </span>namespaces = <span class="macro">vec!</span>[namespace.into()];
 
-    BidTxBody::new(account, bid_amount, view_number, namespaces, bid_base_url)
-        .signed(<span class="kw-2">&amp;</span>key)
-        .map_err(|e| BuildError::Error {
-            message: <span class="macro">format!</span>(<span class="string">"Failed to sign the bid: {:?}"</span>, e),
-        })
+    BidTxBody::new(
+        account,
+        bid_amount,
+        hotshot_types_old::data::ViewNumber::new(<span class="kw-2">*</span>view_number),
+        namespaces,
+        bid_base_url,
+    )
+    .signed(<span class="kw-2">&amp;</span>key)
+    .map_err(|e| BuildError::Error {
+        message: <span class="macro">format!</span>(<span class="string">"Failed to sign the bid: {:?}"</span>, e),
+    })
 }
 </code></pre></div></section></main></body></html>

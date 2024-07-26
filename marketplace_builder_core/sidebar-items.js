@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["WaitAndKeep"],"mod":["bid","builder_state","service","testing"]};
+window.SIDEBAR_ITEMS = {"mod":["bid","builder_state","service","testing"]};

@@ -830,15 +830,6 @@
 <a href="#830" id="830">830</a>
 <a href="#831" id="831">831</a>
 <a href="#832" id="832">832</a>
-<a href="#833" id="833">833</a>
-<a href="#834" id="834">834</a>
-<a href="#835" id="835">835</a>
-<a href="#836" id="836">836</a>
-<a href="#837" id="837">837</a>
-<a href="#838" id="838">838</a>
-<a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     data::{Leaf, QuorumProposal},
     message::Proposal,
@@ -904,7 +895,6 @@
 <span class="doccomment">/// Request Message to be put on the request channel
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>RequestMessage {
-    <span class="kw">pub </span>requested_vid_commitment: VidCommitment,
     <span class="kw">pub </span>requested_view_number: u64,
     <span class="kw">pub </span>response_channel: UnboundedSender&lt;ResponseMessage&gt;,
 }
@@ -958,7 +948,7 @@
     </span>TYPES::Transaction: BuilderTransaction,
 {
     <span class="doccomment">/// Namespace we're building for. None if filtering transactions is disabled
-    </span><span class="kw">pub </span>namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
+    </span><span class="kw">pub </span>namespace_id: &lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId,
 
     <span class="doccomment">/// Recent included txs set while building blocks
     </span><span class="kw">pub </span>included_txns: HashSet&lt;Commitment&lt;TYPES::Transaction&gt;&gt;,
@@ -1368,29 +1358,21 @@
     }
 
     <span class="kw">async fn </span>process_block_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, req: RequestMessage) {
-        <span class="kw">let </span>requested_vid_commitment = req.requested_vid_commitment;
         <span class="kw">let </span>requested_view_number =
             &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time <span class="kw">as </span>ConsensusTime&gt;::new(req.requested_view_number);
         <span class="comment">// If a spawned clone is active then it will handle the request, otherwise the highest view num builder will handle
-        </span><span class="kw">if </span>(requested_vid_commitment == <span class="self">self</span>.built_from_proposed_block.vid_commitment
-            &amp;&amp; requested_view_number == <span class="self">self</span>.built_from_proposed_block.view_number)
-            || (<span class="self">self</span>.built_from_proposed_block.view_number.u64()
-                == <span class="self">self
-                    </span>.global_state
-                    .read_arc()
-                    .<span class="kw">await
-                    </span>.highest_view_num_builder_id
-                    .<span class="number">1
-                    </span>.u64())
-        {
+        </span><span class="kw">if </span>requested_view_number == <span class="self">self</span>.built_from_proposed_block.view_number {
             <span class="macro">tracing::info!</span>(
-                <span class="string">"Request handled by builder with view {:?} for (parent {:?}, view_num: {:?})"</span>,
+                <span class="string">"Request handled by builder with view {}@{:?} for (view_num: {:?})"</span>,
+                <span class="self">self</span>.built_from_proposed_block.vid_commitment,
                 <span class="self">self</span>.built_from_proposed_block.view_number,
-                requested_vid_commitment,
                 requested_view_number
             );
             <span class="kw">let </span>response = <span class="self">self
-                </span>.build_block(requested_vid_commitment, requested_view_number)
+                </span>.build_block(
+                    <span class="self">self</span>.built_from_proposed_block.vid_commitment,
+                    requested_view_number,
+                )
                 .<span class="kw">await</span>;
 
             <span class="kw">match </span>response {
@@ -1405,7 +1387,7 @@
                     <span class="kw">let </span>builder_hash = response.builder_hash.clone();
                     <span class="self">self</span>.global_state.write_arc().<span class="kw">await</span>.update_global_state(
                         response,
-                        requested_vid_commitment,
+                        <span class="self">self</span>.built_from_proposed_block.vid_commitment,
                         requested_view_number,
                         response_msg.clone(),
                     );
@@ -1568,7 +1550,7 @@
         tx_receiver: BroadcastReceiver&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
         tx_queue: Vec&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
         global_state: Arc&lt;RwLock&lt;GlobalState&lt;TYPES&gt;&gt;&gt;,
-        namespace_id: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId&gt;,
+        namespace_id: &lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId,
         num_nodes: NonZeroUsize,
         maximize_txn_capture_timeout: Duration,
         base_fee: u64,
