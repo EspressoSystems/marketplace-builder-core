@@ -27,13 +27,14 @@ jobs:
   windows:
     runs-on: windows-latest
     env:
-        CARGO_NET_GIT_FETCH_WITH_CLI: true
-        RUSTFLAGS: "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\""
-        RUST_LOG: info
+      CARGO_NET_GIT_FETCH_WITH_CLI: true
+      RUSTFLAGS: '--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std"'
+      RUST_LOG: info
     steps:
       - name: Configure Git
         run: |
           New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+          git config --system core.longpaths true
           git config --global core.longpaths true
           git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
           git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
