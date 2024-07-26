@@ -21,11 +21,11 @@ espresso-types = { git = "https://github.com/EspressoSystems/espresso-sequencer.
 ], rev ="a31c0bca53e2b46e47f913085e0cf3efe56bdcc6" }
 ethers = { version = "2.0.4" }
 futures = "0.3"
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/bundle" }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/bundle" }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "ba87d320ea984f22d11fca043c1f3bae53f36d8e" }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "ba87d320ea984f22d11fca043c1f3bae53f36d8e" }
 hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", branch = "ag/bundle" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/bundle" }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/bundle" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "ba87d320ea984f22d11fca043c1f3bae53f36d8e" }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "ba87d320ea984f22d11fca043c1f3bae53f36d8e" }
 # TODO: remove once sequencer is up-to-date
 hotshot-types-old = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "rc-0.5.64", package = "hotshot-types" }
 serde = { version = "1.0", features = ["derive"] }
@@ -43,4 +43,4 @@ vbs = "0.1"
 multimap = "0.10.0"
 
 [dev-dependencies]
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/bundle" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "ba87d320ea984f22d11fca043c1f3bae53f36d8e" }
