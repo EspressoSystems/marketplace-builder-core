@@ -50,7 +50,6 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use std::time::Duration;
 use std::{fmt::Display, time::Instant};
 use surf_disco::Client;
 use tagged_base64::TaggedBase64;
@@ -329,9 +328,6 @@ where
         TYPES::BuilderSignatureKey, // pub key
         <<TYPES as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey, // private key
     ),
-
-    // max waiting time to serve first api request
-    max_api_waiting_time: Duration,
 }
 
 impl<TYPES: NodeType> ProxyGlobalState<TYPES>
@@ -344,12 +340,10 @@ where
             TYPES::BuilderSignatureKey,
             <<TYPES as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
         ),
-        max_api_waiting_time: Duration,
     ) -> Self {
         ProxyGlobalState {
             global_state,
             builder_keys,
-            max_api_waiting_time,
         }
     }
 }
@@ -959,7 +953,8 @@ pub(crate) async fn handle_view_finished<TYPES: NodeType<Time = ViewNumber>>(
     TYPES::Transaction: BuilderTransaction,
 {
     // We submit a bid three views in advance.
-    let bid_tx = match from_bid_config(bid_config, view_number + 3, bid_base_url) {
+    let bid_tx = match from_bid_config(bid_config, view_number + 3, bid_base_url, namespace.into())
+    {
         Ok(bid) => bid,
         Err(e) => {
             error!("Failed to construct the bid txn: {:?}.", e);
