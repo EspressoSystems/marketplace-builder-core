@@ -63,7 +63,6 @@ pub struct QCMessage<TYPES: NodeType> {
 /// Request Message to be put on the request channel
 #[derive(Clone, Debug)]
 pub struct RequestMessage {
-    pub requested_vid_commitment: VidCommitment,
     pub requested_view_number: u64,
     pub response_channel: UnboundedSender<ResponseMessage>,
 }
@@ -117,7 +116,7 @@ where
     TYPES::Transaction: BuilderTransaction,
 {
     /// Namespace we're building for. None if filtering transactions is disabled
-    pub namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
+    pub namespace_id: <TYPES::Transaction as BuilderTransaction>::NamespaceId,
 
     /// Recent included txs set while building blocks
     pub included_txns: HashSet<Commitment<TYPES::Transaction>>,
@@ -527,29 +526,21 @@ where
     }
 
     async fn process_block_request(&mut self, req: RequestMessage) {
-        let requested_vid_commitment = req.requested_vid_commitment;
         let requested_view_number =
             <<TYPES as NodeType>::Time as ConsensusTime>::new(req.requested_view_number);
         // If a spawned clone is active then it will handle the request, otherwise the highest view num builder will handle
-        if (requested_vid_commitment == self.built_from_proposed_block.vid_commitment
-            && requested_view_number == self.built_from_proposed_block.view_number)
-            || (self.built_from_proposed_block.view_number.u64()
-                == self
-                    .global_state
-                    .read_arc()
-                    .await
-                    .highest_view_num_builder_id
-                    .1
-                    .u64())
-        {
+        if requested_view_number == self.built_from_proposed_block.view_number {
             tracing::info!(
-                "Request handled by builder with view {:?} for (parent {:?}, view_num: {:?})",
+                "Request handled by builder with view {}@{:?} for (view_num: {:?})",
+                self.built_from_proposed_block.vid_commitment,
                 self.built_from_proposed_block.view_number,
-                requested_vid_commitment,
                 requested_view_number
             );
             let response = self
-                .build_block(requested_vid_commitment, requested_view_number)
+                .build_block(
+                    self.built_from_proposed_block.vid_commitment,
+                    requested_view_number,
+                )
                 .await;
 
             match response {
@@ -564,7 +555,7 @@ where
                     let builder_hash = response.builder_hash.clone();
                     self.global_state.write_arc().await.update_global_state(
                         response,
-                        requested_vid_commitment,
+                        self.built_from_proposed_block.vid_commitment,
                         requested_view_number,
                         response_msg.clone(),
                     );
@@ -727,7 +718,7 @@ where
         tx_receiver: BroadcastReceiver<Arc<ReceivedTransaction<TYPES>>>,
         tx_queue: Vec<Arc<ReceivedTransaction<TYPES>>>,
         global_state: Arc<RwLock<GlobalState<TYPES>>>,
-        namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
+        namespace_id: <TYPES::Transaction as BuilderTransaction>::NamespaceId,
         num_nodes: NonZeroUsize,
         maximize_txn_capture_timeout: Duration,
         base_fee: u64,
