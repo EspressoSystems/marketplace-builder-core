@@ -18,6 +18,7 @@ pub use async_broadcast::{
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::convert::From;
     use std::{hash::Hash, marker::PhantomData, num::NonZeroUsize};
 
     use async_compatibility_layer::channel::unbounded;
@@ -103,13 +104,19 @@ mod tests {
             Serialize,
             Deserialize,
         )]
-        pub struct TestNamespaceId(u8);
+        pub struct TestNamespaceId(u32);
+
+        impl From<TestNamespaceId> for u32 {
+            fn from(val: TestNamespaceId) -> u32 {
+                val.0
+            }
+        }
 
         impl BuilderTransaction for TestTransaction {
             type NamespaceId = TestNamespaceId;
 
             fn namespace_id(&self) -> Self::NamespaceId {
-                TestNamespaceId(*self.bytes().first().unwrap_or(&0))
+                TestNamespaceId((*self.bytes().first().unwrap_or(&0)).into())
             }
         }
 
@@ -338,7 +345,6 @@ mod tests {
 
             let (response_sender, response_receiver) = unbounded();
             let request_message = MessageType::<TestTypes>::RequestMessage(RequestMessage {
-                requested_vid_commitment,
                 requested_view_number: i as u64,
                 response_channel: response_sender,
             });
