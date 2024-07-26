@@ -959,22 +959,11 @@ pub(crate) async fn handle_view_finished<TYPES: NodeType<Time = ViewNumber>>(
     TYPES::Transaction: BuilderTransaction,
 {
     // We submit a bid three views in advance.
-<<<<<<< HEAD
-    let bid_tx = from_bid_config(bid_config, view_number + 3, bid_base_url, namespace.into())?;
-
-    let solver_client = match connect_to_solver_service::<TYPES>(solver_api_url).await {
-        Some(client) => client,
-        None => {
-            return Err(BuildError::Error {
-                message: "Failed to connect to the solver service.".to_string(),
-            });
-=======
     let bid_tx = match from_bid_config(bid_config, view_number + 3, bid_base_url) {
         Ok(bid) => bid,
         Err(e) => {
             error!("Failed to construct the bid txn: {:?}.", e);
             return;
->>>>>>> main
         }
     };
 
