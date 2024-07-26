@@ -4,10 +4,11 @@ use hotshot::{
     types::{Event, SystemContextHandle},
 };
 use hotshot_builder_api::v0_3::{
-    block_info::{AvailableBlockData, AvailableBlockInfo},
     builder::BuildError,
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
+use hotshot_types::bundle::Bundle;
+use hotshot_types::traits::block_contents::BuilderFee;
 use hotshot_types::{
     data::{DaProposal, Leaf, QuorumProposal, ViewNumber},
     event::EventType,
@@ -29,14 +30,13 @@ use std::hash::Hash;
 use crate::{
     bid::{from_bid_config, BidConfig},
     builder_state::{
-        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, RequestMessage,
-        ResponseMessage, TransactionSource,
+        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, ResponseMessage,
+        TransactionSource,
     },
 };
 use anyhow::anyhow;
 use async_broadcast::Sender as BroadcastSender;
 pub use async_broadcast::{broadcast, RecvError, TryRecvError};
-use async_compatibility_layer::{art::async_sleep, art::async_timeout, channel::unbounded};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::{Commitment, Committable};
@@ -68,7 +68,8 @@ pub trait BuilderTransaction {
         + Sync
         + PartialEq
         + Eq
-        + Hash;
+        + Hash
+        + Into<u32>;
 
     fn namespace_id(&self) -> Self::NamespaceId;
 }
@@ -133,8 +134,8 @@ pub struct GlobalState<TYPES: NodeType>
 where
     TYPES::Transaction: BuilderTransaction,
 {
-    /// id of namespace builder is building for. None if the builder builds for all namespaces
-    pub namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
+    /// id of namespace builder is building for
+    pub namespace_id: <TYPES::Transaction as BuilderTransaction>::NamespaceId,
 
     // data store for the blocks
     pub block_hash_to_block: HashMap<(BuilderCommitment, TYPES::Time), BlockInfo<TYPES>>,
@@ -167,7 +168,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
+        namespace_id: <TYPES::Transaction as BuilderTransaction>::NamespaceId,
         bootstrap_sender: BroadcastSender<MessageType<TYPES>>,
         tx_sender: BroadcastSender<Arc<ReceivedTransaction<TYPES>>>,
         bootstrapped_builder_state_id: VidCommitment,
@@ -364,284 +365,38 @@ where
     >>::Error: Display,
     for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
-    async fn available_blocks(
-        &self,
-        for_parent: &VidCommitment,
-        view_number: u64,
-        sender: TYPES::SignatureKey,
-        signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
-        let starting_time = Instant::now();
+    /// TODO: fetch actual blocks
+    async fn bundle(&self, _view_number: u64) -> Result<Bundle<TYPES>, BuildError> {
+        const FEE_AMOUNT: u64 = 1;
 
-        // verify the signature
-        if !sender.validate(signature, for_parent.as_ref()) {
-            tracing::error!("Signature validation failed in get_available_blocks");
-            return Err(BuildError::Error {
-                message: "Signature validation failed in get_available_blocks".to_string(),
-            });
-        }
+        let fee_signature =
+            <TYPES::BuilderSignatureKey as BuilderSignatureKey>::sign_sequencing_fee_marketplace(
+                &self.builder_keys.1,
+                FEE_AMOUNT,
+            )
+            .map_err(|e| BuildError::Error {
+                message: e.to_string(),
+            })?;
 
-        tracing::info!(
-            "Requesting available blocks for (parent {:?}, view_num: {:?})",
-            for_parent,
-            view_number
-        );
-
-        let view_num = <<TYPES as NodeType>::Time as ConsensusTime>::new(view_number);
-        // check in the local spawned builder states
-        // if it doesn't exist; there are three cases
-        // 1) it has already been garbage collected (view < decide) and we should return an error
-        // 2) it has not yet been created, and we should try to wait
-        // 3) we missed the triggering event, and should use the BuilderState with the highest available view
-
-        {
-            // 1st case: Decide event received, and not bootstrapping.
-            // If this `BlockBuilder` hasn't been reaped, it should have been.
-            let global_state = self.global_state.read_arc().await;
-            if view_num < global_state.last_garbage_collected_view_num
-                && global_state.highest_view_num_builder_id.1
-                    != global_state.last_garbage_collected_view_num
-            {
-                tracing::warn!(
-                    "Requesting for view {:?}, last decide-triggered cleanup on view {:?}, highest view num is {:?}",
-                    view_num,
-                    global_state.last_garbage_collected_view_num,
-                    global_state.highest_view_num_builder_id.1
-                );
-                return Err(BuildError::Error {
-                    message:
-                        "Request for available blocks for a view that has already been decided."
-                            .to_string(),
-                });
-            }
-        }
-
-        let (response_sender, response_receiver) = unbounded();
-        let req_msg = RequestMessage {
-            requested_vid_commitment: (*for_parent),
-            requested_view_number: view_number,
-            response_channel: response_sender,
+        let builder_fee: BuilderFee<TYPES> = BuilderFee {
+            fee_amount: FEE_AMOUNT,
+            fee_account: self.builder_keys.0.clone(),
+            fee_signature,
         };
-        let timeout_after = starting_time + self.max_api_waiting_time;
-        let check_duration = self.max_api_waiting_time / 10;
 
-        let time_to_wait_for_matching_builder = starting_time + self.max_api_waiting_time / 2;
+        let signature = <TYPES::BuilderSignatureKey as BuilderSignatureKey>::sign_builder_message(
+            &self.builder_keys.1,
+            &[],
+        )
+        .map_err(|e| BuildError::Error {
+            message: e.to_string(),
+        })?;
 
-        let mut sent = false;
-        let key = (*for_parent, view_num);
-        while !sent && Instant::now() < time_to_wait_for_matching_builder {
-            // try to broadcast the request to the correct builder state
-            if let Some(builder) = self
-                .global_state
-                .read_arc()
-                .await
-                .spawned_builder_states
-                .get(&key)
-            {
-                tracing::info!(
-                    "Got matching BlockBuilder for {:?}@{view_number}, sending get_available_blocks request",
-                    req_msg.requested_vid_commitment
-                );
-                if let Err(e) = builder
-                    .broadcast(MessageType::RequestMessage(req_msg.clone()))
-                    .await
-                {
-                    tracing::warn!(
-                        "Error {e} sending get_available_blocks request for parent {:?}@{view_number}",
-                        req_msg.requested_vid_commitment
-                    );
-                }
-                sent = true;
-            } else {
-                tracing::info!(
-                    "Failed to get matching BlockBuilder for {:?}@{view_number}, will try again",
-                    req_msg.requested_vid_commitment
-                );
-                async_sleep(check_duration).await
-            }
-        }
-
-        if !sent {
-            // broadcast the request to the best fallback builder state
-            if let Err(e) = self
-                .global_state
-                .read_arc()
-                .await
-                .get_channel_for_matching_builder_or_highest_view_buider(&(*for_parent, view_num))?
-                .broadcast(MessageType::RequestMessage(req_msg.clone()))
-                .await
-            {
-                tracing::warn!(
-                    "Error {e} sending get_available_blocks request for parent {:?}@{view_number}",
-                    req_msg.requested_vid_commitment
-                );
-            }
-        }
-
-        tracing::debug!(
-            "Waiting for response for get_available_blocks with parent {:?}@{view_number}",
-            req_msg.requested_vid_commitment
-        );
-
-        let response_received = loop {
-            match async_timeout(check_duration, response_receiver.recv()).await {
-                Err(toe) => {
-                    if Instant::now() >= timeout_after {
-                        tracing::warn!(%toe, "Couldn't get available blocks in time for parent {:?}@{view_number}",  req_msg.requested_vid_commitment);
-                        // lookup into the builder_state_to_last_built_block, if it contains the result, return that otherwise return error
-                        if let Some(last_built_block) = self
-                            .global_state
-                            .read_arc()
-                            .await
-                            .builder_state_to_last_built_block
-                            .get(&(*for_parent, view_num))
-                        {
-                            tracing::info!(
-                                "Returning last built block for parent {:?}@{view_number}",
-                                req_msg.requested_vid_commitment
-                            );
-                            break Ok(last_built_block.clone());
-                        }
-                        break Err(BuildError::Error {
-                            message: "No blocks available".to_string(),
-                        });
-                    }
-                    continue;
-                }
-                Ok(recv_attempt) => {
-                    if let Err(ref e) = recv_attempt {
-                        tracing::error!(%e, "Channel closed while getting available blocks for parent {:?}@{view_number}", req_msg.requested_vid_commitment);
-                    }
-                    break recv_attempt.map_err(|_| BuildError::Error {
-                        message: "channel unexpectedly closed".to_string(),
-                    });
-                }
-            }
-        };
-        // };
-
-        match response_received {
-            Ok(response) => {
-                let (pub_key, sign_key) = self.builder_keys.clone();
-                // sign over the block info
-                let signature_over_block_info =
-                    <TYPES as NodeType>::BuilderSignatureKey::sign_block_info(
-                        &sign_key,
-                        response.block_size,
-                        response.offered_fee,
-                        &response.builder_hash,
-                    )
-                    .map_err(|e| BuildError::Error {
-                        message: format!("Signing over block info failed: {:?}", e),
-                    })?;
-
-                // insert the block info into local hashmap
-                let initial_block_info = AvailableBlockInfo::<TYPES> {
-                    block_hash: response.builder_hash.clone(),
-                    block_size: response.block_size,
-                    offered_fee: response.offered_fee,
-                    signature: signature_over_block_info,
-                    sender: pub_key.clone(),
-                    _phantom: Default::default(),
-                };
-                tracing::info!(
-                    "Sending available Block info response for (parent {:?}, view_num: {:?}) with block hash: {:?}",
-                    req_msg.requested_vid_commitment,
-                    view_number,
-                    response.builder_hash
-                );
-                Ok(vec![initial_block_info])
-            }
-
-            // We failed to get available blocks
-            Err(e) => {
-                tracing::warn!(
-                    "Failed to get available blocks for parent {:?}@{view_number}",
-                    req_msg.requested_vid_commitment
-                );
-                Err(e)
-            }
-        }
-    }
-
-    async fn claim_block(
-        &self,
-        block_hash: &BuilderCommitment,
-        view_number: u64,
-        sender: TYPES::SignatureKey,
-        signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ) -> Result<AvailableBlockData<TYPES>, BuildError> {
-        tracing::info!(
-            "Received request for claiming block for (block_hash {:?}, view_num: {:?})",
-            block_hash,
-            view_number
-        );
-        // verify the signature
-        if !sender.validate(signature, block_hash.as_ref()) {
-            tracing::error!("Signature validation failed in claim block");
-            return Err(BuildError::Error {
-                message: "Signature validation failed in claim block".to_string(),
-            });
-        }
-        let (pub_key, sign_key) = self.builder_keys.clone();
-        let view_num = <<TYPES as NodeType>::Time as ConsensusTime>::new(view_number);
-
-        if let Some(block_info) = self
-            .global_state
-            .read_arc()
-            .await
-            .block_hash_to_block
-            .get(&(block_hash.clone(), view_num))
-        {
-            tracing::info!(
-                "Trying sending vid trigger info for {:?}@{:?}",
-                block_hash,
-                view_num
-            );
-
-            // sign over the builder commitment, as the proposer can computer it based on provide block_payload
-            // and the metata data
-            let response_block_hash = block_info
-                .block_payload
-                .builder_commitment(&block_info.metadata);
-            let signature_over_builder_commitment =
-                <TYPES as NodeType>::BuilderSignatureKey::sign_builder_message(
-                    &sign_key,
-                    response_block_hash.as_ref(),
-                )
-                .map_err(|e| BuildError::Error {
-                    message: format!("Signing over builder commitment failed: {:?}", e),
-                })?;
-
-            let signature_over_fee =
-                <TYPES as NodeType>::BuilderSignatureKey::sign_sequencing_fee_marketplace(
-                    &sign_key,
-                    block_info.offered_fee,
-                )
-                .map_err(|e| BuildError::Error {
-                    message: format!("Signing over sequencing fee failed: {:?}", e),
-                })?;
-
-            let block_data = AvailableBlockData::<TYPES> {
-                fee: block_info.offered_fee,
-                fee_signature: signature_over_fee,
-                block_payload: block_info.block_payload.clone(),
-                metadata: block_info.metadata.clone(),
-                signature: signature_over_builder_commitment,
-                sender: pub_key.clone(),
-            };
-            tracing::info!(
-                "Sending Claim Block data for (block_hash {:?}, view_num: {:?})",
-                block_hash,
-                view_number
-            );
-            Ok(block_data)
-        } else {
-            tracing::warn!("Claim Block not found");
-            Err(BuildError::Error {
-                message: "Block data not found".to_string(),
-            })
-        }
+        Ok(Bundle {
+            sequencing_fee: builder_fee,
+            transactions: vec![],
+            signature,
+        })
     }
 
     async fn builder_address(
@@ -650,6 +405,7 @@ where
         Ok(self.builder_keys.0.clone())
     }
 }
+
 #[async_trait]
 impl<TYPES: NodeType> AcceptsTxnSubmits<TYPES> for ProxyGlobalState<TYPES>
 where
@@ -793,7 +549,7 @@ Running Non-Permissioned Builder Service
 */
 pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Time = ViewNumber>>(
     // id of namespace to build for
-    namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
+    namespace_id: <TYPES::Transaction as BuilderTransaction>::NamespaceId,
 
     // Sending from the hotshot to the builder states.
     senders: BroadcastSenders<TYPES>,
@@ -891,6 +647,7 @@ where
                             view_number,
                             solver_api_url.clone(),
                             bid_base_url.clone(),
+                            namespace_id,
                             bid_config.clone(),
                         )
                         .await?
@@ -926,7 +683,7 @@ pub async fn run_permissioned_standalone_builder_service<
     I: NodeImplementation<TYPES>,
 >(
     // id of namespace to build for. None if building for all namespaces
-    namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
+    namespace_id: <TYPES::Transaction as BuilderTransaction>::NamespaceId,
 
     // Sending from the hotshot to the builder states.
     senders: BroadcastSenders<TYPES>,
@@ -1015,6 +772,7 @@ where
                             view_number,
                             solver_api_url.clone(),
                             bid_base_url.clone(),
+                            namespace_id,
                             bid_config.clone(),
                         )
                         .await?
@@ -1037,7 +795,7 @@ async fn handle_da_event<TYPES: NodeType>(
     sender: <TYPES as NodeType>::SignatureKey,
     leader: <TYPES as NodeType>::SignatureKey,
     total_nodes: NonZeroUsize,
-    namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
+    namespace_id: <TYPES::Transaction as BuilderTransaction>::NamespaceId,
 ) where
     TYPES::Transaction: BuilderTransaction,
 {
@@ -1065,20 +823,11 @@ async fn handle_da_event<TYPES: NodeType>(
         // get the builder commitment from the block payload
         let builder_commitment = block_payload.builder_commitment(&da_proposal.data.metadata);
 
-        let txn_commitments = match namespace_id {
-            Some(namespace_id) => {
-                // we don't need to keep transactions from other namespaces
-                block_payload
-                    .transactions(&da_proposal.data.metadata)
-                    .filter(|txn| txn.namespace_id() != namespace_id)
-                    .map(|txn| txn.commit())
-                    .collect()
-            }
-            None => block_payload
-                .transactions(&da_proposal.data.metadata)
-                .map(|txn| txn.commit())
-                .collect(),
-        };
+        let txn_commitments = block_payload
+            .transactions(&da_proposal.data.metadata)
+            .filter(|txn| txn.namespace_id() != namespace_id)
+            .map(|txn| txn.commit())
+            .collect();
 
         let da_msg = DaProposalMessage {
             view_number,
@@ -1171,14 +920,12 @@ pub(crate) async fn handle_received_txns<TYPES: NodeType>(
     tx_sender: &BroadcastSender<Arc<ReceivedTransaction<TYPES>>>,
     mut txns: Vec<TYPES::Transaction>,
     source: TransactionSource,
-    namespace_id: Option<<TYPES::Transaction as BuilderTransaction>::NamespaceId>,
+    namespace_id: <TYPES::Transaction as BuilderTransaction>::NamespaceId,
 ) -> Result<Vec<Commitment<<TYPES as NodeType>::Transaction>>, BuildError>
 where
     TYPES::Transaction: BuilderTransaction,
 {
-    if let Some(namespace_id) = namespace_id {
-        txns.retain(|txn| txn.namespace_id() == namespace_id);
-    }
+    txns.retain(|txn| txn.namespace_id() == namespace_id);
     let mut results = Vec::with_capacity(txns.len());
     let time_in = Instant::now();
     for tx in txns.into_iter() {
@@ -1203,13 +950,14 @@ pub(crate) async fn handle_view_finished<TYPES: NodeType<Time = ViewNumber>>(
     view_number: TYPES::Time,
     solver_api_url: Url,
     bid_base_url: Url,
+    namespace: <TYPES::Transaction as BuilderTransaction>::NamespaceId,
     bid_config: BidConfig,
 ) -> Result<(), BuildError>
 where
     TYPES::Transaction: BuilderTransaction,
 {
     // We submit a bid three views in advance.
-    let bid_tx = from_bid_config(bid_config, view_number + 3, bid_base_url)?;
+    let bid_tx = from_bid_config(bid_config, view_number + 3, bid_base_url, namespace.into())?;
 
     let solver_client = match connect_to_solver_service::<TYPES>(solver_api_url).await {
         Some(client) => client,
