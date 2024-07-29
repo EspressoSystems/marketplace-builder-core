@@ -19,9 +19,9 @@ use url::Url;
 /// See `bid-config.rs` for an example.
 #[derive(Clone, Debug, Deserialize)]
 pub struct BidConfig {
-    account_seed: [u8; 32],
-    account_index: u64,
-    bid_amount: U256,
+    pub account_seed: [u8; 32],
+    pub account_index: u64,
+    pub bid_amount: U256,
 }
 
 /// Read the bid configuration file.
