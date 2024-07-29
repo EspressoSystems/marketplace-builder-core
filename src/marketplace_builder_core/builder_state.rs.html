@@ -809,27 +809,6 @@
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
 <a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
-<a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
-<a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
-<a href="#824" id="824">824</a>
-<a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a>
-<a href="#827" id="827">827</a>
-<a href="#828" id="828">828</a>
-<a href="#829" id="829">829</a>
-<a href="#830" id="830">830</a>
-<a href="#831" id="831">831</a>
-<a href="#832" id="832">832</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     data::{Leaf, QuorumProposal},
     message::Proposal,
@@ -844,7 +823,7 @@
 
 <span class="kw">use </span>committable::{Commitment, Committable};
 
-<span class="kw">use </span><span class="kw">crate</span>::service::{BuilderTransaction, GlobalState, ReceivedTransaction};
+<span class="kw">use </span><span class="kw">crate</span>::service::{GlobalState, ReceivedTransaction};
 <span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>async_broadcast::Receiver <span class="kw">as </span>BroadcastReceiver;
 <span class="kw">use </span>async_broadcast::Sender <span class="kw">as </span>BroadcastSender;
@@ -943,13 +922,7 @@
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>BuilderState&lt;TYPES: NodeType&gt;
-<span class="kw">where
-    </span>TYPES::Transaction: BuilderTransaction,
-{
-    <span class="doccomment">/// Namespace we're building for. None if filtering transactions is disabled
-    </span><span class="kw">pub </span>namespace_id: &lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId,
-
+</span><span class="kw">pub struct </span>BuilderState&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Recent included txs set while building blocks
     </span><span class="kw">pub </span>included_txns: HashSet&lt;Commitment&lt;TYPES::Transaction&gt;&gt;,
 
@@ -1025,10 +998,7 @@
 
 <span class="doccomment">/// Trait to hold the helper functions for the builder
 </span><span class="attr">#[async_trait]
-</span><span class="kw">pub trait </span>BuilderProgress&lt;TYPES: NodeType&gt;
-<span class="kw">where
-    </span>TYPES::Transaction: BuilderTransaction,
-{
+</span><span class="kw">pub trait </span>BuilderProgress&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// process the DA proposal
     </span><span class="kw">async fn </span>process_da_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, da_msg: Arc&lt;DaProposalMessage&lt;TYPES&gt;&gt;);
     <span class="doccomment">/// process the quorum proposal
@@ -1060,10 +1030,7 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderProgress&lt;TYPES&gt; <span class="kw">for </span>BuilderState&lt;TYPES&gt;
-<span class="kw">where
-    </span>TYPES::Transaction: BuilderTransaction,
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderProgress&lt;TYPES&gt; <span class="kw">for </span>BuilderState&lt;TYPES&gt; {
     <span class="doccomment">/// processing the DA proposal
     </span><span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"process da proposal"</span>,
                                     fields(builder_built_from_proposed_block = %<span class="self">self</span>.built_from_proposed_block))]
@@ -1526,10 +1493,7 @@
 }
 <span class="doccomment">/// Unifies the possible messages that can be received by the builder
 </span><span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub enum </span>MessageType&lt;TYPES: NodeType&gt;
-<span class="kw">where
-    </span>TYPES::Transaction: BuilderTransaction,
-{
+</span><span class="kw">pub enum </span>MessageType&lt;TYPES: NodeType&gt; {
     DecideMessage(DecideMessage&lt;TYPES&gt;),
     DaProposalMessage(Arc&lt;DaProposalMessage&lt;TYPES&gt;&gt;),
     QCMessage(QCMessage&lt;TYPES&gt;),
@@ -1537,10 +1501,7 @@
 }
 
 <span class="attr">#[allow(clippy::too_many_arguments)]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderState&lt;TYPES&gt;
-<span class="kw">where
-    </span>TYPES::Transaction: BuilderTransaction,
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderState&lt;TYPES&gt; {
     <span class="kw">pub fn </span>new(
         built_from_proposed_block: BuiltFromProposedBlock&lt;TYPES&gt;,
         decide_receiver: BroadcastReceiver&lt;MessageType&lt;TYPES&gt;&gt;,
@@ -1550,7 +1511,6 @@
         tx_receiver: BroadcastReceiver&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
         tx_queue: Vec&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
         global_state: Arc&lt;RwLock&lt;GlobalState&lt;TYPES&gt;&gt;&gt;,
-        namespace_id: &lt;TYPES::Transaction <span class="kw">as </span>BuilderTransaction&gt;::NamespaceId,
         num_nodes: NonZeroUsize,
         maximize_txn_capture_timeout: Duration,
         base_fee: u64,
@@ -1560,7 +1520,6 @@
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>txns_in_queue: HashSet&lt;<span class="kw">_</span>&gt; = tx_queue.iter().map(|tx| tx.commit).collect();
         BuilderState {
-            namespace_id,
             included_txns: HashSet::new(),
             included_txns_old: HashSet::new(),
             included_txns_expiring: HashSet::new(),
@@ -1609,7 +1568,6 @@
         };
 
         BuilderState {
-            namespace_id: <span class="self">self</span>.namespace_id,
             included_txns,
             included_txns_old,
             included_txns_expiring,
