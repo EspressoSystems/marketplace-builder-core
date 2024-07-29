@@ -39,8 +39,8 @@ mod tests {
         BuiltFromProposedBlock, DaProposalMessage, DecideMessage, QCMessage, RequestMessage,
         TransactionSource,
     };
-    use crate::service::{handle_received_txns, GlobalState, ReceivedTransaction};
-    use crate::BuilderStateId;
+    use crate::service::{broadcast_channels, handle_received_txns, GlobalState};
+    use crate::utils::BuilderStateId;
     use async_lock::RwLock;
     use async_std::task;
     use committable::{Commitment, CommitmentBoundsArkless, Committable};
@@ -94,17 +94,10 @@ mod tests {
         const TEST_NUM_NODES_IN_VID_COMPUTATION: usize = 4;
 
         // settingup the broadcast channels i.e [From hostshot: (tx, decide, da, qc, )], [From api:(req - broadcast, res - mpsc channel) ]
-        let (decide_sender, decide_receiver) =
-            broadcast::<MessageType<TestTypes>>(num_test_messages * multiplication_factor);
-        let (da_sender, da_receiver) =
-            broadcast::<MessageType<TestTypes>>(num_test_messages * multiplication_factor);
-        let (qc_sender, qc_receiver) =
-            broadcast::<MessageType<TestTypes>>(num_test_messages * multiplication_factor);
         let (bootstrap_sender, bootstrap_receiver) =
             broadcast::<MessageType<TestTypes>>(num_test_messages * multiplication_factor);
-        let (tx_sender, tx_receiver) = broadcast::<Arc<ReceivedTransaction<TestTypes>>>(
-            num_test_messages * multiplication_factor,
-        );
+        let (senders, receivers) = broadcast_channels(num_test_messages * multiplication_factor);
+
         let tx_queue = Vec::new();
         // generate the keys for the buidler
         let seed = [201_u8; 32];
@@ -113,7 +106,7 @@ mod tests {
         // instantiate the global state also
         let global_state = GlobalState::<TestTypes>::new(
             bootstrap_sender,
-            tx_sender.clone(),
+            senders.transactions.clone(),
             vid_commitment(&[], 8),
             ViewNumber::new(0),
             ViewNumber::new(0),
@@ -133,6 +126,32 @@ mod tests {
         // storing response messages
         let mut rres_msgs: Vec<ResponseMessage> = Vec::new();
         let _validated_state = Arc::new(TestValidatedState::default());
+
+        let arc_rwlock_global_state = Arc::new(RwLock::new(global_state));
+        let arc_rwlock_global_state_clone = arc_rwlock_global_state.clone();
+        let handle = async_spawn(async move {
+            let built_from_info = BuiltFromProposedBlock {
+                view_number: ViewNumber::new(0),
+                vid_commitment: vid_commitment(&[], 8),
+                leaf_commit: Commitment::<Leaf<TestTypes>>::default_commitment_no_preimage(),
+                builder_commitment: BuilderCommitment::from_bytes([]),
+            };
+            let builder_state = BuilderState::<TestTypes>::new(
+                built_from_info,
+                &receivers,
+                bootstrap_receiver,
+                tx_queue,
+                arc_rwlock_global_state_clone,
+                NonZeroUsize::new(TEST_NUM_NODES_IN_VID_COMPUTATION).unwrap(),
+                Duration::from_millis(10), // max time to wait for non-zero txn block
+                0,                         // base fee
+                Arc::new(TestInstanceState {}),
+                Duration::from_secs(3600), // duration for txn garbage collection
+                Arc::new(TestValidatedState::default()),
+            );
+
+            builder_state.event_loop();
+        });
 
         // generate num_test messages for each type and send it to the respective channels;
         for i in 0..num_test_messages as u32 {
@@ -263,7 +282,6 @@ mod tests {
             };
 
             // Prepare the decide message
-            // let qc = QuorumCertificate::<TestTypes>::genesis();
             let leaf = match i {
                 0 => Leaf::genesis(&TestValidatedState::default(), &TestInstanceState {}).await,
                 _ => {
@@ -288,16 +306,22 @@ mod tests {
             // validate the signature before pushing the message to the builder_state channels
             // currently this step happens in the service.rs, wheneve we receiver an hotshot event
             tracing::debug!("Sending transaction message: {:?}", tx);
-            for res in
-                handle_received_txns(&tx_sender, vec![tx.clone()], TransactionSource::HotShot).await
+            for res in handle_received_txns(
+                &senders.transactions,
+                vec![tx.clone()],
+                TransactionSource::HotShot,
+            )
+            .await
             {
                 res.unwrap();
             }
-            da_sender
+            senders
+                .da_proposal
                 .broadcast(MessageType::DaProposalMessage(Arc::clone(&sda_msg)))
                 .await
                 .unwrap();
-            qc_sender
+            senders
+                .qc_proposal
                 .broadcast(MessageType::QCMessage(sqc_msg.clone()))
                 .await
                 .unwrap();
@@ -325,37 +349,9 @@ mod tests {
             ));
         }
 
-        //let global_state_clone = arc_rwlock_global_state.clone();
-        let arc_rwlock_global_state = Arc::new(RwLock::new(global_state));
-        let arc_rwlock_global_state_clone = arc_rwlock_global_state.clone();
-        let handle = async_spawn(async move {
-            let built_from_info = BuiltFromProposedBlock {
-                view_number: ViewNumber::new(0),
-                vid_commitment: vid_commitment(&[], 8),
-                leaf_commit: Commitment::<Leaf<TestTypes>>::default_commitment_no_preimage(),
-                builder_commitment: BuilderCommitment::from_bytes([]),
-            };
-            let builder_state = BuilderState::<TestTypes>::new(
-                built_from_info,
-                decide_receiver,
-                da_receiver,
-                qc_receiver,
-                bootstrap_receiver,
-                tx_receiver,
-                tx_queue,
-                arc_rwlock_global_state_clone,
-                NonZeroUsize::new(TEST_NUM_NODES_IN_VID_COMPUTATION).unwrap(),
-                Duration::from_millis(10), // max time to wait for non-zero txn block
-                0,                         // base fee
-                Arc::new(TestInstanceState {}),
-                Duration::from_secs(3600), // duration for txn garbage collection
-                Arc::new(TestValidatedState::default()),
-            );
-
-            //builder_state.event_loop().await;
-            builder_state.event_loop();
-        });
-
+        #[cfg(async_executor_impl = "tokio")]
+        handle.await.unwrap();
+        #[cfg(async_executor_impl = "async-std")]
         handle.await;
 
         // go through the request messages in sreq_msgs and send the request message
@@ -375,7 +371,8 @@ mod tests {
         // go through the decide messages in s_decide_msgs and send the request message
         for decide_msg in sdecide_msgs.iter() {
             task::sleep(std::time::Duration::from_millis(100)).await;
-            decide_sender
+            senders
+                .decide
                 .broadcast(MessageType::DecideMessage(decide_msg.clone()))
                 .await
                 .unwrap();

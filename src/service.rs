@@ -33,11 +33,11 @@ use crate::{
         BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, ResponseMessage,
         TransactionSource,
     },
-    BlockId, BuilderStateId,
+    utils::{BlockId, BuilderStateId},
 };
 use anyhow::anyhow;
 pub use async_broadcast::{broadcast, RecvError, TryRecvError};
-use async_broadcast::{Sender as BroadcastSender, TrySendError};
+use async_broadcast::{InactiveReceiver, Sender as BroadcastSender, TrySendError};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::{Commitment, Committable};
@@ -117,9 +117,6 @@ pub struct GlobalState<TYPES: NodeType> {
     // builder state -> last built block , it is used to respond the client
     // if the req channel times out during get_available_blocks
     pub builder_state_to_last_built_block: HashMap<BuilderStateId<TYPES>, ResponseMessage>,
-
-    // // scheduled GC by view number
-    // pub view_to_cleanup_targets: BTreeMap<TYPES::Time, BuilderStatesInfo<TYPES>>,
 
     // sending a transaction from the hotshot/private mempool to the builder states
     // NOTE: Currently, we don't differentiate between the transactions from the hotshot and the private mempool
@@ -389,6 +386,49 @@ impl<TYPES: NodeType> ReadState for ProxyGlobalState<TYPES> {
     }
 }
 
+pub fn broadcast_channels<TYPES: NodeType>(
+    capacity: usize,
+) -> (BroadcastSenders<TYPES>, BroadcastReceivers<TYPES>) {
+    macro_rules! pair {
+        ($s:ident, $r:ident) => {
+            let ($s, $r) = broadcast(capacity);
+            let $r = $r.deactivate();
+        };
+    }
+
+    pair!(tx_sender, tx_receiver);
+    pair!(da_sender, da_receiver);
+    pair!(qc_sender, qc_receiver);
+    pair!(decide_sender, decide_receiver);
+
+    (
+        BroadcastSenders {
+            transactions: tx_sender,
+            da_proposal: da_sender,
+            qc_proposal: qc_sender,
+            decide: decide_sender,
+        },
+        BroadcastReceivers {
+            transactions: tx_receiver,
+            da_proposal: da_receiver,
+            quorum_proposal: qc_receiver,
+            decide: decide_receiver,
+        },
+    )
+}
+
+// Receivers for HotShot events for the builder states
+pub struct BroadcastReceivers<TYPES: NodeType> {
+    /// For transactions, shared.
+    pub transactions: InactiveReceiver<Arc<ReceivedTransaction<TYPES>>>,
+    /// For the DA proposal.
+    pub da_proposal: InactiveReceiver<MessageType<TYPES>>,
+    /// For the quorum proposal.
+    pub quorum_proposal: InactiveReceiver<MessageType<TYPES>>,
+    /// For the decide.
+    pub decide: InactiveReceiver<MessageType<TYPES>>,
+}
+
 // Senders to broadcast data from HotShot to the builder states.
 pub struct BroadcastSenders<TYPES: NodeType> {
     /// For transactions, shared.
@@ -396,7 +436,7 @@ pub struct BroadcastSenders<TYPES: NodeType> {
     /// For the DA proposal.
     pub da_proposal: BroadcastSender<MessageType<TYPES>>,
     /// For the quorum proposal.
-    pub quorum_proposal: BroadcastSender<MessageType<TYPES>>,
+    pub qc_proposal: BroadcastSender<MessageType<TYPES>>,
     /// For the decide.
     pub decide: BroadcastSender<MessageType<TYPES>>,
 }
@@ -555,13 +595,8 @@ pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Tim
                     EventType::QuorumProposal { proposal, sender } => {
                         // get the leader for current view
                         let leader = membership.leader(proposal.data.view_number);
-                        handle_qc_event(
-                            &senders.quorum_proposal,
-                            Arc::new(proposal),
-                            sender,
-                            leader,
-                        )
-                        .await;
+                        handle_qc_event(&senders.qc_proposal, Arc::new(proposal), sender, leader)
+                            .await;
                     }
                     _ => {
                         tracing::trace!("Unhandled event from Builder: {:?}", event.event);
@@ -658,13 +693,8 @@ pub async fn run_permissioned_standalone_builder_service<
                     EventType::QuorumProposal { proposal, sender } => {
                         // get the leader for current view
                         let leader = hotshot_handle.leader(proposal.data.view_number).await;
-                        handle_qc_event(
-                            &senders.quorum_proposal,
-                            Arc::new(proposal),
-                            sender,
-                            leader,
-                        )
-                        .await;
+                        handle_qc_event(&senders.qc_proposal, Arc::new(proposal), sender, leader)
+                            .await;
                     }
                     _ => {
                         tracing::trace!("Unhandled event from Builder: {:?}", event.event);
