@@ -27,13 +27,16 @@ use tracing::error;
 
 use std::{fmt::Debug, marker::PhantomData};
 
-use crate::builder_state::{
-    BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, ResponseMessage,
-    TransactionSource,
+use crate::{
+    builder_state::{
+        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, ResponseMessage,
+        TransactionSource,
+    },
+    BlockId, BuilderStateId,
 };
 use anyhow::anyhow;
-use async_broadcast::Sender as BroadcastSender;
 pub use async_broadcast::{broadcast, RecvError, TryRecvError};
+use async_broadcast::{Sender as BroadcastSender, TrySendError};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::{Commitment, Committable};
@@ -105,15 +108,14 @@ pub struct ReceivedTransaction<TYPES: NodeType> {
 #[derive(Debug)]
 pub struct GlobalState<TYPES: NodeType> {
     // data store for the blocks
-    pub block_hash_to_block: HashMap<(BuilderCommitment, TYPES::Time), BlockInfo<TYPES>>,
+    pub blocks: lru::LruCache<BlockId<TYPES>, BlockInfo<TYPES>>,
 
     // registered builder states
-    pub spawned_builder_states:
-        HashMap<(VidCommitment, TYPES::Time), BroadcastSender<MessageType<TYPES>>>,
+    pub spawned_builder_states: HashMap<BuilderStateId<TYPES>, BroadcastSender<MessageType<TYPES>>>,
 
     // builder state -> last built block , it is used to respond the client
     // if the req channel times out during get_available_blocks
-    pub builder_state_to_last_built_block: HashMap<(VidCommitment, TYPES::Time), ResponseMessage>,
+    pub builder_state_to_last_built_block: HashMap<BuilderStateId<TYPES>, ResponseMessage>,
 
     // // scheduled GC by view number
     // pub view_to_cleanup_targets: BTreeMap<TYPES::Time, BuilderStatesInfo<TYPES>>,
@@ -126,7 +128,7 @@ pub struct GlobalState<TYPES: NodeType> {
     pub last_garbage_collected_view_num: TYPES::Time,
 
     // highest view running builder task
-    pub highest_view_num_builder_id: (VidCommitment, TYPES::Time),
+    pub highest_view_num_builder_id: BuilderStateId<TYPES>,
 }
 
 impl<TYPES: NodeType> GlobalState<TYPES> {
@@ -140,76 +142,73 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
         _buffer_view_num_count: u64,
     ) -> Self {
         let mut spawned_builder_states = HashMap::new();
-        spawned_builder_states.insert(
-            (bootstrapped_builder_state_id, bootstrapped_view_num),
-            bootstrap_sender.clone(),
-        );
+        let bootstrap_id = BuilderStateId {
+            parent_commitment: bootstrapped_builder_state_id,
+            view: bootstrapped_view_num,
+        };
+        spawned_builder_states.insert(bootstrap_id.clone(), bootstrap_sender.clone());
         GlobalState {
-            block_hash_to_block: Default::default(),
+            blocks: lru::LruCache::new(NonZeroUsize::new(256).unwrap()),
             spawned_builder_states,
             tx_sender,
             last_garbage_collected_view_num,
             builder_state_to_last_built_block: Default::default(),
-            highest_view_num_builder_id: (bootstrapped_builder_state_id, bootstrapped_view_num),
+            highest_view_num_builder_id: bootstrap_id,
         }
     }
 
     pub fn register_builder_state(
         &mut self,
-        vid_commmit: VidCommitment,
-        view_num: TYPES::Time,
+        parent_id: BuilderStateId<TYPES>,
         request_sender: BroadcastSender<MessageType<TYPES>>,
     ) {
         // register the builder state
         self.spawned_builder_states
-            .insert((vid_commmit, view_num), request_sender);
+            .insert(parent_id.clone(), request_sender);
 
         // keep track of the max view number
-        if view_num > self.highest_view_num_builder_id.1 {
-            tracing::info!(
-                "registering builder {:?}@{:?} as highest",
-                vid_commmit,
-                view_num
-            );
-            self.highest_view_num_builder_id = (vid_commmit, view_num);
+        if parent_id.view > self.highest_view_num_builder_id.view {
+            tracing::info!("registering builder {parent_id} as highest",);
+            self.highest_view_num_builder_id = parent_id;
         } else {
             tracing::warn!(
-                "builder {:?}@{:?} created; highest registered is {:?}@{:?}",
-                vid_commmit,
-                view_num,
-                self.highest_view_num_builder_id.0,
-                self.highest_view_num_builder_id.1
+                "builder {parent_id} created; highest registered is {}",
+                self.highest_view_num_builder_id,
             );
         }
     }
 
     pub fn update_global_state(
         &mut self,
+        state_id: BuilderStateId<TYPES>,
         build_block_info: BuildBlockInfo<TYPES>,
-        builder_vid_commitment: VidCommitment,
-        view_num: TYPES::Time,
         response_msg: ResponseMessage,
     ) {
-        self.block_hash_to_block
-            .entry((build_block_info.builder_hash, view_num))
-            .or_insert_with(|| BlockInfo {
-                block_payload: build_block_info.block_payload,
-                metadata: build_block_info.metadata,
-                offered_fee: build_block_info.offered_fee,
-            });
+        if self.blocks.contains(&build_block_info.id) {
+            self.blocks.promote(&build_block_info.id)
+        } else {
+            self.blocks.push(
+                build_block_info.id,
+                BlockInfo {
+                    block_payload: build_block_info.block_payload,
+                    metadata: build_block_info.metadata,
+                    offered_fee: build_block_info.offered_fee,
+                },
+            );
+        }
 
         // update the builder state to last built block
         self.builder_state_to_last_built_block
-            .insert((builder_vid_commitment, view_num), response_msg);
+            .insert(state_id, response_msg);
     }
 
     // remove the builder state handles based on the decide event
     pub fn remove_handles(&mut self, on_decide_view: TYPES::Time) -> TYPES::Time {
         // remove everything from the spawned builder states when view_num <= on_decide_view;
         // if we don't have a highest view > decide, use highest view as cutoff.
-        let cutoff = std::cmp::min(self.highest_view_num_builder_id.1, on_decide_view);
+        let cutoff = std::cmp::min(self.highest_view_num_builder_id.view, on_decide_view);
         self.spawned_builder_states
-            .retain(|(_vid, view_num), _channel| *view_num >= cutoff);
+            .retain(|id, _| id.view >= cutoff);
 
         let cutoff_u64 = cutoff.u64();
         let gc_view = if cutoff_u64 > 0 { cutoff_u64 - 1 } else { 0 };
@@ -224,24 +223,22 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
     pub async fn submit_client_txns(
         &self,
         txns: Vec<<TYPES as NodeType>::Transaction>,
-    ) -> Result<Vec<Commitment<<TYPES as NodeType>::Transaction>>, BuildError> {
+    ) -> Vec<Result<Commitment<<TYPES as NodeType>::Transaction>, BuildError>> {
         handle_received_txns(&self.tx_sender, txns, TransactionSource::External).await
     }
 
     pub fn get_channel_for_matching_builder_or_highest_view_buider(
         &self,
-        key: &(VidCommitment, TYPES::Time),
+        key: &BuilderStateId<TYPES>,
     ) -> Result<&BroadcastSender<MessageType<TYPES>>, BuildError> {
         if let Some(channel) = self.spawned_builder_states.get(key) {
-            tracing::info!("Got matching builder for parent {:?}@{:?}", key.0, key.1);
+            tracing::info!("Got matching builder for parent {}", key);
             Ok(channel)
         } else {
             tracing::warn!(
-                "failed to recover builder for parent {:?}@{:?}, using higest view num builder with {:?}@{:?}",
-                key.0,
-                key.1,
-                self.highest_view_num_builder_id.0,
-                self.highest_view_num_builder_id.1
+                "failed to recover builder for parent {}, using higest view num builder with {}",
+                key,
+                self.highest_view_num_builder_id,
             );
             // get the sender for the highest view number builder
             self.spawned_builder_states
@@ -257,7 +254,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
         // iterate over the spawned builder states and check if the view number exists
         self.spawned_builder_states
             .iter()
-            .any(|((_vid, view_num), _sender)| view_num == key)
+            .any(|(id, _)| id.view == *key)
     }
 
     pub fn should_view_handle_other_proposals(
@@ -265,7 +262,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
         builder_view: &TYPES::Time,
         proposal_view: &TYPES::Time,
     ) -> bool {
-        *builder_view == self.highest_view_num_builder_id.1
+        *builder_view == self.highest_view_num_builder_id.view
             && !self.check_builder_state_existence_for_a_view(proposal_view)
     }
 }
@@ -373,7 +370,10 @@ impl<TYPES: NodeType> AcceptsTxnSubmits<TYPES> for ProxyGlobalState<TYPES> {
             response
         );
 
-        response
+        // NOTE: ideally we want to respond with original Vec<Result>
+        // instead of Result<Vec> not to loose any information,
+        //  but this requires changes to builder API
+        response.into_iter().collect()
     }
 }
 #[async_trait]
@@ -512,14 +512,16 @@ pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Tim
                     EventType::Transactions { transactions } => {
                         let transactions = hooks.process_transactions(transactions).await;
 
-                        if let Err(e) = handle_received_txns(
+                        for res in handle_received_txns(
                             &senders.transactions,
                             transactions,
                             TransactionSource::HotShot,
                         )
                         .await
                         {
-                            tracing::warn!("Failed to handle transactions; {:?}", e);
+                            if let Err(e) = res {
+                                tracing::warn!("Failed to handle transactions; {:?}", e);
+                            }
                         }
                     }
                     // decide event
@@ -616,14 +618,16 @@ pub async fn run_permissioned_standalone_builder_service<
                     EventType::Transactions { transactions } => {
                         let transactions = hooks.process_transactions(transactions).await;
 
-                        if let Err(e) = handle_received_txns(
+                        for res in handle_received_txns(
                             &senders.transactions,
                             transactions,
                             TransactionSource::HotShot,
                         )
                         .await
                         {
-                            tracing::warn!("Failed to handle transactions; {:?}", e);
+                            if let Err(e) = res {
+                                tracing::warn!("Failed to handle transactions; {:?}", e);
+                            }
                         }
                     }
                     // decide event
@@ -797,25 +801,39 @@ pub(crate) async fn handle_received_txns<TYPES: NodeType>(
     tx_sender: &BroadcastSender<Arc<ReceivedTransaction<TYPES>>>,
     txns: Vec<TYPES::Transaction>,
     source: TransactionSource,
-) -> Result<Vec<Commitment<<TYPES as NodeType>::Transaction>>, BuildError> {
+) -> Vec<Result<Commitment<<TYPES as NodeType>::Transaction>, BuildError>> {
     let mut results = Vec::with_capacity(txns.len());
     let time_in = Instant::now();
     for tx in txns.into_iter() {
         let commit = tx.commit();
-        results.push(commit);
         let res = tx_sender
-            .broadcast(Arc::new(ReceivedTransaction {
+            .try_broadcast(Arc::new(ReceivedTransaction {
                 tx,
                 source: source.clone(),
                 commit,
                 time_in,
             }))
-            .await;
-        if res.is_err() {
-            return Err(BuildError::Error {
-                message: format!("Failed to broadcast txn with commit {:?}", commit),
+            .inspect(|val| {
+                if let Some(evicted_txn) = val {
+                    tracing::warn!(
+                        "Overflow mode enabled, transaction {} evicted",
+                        evicted_txn.commit
+                    );
+                }
+            })
+            .map(|_| commit)
+            .inspect_err(|err| {
+                tracing::warn!("Failed to broadcast txn with commit {:?}: {}", commit, err);
+            })
+            .map_err(|err| match err {
+                TrySendError::Full(_) => BuildError::Error {
+                    message: "Too many transactions".to_owned(),
+                },
+                e => BuildError::Error {
+                    message: format!("Internal error when submitting transaction: {}", e),
+                },
             });
-        }
+        results.push(res);
     }
-    Ok(results)
+    results
 }

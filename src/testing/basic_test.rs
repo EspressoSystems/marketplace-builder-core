@@ -10,7 +10,7 @@ pub use hotshot_types::{
     },
 };
 
-pub use crate::builder_state::{BuilderProgress, BuilderState, MessageType, ResponseMessage};
+pub use crate::builder_state::{BuilderState, MessageType, ResponseMessage};
 pub use async_broadcast::{
     broadcast, Receiver as BroadcastReceiver, RecvError, Sender as BroadcastSender, TryRecvError,
 };
@@ -28,7 +28,6 @@ mod tests {
         simple_vote::QuorumData,
         traits::block_contents::{vid_commitment, BlockHeader},
         utils::BuilderCommitment,
-        vid::VidCommitment,
     };
 
     use hotshot_example_types::{
@@ -41,6 +40,7 @@ mod tests {
         TransactionSource,
     };
     use crate::service::{handle_received_txns, GlobalState, ReceivedTransaction};
+    use crate::BuilderStateId;
     use async_lock::RwLock;
     use async_std::task;
     use committable::{Commitment, CommitmentBoundsArkless, Committable};
@@ -127,7 +127,7 @@ mod tests {
         #[allow(clippy::type_complexity)]
         let mut sreq_msgs: Vec<(
             UnboundedReceiver<ResponseMessage>,
-            (VidCommitment, ViewNumber),
+            BuilderStateId<TestTypes>,
             MessageType<TestTypes>,
         )> = Vec::new();
         // storing response messages
@@ -288,9 +288,11 @@ mod tests {
             // validate the signature before pushing the message to the builder_state channels
             // currently this step happens in the service.rs, wheneve we receiver an hotshot event
             tracing::debug!("Sending transaction message: {:?}", tx);
-            handle_received_txns(&tx_sender, vec![tx.clone()], TransactionSource::HotShot)
-                .await
-                .unwrap();
+            for res in
+                handle_received_txns(&tx_sender, vec![tx.clone()], TransactionSource::HotShot).await
+            {
+                res.unwrap();
+            }
             da_sender
                 .broadcast(MessageType::DaProposalMessage(Arc::clone(&sda_msg)))
                 .await
@@ -306,7 +308,7 @@ mod tests {
 
             let (response_sender, response_receiver) = unbounded();
             let request_message = MessageType::<TestTypes>::RequestMessage(RequestMessage {
-                requested_view_number: i as u64,
+                requested_view_number: ViewNumber::new(i as u64),
                 response_channel: response_sender,
             });
 
@@ -315,7 +317,10 @@ mod tests {
             sqc_msgs.push(sqc_msg);
             sreq_msgs.push((
                 response_receiver,
-                (requested_vid_commitment, ViewNumber::new(i as u64)),
+                BuilderStateId {
+                    parent_commitment: requested_vid_commitment,
+                    view: ViewNumber::new(i as u64),
+                },
                 request_message,
             ));
         }
