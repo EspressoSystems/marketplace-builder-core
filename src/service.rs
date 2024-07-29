@@ -27,12 +27,9 @@ use tracing::error;
 
 use std::{fmt::Debug, marker::PhantomData};
 
-use crate::{
-    bid::{from_bid_config, BidConfig},
-    builder_state::{
-        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, ResponseMessage,
-        TransactionSource,
-    },
+use crate::builder_state::{
+    BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, ResponseMessage,
+    TransactionSource,
 };
 use anyhow::anyhow;
 use async_broadcast::Sender as BroadcastSender;
@@ -414,7 +411,7 @@ async fn connect_to_events_service<TYPES: NodeType>(
     >,
     GeneralStaticCommittee<TYPES, <TYPES as NodeType>::SignatureKey>,
 )> {
-    let client = surf_disco::Client::<hotshot_events_service::events::Error, TYPES::Base>::new(
+    let client = Client::<hotshot_events_service::events::Error, TYPES::Base>::new(
         hotshot_events_api_url.clone(),
     );
 
@@ -460,22 +457,6 @@ async fn connect_to_events_service<TYPES: NodeType>(
     membership.map(|membership| (subscribed_events, membership))
 }
 
-async fn connect_to_solver_service<TYPES: NodeType>(
-    solver_api_url: Url,
-) -> Option<Client<hotshot_events_service::events::Error, TYPES::Base>> {
-    let client = surf_disco::Client::<hotshot_events_service::events::Error, TYPES::Base>::new(
-        solver_api_url.clone(),
-    );
-
-    if !(client.connect(None).await) {
-        return None;
-    }
-
-    tracing::info!("Builder client connected to the solver api");
-
-    Some(client)
-}
-
 #[async_trait]
 pub trait BuilderHooks<TYPES: NodeType>: Sync + Send {
     #[inline(always)]
@@ -485,6 +466,9 @@ pub trait BuilderHooks<TYPES: NodeType>: Sync + Send {
     ) -> Vec<TYPES::Transaction> {
         transactions
     }
+
+    #[inline(always)]
+    async fn handle_hotshot_event(&mut self, _event: &Event<TYPES>) {}
 }
 
 pub struct NoHooks<TYPES: NodeType>(pub PhantomData<TYPES>);
@@ -502,19 +486,6 @@ pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Tim
 
     // Url to (re)connect to for the events stream
     hotshot_events_api_url: Url,
-
-    // URL to submit the bid.
-    solver_api_url: Url,
-
-    // Base URL to get the bid.
-    //
-    // Forms a bid ULR with appended view number and "bundle".
-    bid_base_url: Url,
-
-    // Bid configuration.
-    bid_config: BidConfig,
-
-    namespace: u32,
 ) -> Result<(), anyhow::Error> {
     // connection to the events stream
     let connected = connect_to_events_service(hotshot_events_api_url.clone()).await;
@@ -531,6 +502,8 @@ pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Tim
         //tracing::debug!("Builder Event received from HotShot: {:?}", event);
         match event {
             Some(Ok(event)) => {
+                hooks.handle_hotshot_event(&event).await;
+
                 match event.event {
                     EventType::Error { error } => {
                         error!("Error event in HotShot: {:?}", error);
@@ -586,19 +559,8 @@ pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Tim
                         )
                         .await;
                     }
-                    // View finished event
-                    EventType::ViewFinished { view_number } => {
-                        handle_view_finished::<TYPES>(
-                            view_number,
-                            solver_api_url.clone(),
-                            bid_base_url.clone(),
-                            namespace,
-                            bid_config.clone(),
-                        )
-                        .await
-                    }
                     _ => {
-                        error!("Unhandled event from Builder");
+                        tracing::trace!("Unhandled event from Builder: {:?}", event.event);
                     }
                 }
             }
@@ -634,19 +596,6 @@ pub async fn run_permissioned_standalone_builder_service<
 
     // hotshot context handle
     hotshot_handle: Arc<SystemContextHandle<TYPES, I>>,
-
-    // URL to submit the bid.
-    solver_api_url: Url,
-
-    // Base URL to get the bid.
-    //
-    // Forms a bid ULR with appended view number and "bundle".
-    bid_base_url: Url,
-
-    // Bid configuration.
-    bid_config: BidConfig,
-
-    namespace: u32,
 ) -> Result<(), anyhow::Error> {
     let mut event_stream = hotshot_handle.event_stream();
     loop {
@@ -656,6 +605,8 @@ pub async fn run_permissioned_standalone_builder_service<
                 error!("Didn't receive any event from the HotShot event stream");
             }
             Some(event) => {
+                hooks.handle_hotshot_event(&event).await;
+
                 match event.event {
                     // error event
                     EventType::Error { error } => {
@@ -709,19 +660,8 @@ pub async fn run_permissioned_standalone_builder_service<
                         )
                         .await;
                     }
-                    // View finished event
-                    EventType::ViewFinished { view_number } => {
-                        handle_view_finished::<TYPES>(
-                            view_number,
-                            solver_api_url.clone(),
-                            bid_base_url.clone(),
-                            namespace,
-                            bid_config.clone(),
-                        )
-                        .await
-                    }
                     _ => {
-                        error!("Unhandled event from Builder: {:?}", event.event);
+                        tracing::trace!("Unhandled event from Builder: {:?}", event.event);
                     }
                 }
             }
@@ -878,36 +818,4 @@ pub(crate) async fn handle_received_txns<TYPES: NodeType>(
         }
     }
     Ok(results)
-}
-
-pub(crate) async fn handle_view_finished<TYPES: NodeType<Time = ViewNumber>>(
-    view_number: TYPES::Time,
-    solver_api_url: Url,
-    bid_base_url: Url,
-    namespace: u32,
-    bid_config: BidConfig,
-) {
-    // We submit a bid three views in advance.
-    let bid_tx = match from_bid_config(bid_config, view_number + 3, bid_base_url, namespace) {
-        Ok(bid) => bid,
-        Err(e) => {
-            error!("Failed to construct the bid txn: {:?}.", e);
-            return;
-        }
-    };
-
-    let Some(solver_client) = connect_to_solver_service::<TYPES>(solver_api_url).await else {
-        error!("Failed to connect to the solver service.");
-        return;
-    };
-
-    if let Err(e) = solver_client
-        .post::<()>("submit_bid")
-        .body_json(&bid_tx)
-        .unwrap()
-        .send()
-        .await
-    {
-        error!("Failed to submit the bid: {:?}.", e);
-    }
 }
