@@ -18,7 +18,6 @@ pub use async_broadcast::{
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::From;
     use std::{hash::Hash, marker::PhantomData, num::NonZeroUsize};
 
     use async_compatibility_layer::channel::unbounded;
@@ -41,9 +40,7 @@ mod tests {
         BuiltFromProposedBlock, DaProposalMessage, DecideMessage, QCMessage, RequestMessage,
         TransactionSource,
     };
-    use crate::service::{
-        handle_received_txns, BuilderTransaction, GlobalState, ReceivedTransaction,
-    };
+    use crate::service::{handle_received_txns, GlobalState, ReceivedTransaction};
     use async_lock::RwLock;
     use async_std::task;
     use committable::{Commitment, CommitmentBoundsArkless, Committable};
@@ -91,40 +88,10 @@ mod tests {
             ];
         }
 
-        #[derive(
-            Clone,
-            Copy,
-            Debug,
-            Default,
-            Hash,
-            PartialEq,
-            Eq,
-            PartialOrd,
-            Ord,
-            Serialize,
-            Deserialize,
-        )]
-        pub struct TestNamespaceId(u32);
-
-        impl From<TestNamespaceId> for u32 {
-            fn from(val: TestNamespaceId) -> u32 {
-                val.0
-            }
-        }
-
-        impl BuilderTransaction for TestTransaction {
-            type NamespaceId = TestNamespaceId;
-
-            fn namespace_id(&self) -> Self::NamespaceId {
-                TestNamespaceId((*self.bytes().first().unwrap_or(&0)).into())
-            }
-        }
-
         // no of test messages to send
         let num_test_messages = 5;
         let multiplication_factor = 5;
         const TEST_NUM_NODES_IN_VID_COMPUTATION: usize = 4;
-        const TEST_NSID: TestNamespaceId = TestNamespaceId(10);
 
         // settingup the broadcast channels i.e [From hostshot: (tx, decide, da, qc, )], [From api:(req - broadcast, res - mpsc channel) ]
         let (decide_sender, decide_receiver) =
@@ -145,7 +112,6 @@ mod tests {
             BLSPubKey::generated_from_seed_indexed(seed, 2011_u64);
         // instantiate the global state also
         let global_state = GlobalState::<TestTypes>::new(
-            TEST_NSID,
             bootstrap_sender,
             tx_sender.clone(),
             vid_commitment(&[], 8),
@@ -322,14 +288,9 @@ mod tests {
             // validate the signature before pushing the message to the builder_state channels
             // currently this step happens in the service.rs, wheneve we receiver an hotshot event
             tracing::debug!("Sending transaction message: {:?}", tx);
-            handle_received_txns(
-                &tx_sender,
-                vec![tx.clone()],
-                TransactionSource::HotShot,
-                TEST_NSID,
-            )
-            .await
-            .unwrap();
+            handle_received_txns(&tx_sender, vec![tx.clone()], TransactionSource::HotShot)
+                .await
+                .unwrap();
             da_sender
                 .broadcast(MessageType::DaProposalMessage(Arc::clone(&sda_msg)))
                 .await
@@ -378,7 +339,6 @@ mod tests {
                 tx_receiver,
                 tx_queue,
                 arc_rwlock_global_state_clone,
-                TEST_NSID,
                 NonZeroUsize::new(TEST_NUM_NODES_IN_VID_COMPUTATION).unwrap(),
                 Duration::from_millis(10), // max time to wait for non-zero txn block
                 0,                         // base fee

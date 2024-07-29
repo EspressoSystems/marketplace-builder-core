@@ -40,9 +40,7 @@ mod tests {
         BuiltFromProposedBlock, DaProposalMessage, DecideMessage, QCMessage, RequestMessage,
         TransactionSource,
     };
-    use crate::service::{
-        handle_received_txns, BuilderTransaction, GlobalState, ReceivedTransaction,
-    };
+    use crate::service::{handle_received_txns, GlobalState, ReceivedTransaction};
     use async_lock::RwLock;
     use async_std::task;
     use committable::{Commitment, CommitmentBoundsArkless, Committable};
@@ -104,14 +102,6 @@ mod tests {
             Deserialize,
         )]
         pub struct TestNamespaceId(u8);
-
-        impl BuilderTransaction for TestTransaction {
-            type NamespaceId = TestNamespaceId;
-
-            fn namespace_id(&self) -> Self::NamespaceId {
-                TestNamespaceId(*self.bytes().first().unwrap_or(&0))
-            }
-        }
 
         // no of test messages to send
         let num_test_messages = 5;

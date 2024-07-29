@@ -12,7 +12,7 @@ use hotshot_types::{
 
 use committable::{Commitment, Committable};
 
-use crate::service::{BuilderTransaction, GlobalState, ReceivedTransaction};
+use crate::service::{GlobalState, ReceivedTransaction};
 use async_broadcast::broadcast;
 use async_broadcast::Receiver as BroadcastReceiver;
 use async_broadcast::Sender as BroadcastSender;
@@ -111,13 +111,7 @@ impl<TYPES: NodeType> std::fmt::Display for BuiltFromProposedBlock<TYPES> {
 }
 
 #[derive(Debug)]
-pub struct BuilderState<TYPES: NodeType>
-where
-    TYPES::Transaction: BuilderTransaction,
-{
-    /// Namespace we're building for. None if filtering transactions is disabled
-    pub namespace_id: <TYPES::Transaction as BuilderTransaction>::NamespaceId,
-
+pub struct BuilderState<TYPES: NodeType> {
     /// Recent included txs set while building blocks
     pub included_txns: HashSet<Commitment<TYPES::Transaction>>,
 
@@ -193,10 +187,7 @@ where
 
 /// Trait to hold the helper functions for the builder
 #[async_trait]
-pub trait BuilderProgress<TYPES: NodeType>
-where
-    TYPES::Transaction: BuilderTransaction,
-{
+pub trait BuilderProgress<TYPES: NodeType> {
     /// process the DA proposal
     async fn process_da_proposal(&mut self, da_msg: Arc<DaProposalMessage<TYPES>>);
     /// process the quorum proposal
@@ -228,10 +219,7 @@ where
 }
 
 #[async_trait]
-impl<TYPES: NodeType> BuilderProgress<TYPES> for BuilderState<TYPES>
-where
-    TYPES::Transaction: BuilderTransaction,
-{
+impl<TYPES: NodeType> BuilderProgress<TYPES> for BuilderState<TYPES> {
     /// processing the DA proposal
     #[tracing::instrument(skip_all, name = "process da proposal",
                                     fields(builder_built_from_proposed_block = %self.built_from_proposed_block))]
@@ -694,10 +682,7 @@ where
 }
 /// Unifies the possible messages that can be received by the builder
 #[derive(Debug, Clone)]
-pub enum MessageType<TYPES: NodeType>
-where
-    TYPES::Transaction: BuilderTransaction,
-{
+pub enum MessageType<TYPES: NodeType> {
     DecideMessage(DecideMessage<TYPES>),
     DaProposalMessage(Arc<DaProposalMessage<TYPES>>),
     QCMessage(QCMessage<TYPES>),
@@ -705,10 +690,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-impl<TYPES: NodeType> BuilderState<TYPES>
-where
-    TYPES::Transaction: BuilderTransaction,
-{
+impl<TYPES: NodeType> BuilderState<TYPES> {
     pub fn new(
         built_from_proposed_block: BuiltFromProposedBlock<TYPES>,
         decide_receiver: BroadcastReceiver<MessageType<TYPES>>,
@@ -718,7 +700,6 @@ where
         tx_receiver: BroadcastReceiver<Arc<ReceivedTransaction<TYPES>>>,
         tx_queue: Vec<Arc<ReceivedTransaction<TYPES>>>,
         global_state: Arc<RwLock<GlobalState<TYPES>>>,
-        namespace_id: <TYPES::Transaction as BuilderTransaction>::NamespaceId,
         num_nodes: NonZeroUsize,
         maximize_txn_capture_timeout: Duration,
         base_fee: u64,
@@ -728,7 +709,6 @@ where
     ) -> Self {
         let txns_in_queue: HashSet<_> = tx_queue.iter().map(|tx| tx.commit).collect();
         BuilderState {
-            namespace_id,
             included_txns: HashSet::new(),
             included_txns_old: HashSet::new(),
             included_txns_expiring: HashSet::new(),
@@ -777,7 +757,6 @@ where
         };
 
         BuilderState {
-            namespace_id: self.namespace_id,
             included_txns,
             included_txns_old,
             included_txns_expiring,

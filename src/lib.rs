@@ -17,8 +17,5 @@ pub mod builder_state;
 // Core interaction with the HotShot network
 pub mod service;
 
-// Support bid construction and submission.
-pub mod bid;
-
 // tracking the testing
 pub mod testing;
