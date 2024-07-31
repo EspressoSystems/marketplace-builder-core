@@ -1359,9 +1359,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.10"
+version = "4.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f6b81fb3c84f5563d509c59b5a48d935f689e993afa90fe39047f05adef9142"
+checksum = "35723e6a11662c2afb578bcf0b88bf6ea8e21282a953428f240574fcc3a2b5b3"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1369,9 +1369,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.10"
+version = "4.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ca6706fd5224857d9ac5eb9355f6683563cc0541c7cd9d014043b57cbec78ac"
+checksum = "49eb96cbfa7cfa35017b7cd548c75b14c3118c98b423041d70562665e07fb0fa"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1381,9 +1381,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.8"
+version = "4.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bac35c6dafb060fd4d275d9a4ffae97917c13a6327903a8be2153cd964f7085"
+checksum = "5d029b67f89d30bbb547c89fd5161293c0aec155fc691d7924b64550662db93e"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -2937,8 +2937,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.63"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.67#ba87d320ea984f22d11fca043c1f3bae53f36d8e"
+version = "0.5.67"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.67#a8115816f131bf56b6689937dc8029871bbe8476"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -2984,7 +2984,7 @@ dependencies = [
 [[package]]
 name = "hotshot-builder-api"
 version = "0.1.7"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.67#ba87d320ea984f22d11fca043c1f3bae53f36d8e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.67#a8115816f131bf56b6689937dc8029871bbe8476"
 dependencies = [
  "async-trait",
  "clap",
@@ -3003,7 +3003,7 @@ dependencies = [
 [[package]]
 name = "hotshot-events-service"
 version = "0.1.37"
-source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?tag=rc-0.1.37#c31525c5714c7edc100d518605e6ee40f548dda4"
+source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?tag=0.1.37#31ec74a628160714eb849d6eb5954a3c0ea9fbd3"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3028,8 +3028,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.63"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.67#ba87d320ea984f22d11fca043c1f3bae53f36d8e"
+version = "0.5.67"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.67#a8115816f131bf56b6689937dc8029871bbe8476"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3061,8 +3061,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.63"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.67#ba87d320ea984f22d11fca043c1f3bae53f36d8e"
+version = "0.5.67"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.67#a8115816f131bf56b6689937dc8029871bbe8476"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3091,8 +3091,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.63"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.67#ba87d320ea984f22d11fca043c1f3bae53f36d8e"
+version = "0.5.67"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.67#a8115816f131bf56b6689937dc8029871bbe8476"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3106,8 +3106,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.63"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.67#ba87d320ea984f22d11fca043c1f3bae53f36d8e"
+version = "0.5.67"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.67#a8115816f131bf56b6689937dc8029871bbe8476"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3143,7 +3143,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.11"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.67#ba87d320ea984f22d11fca043c1f3bae53f36d8e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.67#a8115816f131bf56b6689937dc8029871bbe8476"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -3637,15 +3637,6 @@ name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
 dependencies = [
  "either",
 ]
@@ -4202,8 +4193,8 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.63"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=rc-0.5.67#ba87d320ea984f22d11fca043c1f3bae53f36d8e"
+version = "0.5.67"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.67#a8115816f131bf56b6689937dc8029871bbe8476"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -4532,7 +4523,7 @@ dependencies = [
  "anyhow",
  "async-broadcast",
  "async-compatibility-layer",
- "async-lock 2.8.0",
+ "async-lock 3.4.0",
  "async-std",
  "async-trait",
  "clap",
@@ -5484,7 +5475,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81bddcdb20abf9501610992b6759a4c888aef7d1a7247ef75e2404275ac24af1"
 dependencies = [
  "anyhow",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "syn 2.0.72",
@@ -6329,11 +6320,12 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.120"
+version = "1.0.121"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e0d21c9a8cae1235ad58a00c11cb40d4b1e5c784f1ef2c537876ed6ffd8b7c5"
+checksum = "4ab380d7d9f22ef3f21ad3e6c1ebe8e4fc7a2000ccba2e4d71fc96f15b2cb609"
 dependencies = [
  "itoa",
+ "memchr",
  "ryu",
  "serde",
 ]
@@ -6351,9 +6343,9 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "0.6.6"
+version = "0.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79e674e01f999af37c49f70a6ede167a8a60b2503e56c5599532a65baa5969a0"
+checksum = "eb5b1b31579f3811bf615c144393417496f152e12ac8b7663bf664f4a815306d"
 dependencies = [
  "serde",
 ]
@@ -7416,9 +7408,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.39.1"
+version = "1.39.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d040ac2b29ab03b09d4129c2f5bbd012a3ac2f79d38ff506a4bf8dd34b0eac8a"
+checksum = "daa4fb1bc778bd6f04cbfc4bb2d06a7396a8f299dc33ea1900cedaa316f467b1"
 dependencies = [
  "backtrace",
  "bytes",
@@ -7512,21 +7504,21 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.15"
+version = "0.8.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac2caab0bf757388c6c0ae23b3293fdb463fee59434529014f85e3263b995c28"
+checksum = "7a44eede9b727419af8095cb2d72fab15487a541f54647ad4414b34096ee4631"
 dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.16",
+ "toml_edit 0.22.18",
 ]
 
 [[package]]
 name = "toml_datetime"
-version = "0.6.6"
+version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4badfd56924ae69bcc9039335b2e017639ce3f9b001c393c1b2d1ef846ce2cbf"
+checksum = "0dd7358ecb8fc2f8d014bf86f6f638ce72ba252a2c3a2572f2a795f1d23efb41"
 dependencies = [
  "serde",
 ]
@@ -7544,15 +7536,15 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.16"
+version = "0.22.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "278f3d518e152219c994ce877758516bca5e118eaed6996192a774fb9fbf0788"
+checksum = "1490595c74d930da779e944f5ba2ecdf538af67df1a9848cbd156af43c1b7cf0"
 dependencies = [
  "indexmap 2.2.6",
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.6.15",
+ "winnow 0.6.16",
 ]
 
 [[package]]
@@ -8423,9 +8415,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.6.15"
+version = "0.6.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "557404e450152cd6795bb558bca69e43c585055f4606e3bcae5894fc6dac9ba0"
+checksum = "b480ae9340fc261e6be3e95a1ba86d54ae3f9171132a73ce8d4bbaf68339507c"
 dependencies = [
  "memchr",
 ]
