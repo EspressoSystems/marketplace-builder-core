@@ -385,6 +385,11 @@
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>hotshot::traits::election::static_committee::GeneralStaticCommittee;
 <span class="kw">pub use </span>hotshot_types::{
     data::{DaProposal, Leaf, QuorumProposal, ViewNumber},
@@ -397,7 +402,7 @@
     },
 };
 
-<span class="kw">pub use </span><span class="kw">crate</span>::builder_state::{BuilderProgress, BuilderState, MessageType, ResponseMessage};
+<span class="kw">pub use </span><span class="kw">crate</span>::builder_state::{BuilderState, MessageType, ResponseMessage};
 <span class="kw">pub use </span>async_broadcast::{
     broadcast, Receiver <span class="kw">as </span>BroadcastReceiver, RecvError, Sender <span class="kw">as </span>BroadcastSender, TryRecvError,
 };
@@ -415,7 +420,6 @@
         simple_vote::QuorumData,
         traits::block_contents::{vid_commitment, BlockHeader},
         utils::BuilderCommitment,
-        vid::VidCommitment,
     };
 
     <span class="kw">use </span>hotshot_example_types::{
@@ -428,6 +432,7 @@
         TransactionSource,
     };
     <span class="kw">use </span><span class="kw">crate</span>::service::{handle_received_txns, GlobalState, ReceivedTransaction};
+    <span class="kw">use </span><span class="kw">crate</span>::BuilderStateId;
     <span class="kw">use </span>async_lock::RwLock;
     <span class="kw">use </span>async_std::task;
     <span class="kw">use </span>committable::{Commitment, CommitmentBoundsArkless, Committable};
@@ -514,7 +519,7 @@
         <span class="attr">#[allow(clippy::type_complexity)]
         </span><span class="kw">let </span><span class="kw-2">mut </span>sreq_msgs: Vec&lt;(
             UnboundedReceiver&lt;ResponseMessage&gt;,
-            (VidCommitment, ViewNumber),
+            BuilderStateId&lt;TestTypes&gt;,
             MessageType&lt;TestTypes&gt;,
         )&gt; = Vec::new();
         <span class="comment">// storing response messages
@@ -675,9 +680,11 @@
             <span class="comment">// validate the signature before pushing the message to the builder_state channels
             // currently this step happens in the service.rs, wheneve we receiver an hotshot event
             </span><span class="macro">tracing::debug!</span>(<span class="string">"Sending transaction message: {:?}"</span>, tx);
-            handle_received_txns(<span class="kw-2">&amp;</span>tx_sender, <span class="macro">vec!</span>[tx.clone()], TransactionSource::HotShot)
-                .<span class="kw">await
-                </span>.unwrap();
+            <span class="kw">for </span>res <span class="kw">in
+                </span>handle_received_txns(<span class="kw-2">&amp;</span>tx_sender, <span class="macro">vec!</span>[tx.clone()], TransactionSource::HotShot).<span class="kw">await
+            </span>{
+                res.unwrap();
+            }
             da_sender
                 .broadcast(MessageType::DaProposalMessage(Arc::clone(<span class="kw-2">&amp;</span>sda_msg)))
                 .<span class="kw">await
@@ -693,7 +700,7 @@
 
             <span class="kw">let </span>(response_sender, response_receiver) = unbounded();
             <span class="kw">let </span>request_message = MessageType::&lt;TestTypes&gt;::RequestMessage(RequestMessage {
-                requested_view_number: i <span class="kw">as </span>u64,
+                requested_view_number: ViewNumber::new(i <span class="kw">as </span>u64),
                 response_channel: response_sender,
             });
 
@@ -702,7 +709,10 @@
             sqc_msgs.push(sqc_msg);
             sreq_msgs.push((
                 response_receiver,
-                (requested_vid_commitment, ViewNumber::new(i <span class="kw">as </span>u64)),
+                BuilderStateId {
+                    parent_commitment: requested_vid_commitment,
+                    view: ViewNumber::new(i <span class="kw">as </span>u64),
+                },
                 request_message,
             ));
         }
