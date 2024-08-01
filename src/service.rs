@@ -30,8 +30,8 @@ use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
     builder_state::{
-        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, ResponseMessage,
-        TransactionSource,
+        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QuorumProposalMessage,
+        ResponseMessage, TransactionSource,
     },
     utils::{BlockId, BuilderStateId},
 };
@@ -405,7 +405,7 @@ pub fn broadcast_channels<TYPES: NodeType>(
         BroadcastSenders {
             transactions: tx_sender,
             da_proposal: da_sender,
-            qc_proposal: qc_sender,
+            quorum_proposal: qc_sender,
             decide: decide_sender,
         },
         BroadcastReceivers {
@@ -436,7 +436,7 @@ pub struct BroadcastSenders<TYPES: NodeType> {
     /// For the DA proposal.
     pub da_proposal: BroadcastSender<MessageType<TYPES>>,
     /// For the quorum proposal.
-    pub qc_proposal: BroadcastSender<MessageType<TYPES>>,
+    pub quorum_proposal: BroadcastSender<MessageType<TYPES>>,
     /// For the decide.
     pub decide: BroadcastSender<MessageType<TYPES>>,
 }
@@ -595,8 +595,13 @@ pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Tim
                     EventType::QuorumProposal { proposal, sender } => {
                         // get the leader for current view
                         let leader = membership.leader(proposal.data.view_number);
-                        handle_qc_event(&senders.qc_proposal, Arc::new(proposal), sender, leader)
-                            .await;
+                        handle_qc_event(
+                            &senders.quorum_proposal,
+                            Arc::new(proposal),
+                            sender,
+                            leader,
+                        )
+                        .await;
                     }
                     _ => {
                         tracing::trace!("Unhandled event from Builder: {:?}", event.event);
@@ -693,8 +698,13 @@ pub async fn run_permissioned_standalone_builder_service<
                     EventType::QuorumProposal { proposal, sender } => {
                         // get the leader for current view
                         let leader = hotshot_handle.leader(proposal.data.view_number).await;
-                        handle_qc_event(&senders.qc_proposal, Arc::new(proposal), sender, leader)
-                            .await;
+                        handle_qc_event(
+                            &senders.quorum_proposal,
+                            Arc::new(proposal),
+                            sender,
+                            leader,
+                        )
+                        .await;
                     }
                     _ => {
                         tracing::trace!("Unhandled event from Builder: {:?}", event.event);
@@ -770,22 +780,22 @@ async fn handle_da_event<TYPES: NodeType>(
 
 async fn handle_qc_event<TYPES: NodeType>(
     qc_channel_sender: &BroadcastSender<MessageType<TYPES>>,
-    qc_proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
+    quorum_proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
     sender: <TYPES as NodeType>::SignatureKey,
     leader: <TYPES as NodeType>::SignatureKey,
 ) {
     tracing::debug!(
         "QCProposal: Leader: {:?} for the view: {:?}",
         leader,
-        qc_proposal.data.view_number
+        quorum_proposal.data.view_number
     );
 
-    let leaf = Leaf::from_quorum_proposal(&qc_proposal.data);
+    let leaf = Leaf::from_quorum_proposal(&quorum_proposal.data);
 
     // check if the sender is the leader and the signature is valid; if yes, broadcast the QC proposal
-    if sender == leader && sender.validate(&qc_proposal.signature, leaf.commit().as_ref()) {
-        let qc_msg = QCMessage::<TYPES> {
-            proposal: qc_proposal,
+    if sender == leader && sender.validate(&quorum_proposal.signature, leaf.commit().as_ref()) {
+        let qc_msg = QuorumProposalMessage::<TYPES> {
+            proposal: quorum_proposal,
             sender: leader,
         };
         let view_number = qc_msg.proposal.data.view_number;
@@ -794,7 +804,7 @@ async fn handle_qc_event<TYPES: NodeType>(
             view_number
         );
         if let Err(e) = qc_channel_sender
-            .broadcast(MessageType::QCMessage(qc_msg))
+            .broadcast(MessageType::QuorumProposalMessage(qc_msg))
             .await
         {
             tracing::warn!(
@@ -803,7 +813,7 @@ async fn handle_qc_event<TYPES: NodeType>(
             );
         }
     } else {
-        error!("Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}", qc_proposal.data.view_number, leader, sender);
+        error!("Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}", quorum_proposal.data.view_number, leader, sender);
     }
 }
 

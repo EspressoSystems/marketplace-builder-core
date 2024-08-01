@@ -58,7 +58,7 @@ pub struct DaProposalMessage<TYPES: NodeType> {
 
 /// QC Message to be put on the quorum proposal channel
 #[derive(Clone, Debug, PartialEq)]
-pub struct QCMessage<TYPES: NodeType> {
+pub struct QuorumProposalMessage<TYPES: NodeType> {
     pub proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
     pub sender: TYPES::SignatureKey,
 }
@@ -199,28 +199,28 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         {
             // if we have matching da and quorum proposals, we can skip storing the one, and remove
             // the other from storage, and call build_block with both, to save a little space.
-            if let Entry::Occupied(qc_proposal) = self
+            if let Entry::Occupied(quorum_proposal) = self
                 .quorum_proposal_payload_commit_to_quorum_proposal
                 .entry((da_msg.builder_commitment.clone(), da_msg.view_number))
             {
-                let qc_proposal = qc_proposal.remove();
+                let quorum_proposal = quorum_proposal.remove();
 
                 // if we have a matching quorum proposal
                 //  if (this is the correct parent or
                 //      (the correct parent is missing and this is the highest view))
                 //    spawn a clone
-                if qc_proposal.data.view_number == da_msg.view_number {
+                if quorum_proposal.data.view_number == da_msg.view_number {
                     tracing::info!(
                         "Spawning a clone from process DA proposal for view number: {:?}",
                         da_msg.view_number
                     );
-                    // remove this entry from qc_proposal_payload_commit_to_quorum_proposal
+                    // remove this entry from quorum_proposal_payload_commit_to_quorum_proposal
                     self.quorum_proposal_payload_commit_to_quorum_proposal
                         .remove(&(da_msg.builder_commitment.clone(), da_msg.view_number));
 
                     let (req_sender, req_receiver) = broadcast(self.req_receiver.capacity());
                     self.clone_with_receiver(req_receiver)
-                        .spawn_clone(da_msg, qc_proposal, req_sender)
+                        .spawn_clone(da_msg, quorum_proposal, req_sender)
                         .await;
                 } else {
                     tracing::debug!("Not spawning a clone despite matching DA and QC payload commitments, as they corresponds to different view numbers");
@@ -237,7 +237,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     //#[tracing::instrument(skip_all, name = "Process Quorum Proposal")]
     #[tracing::instrument(skip_all, name = "process quorum proposal",
                                     fields(builder_built_from_proposed_block = %self.built_from_proposed_block))]
-    async fn process_quorum_proposal(&mut self, qc_msg: QCMessage<TYPES>) {
+    async fn process_quorum_proposal(&mut self, qc_msg: QuorumProposalMessage<TYPES>) {
         tracing::debug!(
             "Builder Received QC Message for view {:?}",
             qc_msg.proposal.data.view_number
@@ -286,9 +286,9 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
                 self.built_from_proposed_block
             );
         }
-        let qc_proposal = &qc_msg.proposal;
-        let view_number = qc_proposal.data.view_number;
-        let payload_builder_commitment = qc_proposal.data.block_header.builder_commitment();
+        let quorum_proposal = &qc_msg.proposal;
+        let view_number = quorum_proposal.data.view_number;
+        let payload_builder_commitment = quorum_proposal.data.block_header.builder_commitment();
 
         tracing::debug!(
             "Extracted payload builder commitment from the quorum proposal: {:?}",
@@ -319,13 +319,13 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
 
                     let (req_sender, req_receiver) = broadcast(self.req_receiver.capacity());
                     self.clone_with_receiver(req_receiver)
-                        .spawn_clone(da_proposal_info, qc_proposal.clone(), req_sender)
+                        .spawn_clone(da_proposal_info, quorum_proposal.clone(), req_sender)
                         .await;
                 } else {
                     tracing::debug!("Not spawning a clone despite matching DA and QC payload commitments, as they corresponds to different view numbers");
                 }
             } else {
-                e.insert(qc_proposal.clone());
+                e.insert(quorum_proposal.clone());
             }
         } else {
             tracing::debug!("Payload commitment already exists in the quorum_proposal_payload_commit_to_quorum_proposal hashmap, so ignoring it");
@@ -584,7 +584,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
                     qc = self.qc_receiver.next() => {
                         match qc {
                             Some(qc) => {
-                                if let MessageType::QCMessage(rqc_msg) = qc {
+                                if let MessageType::QuorumProposalMessage(rqc_msg) = qc {
                                     tracing::debug!("Received quorum proposal msg in builder {:?}:\n {:?} for view ", self.built_from_proposed_block, rqc_msg.proposal.data.view_number);
                                     self.process_quorum_proposal(rqc_msg).await;
                                 } else {
@@ -642,7 +642,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
 pub enum MessageType<TYPES: NodeType> {
     DecideMessage(DecideMessage<TYPES>),
     DaProposalMessage(Arc<DaProposalMessage<TYPES>>),
-    QCMessage(QCMessage<TYPES>),
+    QuorumProposalMessage(QuorumProposalMessage<TYPES>),
     RequestMessage(RequestMessage<TYPES>),
 }
 
