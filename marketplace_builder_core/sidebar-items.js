@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["builder_state","service","testing"],"struct":["BlockId","BuilderStateId"]};
+window.SIDEBAR_ITEMS = {"mod":["builder_state","service","testing","utils"]};

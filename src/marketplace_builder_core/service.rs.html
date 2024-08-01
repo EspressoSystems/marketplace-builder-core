@@ -839,6 +839,46 @@
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
@@ -871,14 +911,14 @@
 
 <span class="kw">use crate</span>::{
     builder_state::{
-        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, ResponseMessage,
-        TransactionSource,
+        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QuorumProposalMessage,
+        ResponseMessage, TransactionSource,
     },
-    BlockId, BuilderStateId,
+    utils::{BlockId, BuilderStateId},
 };
 <span class="kw">use </span>anyhow::anyhow;
 <span class="kw">pub use </span>async_broadcast::{broadcast, RecvError, TryRecvError};
-<span class="kw">use </span>async_broadcast::{Sender <span class="kw">as </span>BroadcastSender, TrySendError};
+<span class="kw">use </span>async_broadcast::{InactiveReceiver, Sender <span class="kw">as </span>BroadcastSender, TrySendError};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>committable::{Commitment, Committable};
@@ -959,10 +999,7 @@
     // if the req channel times out during get_available_blocks
     </span><span class="kw">pub </span>builder_state_to_last_built_block: HashMap&lt;BuilderStateId&lt;TYPES&gt;, ResponseMessage&gt;,
 
-    <span class="comment">// // scheduled GC by view number
-    // pub view_to_cleanup_targets: BTreeMap&lt;TYPES::Time, BuilderStatesInfo&lt;TYPES&gt;&gt;,
-
-    // sending a transaction from the hotshot/private mempool to the builder states
+    <span class="comment">// sending a transaction from the hotshot/private mempool to the builder states
     // NOTE: Currently, we don't differentiate between the transactions from the hotshot and the private mempool
     </span><span class="kw">pub </span>tx_sender: BroadcastSender&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
 
@@ -1228,6 +1265,49 @@ Handling Builder API responses
     ) -&gt; T {
         op(<span class="self">self</span>).<span class="kw">await
     </span>}
+}
+
+<span class="kw">pub fn </span>broadcast_channels&lt;TYPES: NodeType&gt;(
+    capacity: usize,
+) -&gt; (BroadcastSenders&lt;TYPES&gt;, BroadcastReceivers&lt;TYPES&gt;) {
+    <span class="macro">macro_rules!</span> pair {
+        (<span class="macro-nonterminal">$s</span>:ident, <span class="macro-nonterminal">$r</span>:ident) =&gt; {
+            <span class="kw">let </span>(<span class="macro-nonterminal">$s</span>, <span class="macro-nonterminal">$r</span>) = broadcast(capacity);
+            <span class="kw">let </span><span class="macro-nonterminal">$r </span>= <span class="macro-nonterminal">$r</span>.deactivate();
+        };
+    }
+
+    <span class="macro">pair!</span>(tx_sender, tx_receiver);
+    <span class="macro">pair!</span>(da_sender, da_receiver);
+    <span class="macro">pair!</span>(qc_sender, qc_receiver);
+    <span class="macro">pair!</span>(decide_sender, decide_receiver);
+
+    (
+        BroadcastSenders {
+            transactions: tx_sender,
+            da_proposal: da_sender,
+            quorum_proposal: qc_sender,
+            decide: decide_sender,
+        },
+        BroadcastReceivers {
+            transactions: tx_receiver,
+            da_proposal: da_receiver,
+            quorum_proposal: qc_receiver,
+            decide: decide_receiver,
+        },
+    )
+}
+
+<span class="comment">// Receivers for HotShot events for the builder states
+</span><span class="kw">pub struct </span>BroadcastReceivers&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// For transactions, shared.
+    </span><span class="kw">pub </span>transactions: InactiveReceiver&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
+    <span class="doccomment">/// For the DA proposal.
+    </span><span class="kw">pub </span>da_proposal: InactiveReceiver&lt;MessageType&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// For the quorum proposal.
+    </span><span class="kw">pub </span>quorum_proposal: InactiveReceiver&lt;MessageType&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// For the decide.
+    </span><span class="kw">pub </span>decide: InactiveReceiver&lt;MessageType&lt;TYPES&gt;&gt;,
 }
 
 <span class="comment">// Senders to broadcast data from HotShot to the builder states.
@@ -1581,22 +1661,22 @@ Utility functions to handle the hotshot events
 
 <span class="kw">async fn </span>handle_qc_event&lt;TYPES: NodeType&gt;(
     qc_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
-    qc_proposal: Arc&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
+    quorum_proposal: Arc&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
     sender: &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
     leader: &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
 ) {
     <span class="macro">tracing::debug!</span>(
         <span class="string">"QCProposal: Leader: {:?} for the view: {:?}"</span>,
         leader,
-        qc_proposal.data.view_number
+        quorum_proposal.data.view_number
     );
 
-    <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>qc_proposal.data);
+    <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal.data);
 
     <span class="comment">// check if the sender is the leader and the signature is valid; if yes, broadcast the QC proposal
-    </span><span class="kw">if </span>sender == leader &amp;&amp; sender.validate(<span class="kw-2">&amp;</span>qc_proposal.signature, leaf.commit().as_ref()) {
-        <span class="kw">let </span>qc_msg = QCMessage::&lt;TYPES&gt; {
-            proposal: qc_proposal,
+    </span><span class="kw">if </span>sender == leader &amp;&amp; sender.validate(<span class="kw-2">&amp;</span>quorum_proposal.signature, leaf.commit().as_ref()) {
+        <span class="kw">let </span>qc_msg = QuorumProposalMessage::&lt;TYPES&gt; {
+            proposal: quorum_proposal,
             sender: leader,
         };
         <span class="kw">let </span>view_number = qc_msg.proposal.data.view_number;
@@ -1605,7 +1685,7 @@ Utility functions to handle the hotshot events
             view_number
         );
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = qc_channel_sender
-            .broadcast(MessageType::QCMessage(qc_msg))
+            .broadcast(MessageType::QuorumProposalMessage(qc_msg))
             .<span class="kw">await
         </span>{
             <span class="macro">tracing::warn!</span>(
@@ -1614,7 +1694,7 @@ Utility functions to handle the hotshot events
             );
         }
     } <span class="kw">else </span>{
-        <span class="macro">error!</span>(<span class="string">"Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}"</span>, qc_proposal.data.view_number, leader, sender);
+        <span class="macro">error!</span>(<span class="string">"Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}"</span>, quorum_proposal.data.view_number, leader, sender);
     }
 }
 

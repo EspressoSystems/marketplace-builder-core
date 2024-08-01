@@ -734,51 +734,6 @@
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
 <a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     data::{Leaf, QuorumProposal},
     message::Proposal,
@@ -794,8 +749,8 @@
 <span class="kw">use </span>committable::{Commitment, Committable};
 
 <span class="kw">use crate</span>::{
-    service::{GlobalState, ReceivedTransaction},
-    BlockId, BuilderStateId,
+    service::{BroadcastReceivers, GlobalState, ReceivedTransaction},
+    utils::{BlockId, BuilderStateId, RotatingSet},
 };
 <span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>async_broadcast::Receiver <span class="kw">as </span>BroadcastReceiver;
@@ -839,7 +794,7 @@
 
 <span class="doccomment">/// QC Message to be put on the quorum proposal channel
 </span><span class="attr">#[derive(Clone, Debug, PartialEq)]
-</span><span class="kw">pub struct </span>QCMessage&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>QuorumProposalMessage&lt;TYPES: NodeType&gt; {
     <span class="kw">pub </span>proposal: Arc&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
     <span class="kw">pub </span>sender: TYPES::SignatureKey,
 }
@@ -886,6 +841,7 @@
     <span class="kw">pub </span>leaf_commit: Commitment&lt;Leaf&lt;TYPES&gt;&gt;,
     <span class="kw">pub </span>builder_commitment: BuilderCommitment,
 }
+
 <span class="comment">// implement display for the derived info
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; std::fmt::Display <span class="kw">for </span>BuiltFromProposedBlock&lt;TYPES&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
@@ -895,14 +851,7 @@
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>BuilderState&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// Recent included txs set while building blocks
-    </span><span class="kw">pub </span>included_txns: HashSet&lt;Commitment&lt;TYPES::Transaction&gt;&gt;,
-
-    <span class="doccomment">/// Old txs to be garbage collected
-    </span><span class="kw">pub </span>included_txns_old: HashSet&lt;Commitment&lt;TYPES::Transaction&gt;&gt;,
-
-    <span class="doccomment">/// Expiring txs to be garbage collected
-    </span><span class="kw">pub </span>included_txns_expiring: HashSet&lt;Commitment&lt;TYPES::Transaction&gt;&gt;,
+    <span class="kw">pub </span>included_txns: RotatingSet&lt;Commitment&lt;TYPES::Transaction&gt;&gt;,
 
     <span class="doccomment">/// txns currently in the tx_queue
     </span><span class="kw">pub </span>txns_in_queue: HashSet&lt;Commitment&lt;TYPES::Transaction&gt;&gt;,
@@ -943,7 +892,7 @@
     </span><span class="kw">pub </span>global_state: Arc&lt;RwLock&lt;GlobalState&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// total nodes required for the VID computation as part of block header input response
-    </span><span class="kw">pub </span>total_nodes: NonZeroUsize,
+    </span><span class="kw">pub </span>num_nodes: NonZeroUsize,
 
     <span class="doccomment">/// locally spawned builder Commitements
     </span><span class="kw">pub </span>builder_commitments: HashSet&lt;(BuilderStateId&lt;TYPES&gt;, BuilderCommitment)&gt;,
@@ -960,12 +909,6 @@
 
     <span class="doccomment">/// instance state to enfoce max_block_size
     </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
-
-    <span class="doccomment">/// txn garbage collection every duration time
-    </span><span class="kw">pub </span>txn_garbage_collect_duration: Duration,
-
-    <span class="doccomment">/// time of next garbage collection for txns
-    </span><span class="kw">pub </span>next_txn_garbage_collect_time: Instant,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderState&lt;TYPES&gt; {
@@ -992,28 +935,28 @@
         {
             <span class="comment">// if we have matching da and quorum proposals, we can skip storing the one, and remove
             // the other from storage, and call build_block with both, to save a little space.
-            </span><span class="kw">if let </span>Entry::Occupied(qc_proposal) = <span class="self">self
+            </span><span class="kw">if let </span>Entry::Occupied(quorum_proposal) = <span class="self">self
                 </span>.quorum_proposal_payload_commit_to_quorum_proposal
                 .entry((da_msg.builder_commitment.clone(), da_msg.view_number))
             {
-                <span class="kw">let </span>qc_proposal = qc_proposal.remove();
+                <span class="kw">let </span>quorum_proposal = quorum_proposal.remove();
 
                 <span class="comment">// if we have a matching quorum proposal
                 //  if (this is the correct parent or
                 //      (the correct parent is missing and this is the highest view))
                 //    spawn a clone
-                </span><span class="kw">if </span>qc_proposal.data.view_number == da_msg.view_number {
+                </span><span class="kw">if </span>quorum_proposal.data.view_number == da_msg.view_number {
                     <span class="macro">tracing::info!</span>(
                         <span class="string">"Spawning a clone from process DA proposal for view number: {:?}"</span>,
                         da_msg.view_number
                     );
-                    <span class="comment">// remove this entry from qc_proposal_payload_commit_to_quorum_proposal
+                    <span class="comment">// remove this entry from quorum_proposal_payload_commit_to_quorum_proposal
                     </span><span class="self">self</span>.quorum_proposal_payload_commit_to_quorum_proposal
                         .remove(<span class="kw-2">&amp;</span>(da_msg.builder_commitment.clone(), da_msg.view_number));
 
                     <span class="kw">let </span>(req_sender, req_receiver) = broadcast(<span class="self">self</span>.req_receiver.capacity());
                     <span class="self">self</span>.clone_with_receiver(req_receiver)
-                        .spawn_clone(da_msg, qc_proposal, req_sender)
+                        .spawn_clone(da_msg, quorum_proposal, req_sender)
                         .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="macro">tracing::debug!</span>(<span class="string">"Not spawning a clone despite matching DA and QC payload commitments, as they corresponds to different view numbers"</span>);
@@ -1030,7 +973,7 @@
     </span><span class="comment">//#[tracing::instrument(skip_all, name = "Process Quorum Proposal")]
     </span><span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"process quorum proposal"</span>,
                                     fields(builder_built_from_proposed_block = %<span class="self">self</span>.built_from_proposed_block))]
-    </span><span class="kw">async fn </span>process_quorum_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, qc_msg: QCMessage&lt;TYPES&gt;) {
+    </span><span class="kw">async fn </span>process_quorum_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, qc_msg: QuorumProposalMessage&lt;TYPES&gt;) {
         <span class="macro">tracing::debug!</span>(
             <span class="string">"Builder Received QC Message for view {:?}"</span>,
             qc_msg.proposal.data.view_number
@@ -1079,9 +1022,9 @@
                 <span class="self">self</span>.built_from_proposed_block
             );
         }
-        <span class="kw">let </span>qc_proposal = <span class="kw-2">&amp;</span>qc_msg.proposal;
-        <span class="kw">let </span>view_number = qc_proposal.data.view_number;
-        <span class="kw">let </span>payload_builder_commitment = qc_proposal.data.block_header.builder_commitment();
+        <span class="kw">let </span>quorum_proposal = <span class="kw-2">&amp;</span>qc_msg.proposal;
+        <span class="kw">let </span>view_number = quorum_proposal.data.view_number;
+        <span class="kw">let </span>payload_builder_commitment = quorum_proposal.data.block_header.builder_commitment();
 
         <span class="macro">tracing::debug!</span>(
             <span class="string">"Extracted payload builder commitment from the quorum proposal: {:?}"</span>,
@@ -1112,13 +1055,13 @@
 
                     <span class="kw">let </span>(req_sender, req_receiver) = broadcast(<span class="self">self</span>.req_receiver.capacity());
                     <span class="self">self</span>.clone_with_receiver(req_receiver)
-                        .spawn_clone(da_proposal_info, qc_proposal.clone(), req_sender)
+                        .spawn_clone(da_proposal_info, quorum_proposal.clone(), req_sender)
                         .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="macro">tracing::debug!</span>(<span class="string">"Not spawning a clone despite matching DA and QC payload commitments, as they corresponds to different view numbers"</span>);
                 }
             } <span class="kw">else </span>{
-                e.insert(qc_proposal.clone());
+                e.insert(quorum_proposal.clone());
             }
         } <span class="kw">else </span>{
             <span class="macro">tracing::debug!</span>(<span class="string">"Payload commitment already exists in the quorum_proposal_payload_commit_to_quorum_proposal hashmap, so ignoring it"</span>);
@@ -1167,8 +1110,7 @@
         quorum_proposal: Arc&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
         req_sender: BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
     ) {
-        <span class="self">self</span>.total_nodes =
-            NonZeroUsize::new(da_proposal_info.num_nodes).unwrap_or(<span class="self">self</span>.total_nodes);
+        <span class="self">self</span>.num_nodes = NonZeroUsize::new(da_proposal_info.num_nodes).unwrap_or(<span class="self">self</span>.num_nodes);
         <span class="self">self</span>.built_from_proposed_block.view_number = quorum_proposal.data.view_number;
         <span class="self">self</span>.built_from_proposed_block.vid_commitment =
             quorum_proposal.data.block_header.payload_commitment();
@@ -1182,7 +1124,7 @@
             <span class="self">self</span>.txns_in_queue.remove(tx);
         }
         <span class="self">self</span>.included_txns
-            .extend(da_proposal_info.txn_commitments.iter());
+            .extend(da_proposal_info.txn_commitments.iter().cloned());
 
         <span class="self">self</span>.tx_queue
             .retain(|tx| <span class="self">self</span>.txns_in_queue.contains(<span class="kw-2">&amp;</span>tx.commit));
@@ -1378,7 +1320,7 @@
                     qc = <span class="self">self</span>.qc_receiver.next() =&gt; {
                         <span class="kw">match </span>qc {
                             <span class="prelude-val">Some</span>(qc) =&gt; {
-                                <span class="kw">if let </span>MessageType::QCMessage(rqc_msg) = qc {
+                                <span class="kw">if let </span>MessageType::QuorumProposalMessage(rqc_msg) = qc {
                                     <span class="macro">tracing::debug!</span>(<span class="string">"Received quorum proposal msg in builder {:?}:\n {:?} for view "</span>, <span class="self">self</span>.built_from_proposed_block, rqc_msg.proposal.data.view_number);
                                     <span class="self">self</span>.process_quorum_proposal(rqc_msg).<span class="kw">await</span>;
                                 } <span class="kw">else </span>{
@@ -1436,7 +1378,7 @@
 </span><span class="kw">pub enum </span>MessageType&lt;TYPES: NodeType&gt; {
     DecideMessage(DecideMessage&lt;TYPES&gt;),
     DaProposalMessage(Arc&lt;DaProposalMessage&lt;TYPES&gt;&gt;),
-    QCMessage(QCMessage&lt;TYPES&gt;),
+    QuorumProposalMessage(QuorumProposalMessage&lt;TYPES&gt;),
     RequestMessage(RequestMessage&lt;TYPES&gt;),
 }
 
@@ -1444,11 +1386,8 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderState&lt;TYPES&gt; {
     <span class="kw">pub fn </span>new(
         built_from_proposed_block: BuiltFromProposedBlock&lt;TYPES&gt;,
-        decide_receiver: BroadcastReceiver&lt;MessageType&lt;TYPES&gt;&gt;,
-        da_proposal_receiver: BroadcastReceiver&lt;MessageType&lt;TYPES&gt;&gt;,
-        qc_receiver: BroadcastReceiver&lt;MessageType&lt;TYPES&gt;&gt;,
+        receivers: <span class="kw-2">&amp;</span>BroadcastReceivers&lt;TYPES&gt;,
         req_receiver: BroadcastReceiver&lt;MessageType&lt;TYPES&gt;&gt;,
-        tx_receiver: BroadcastReceiver&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
         tx_queue: Vec&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
         global_state: Arc&lt;RwLock&lt;GlobalState&lt;TYPES&gt;&gt;&gt;,
         num_nodes: NonZeroUsize,
@@ -1460,57 +1399,32 @@
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>txns_in_queue: HashSet&lt;<span class="kw">_</span>&gt; = tx_queue.iter().map(|tx| tx.commit).collect();
         BuilderState {
-            included_txns: HashSet::new(),
-            included_txns_old: HashSet::new(),
-            included_txns_expiring: HashSet::new(),
+            num_nodes,
             txns_in_queue,
             built_from_proposed_block,
-            decide_receiver,
-            da_proposal_receiver,
-            qc_receiver,
             req_receiver,
-            da_proposal_payload_commit_to_da_proposal: HashMap::new(),
-            quorum_proposal_payload_commit_to_quorum_proposal: HashMap::new(),
-            tx_receiver,
             tx_queue,
             global_state,
-            builder_commitments: HashSet::new(),
-            total_nodes: num_nodes,
             maximize_txn_capture_timeout,
             base_fee,
             instance_state,
-            txn_garbage_collect_duration,
-            next_txn_garbage_collect_time: Instant::now() + txn_garbage_collect_duration,
             validated_state,
+            included_txns: RotatingSet::new(txn_garbage_collect_duration),
+            da_proposal_payload_commit_to_da_proposal: HashMap::new(),
+            quorum_proposal_payload_commit_to_quorum_proposal: HashMap::new(),
+            builder_commitments: HashSet::new(),
+            decide_receiver: receivers.decide.activate_cloned(),
+            da_proposal_receiver: receivers.da_proposal.activate_cloned(),
+            qc_receiver: receivers.quorum_proposal.activate_cloned(),
+            tx_receiver: receivers.transactions.activate_cloned(),
         }
     }
     <span class="kw">pub fn </span>clone_with_receiver(<span class="kw-2">&amp;</span><span class="self">self</span>, req_receiver: BroadcastReceiver&lt;MessageType&lt;TYPES&gt;&gt;) -&gt; <span class="self">Self </span>{
-        <span class="comment">// Handle the garbage collection of txns
-        </span><span class="kw">let </span>(
-            included_txns,
-            included_txns_old,
-            included_txns_expiring,
-            next_txn_garbage_collect_time,
-        ) = <span class="kw">if </span>Instant::now() &gt;= <span class="self">self</span>.next_txn_garbage_collect_time {
-            (
-                HashSet::new(),
-                <span class="self">self</span>.included_txns.clone(),
-                <span class="self">self</span>.included_txns_old.clone(),
-                Instant::now() + <span class="self">self</span>.txn_garbage_collect_duration,
-            )
-        } <span class="kw">else </span>{
-            (
-                <span class="self">self</span>.included_txns.clone(),
-                <span class="self">self</span>.included_txns_old.clone(),
-                <span class="self">self</span>.included_txns_expiring.clone(),
-                <span class="self">self</span>.next_txn_garbage_collect_time,
-            )
-        };
+        <span class="kw">let </span><span class="kw-2">mut </span>included_txns = <span class="self">self</span>.included_txns.clone();
+        included_txns.rotate();
 
         BuilderState {
             included_txns,
-            included_txns_old,
-            included_txns_expiring,
             txns_in_queue: <span class="self">self</span>.txns_in_queue.clone(),
             built_from_proposed_block: <span class="self">self</span>.built_from_proposed_block.clone(),
             decide_receiver: <span class="self">self</span>.decide_receiver.clone(),
@@ -1523,12 +1437,10 @@
             tx_queue: <span class="self">self</span>.tx_queue.clone(),
             global_state: <span class="self">self</span>.global_state.clone(),
             builder_commitments: <span class="self">self</span>.builder_commitments.clone(),
-            total_nodes: <span class="self">self</span>.total_nodes,
+            num_nodes: <span class="self">self</span>.num_nodes,
             maximize_txn_capture_timeout: <span class="self">self</span>.maximize_txn_capture_timeout,
             base_fee: <span class="self">self</span>.base_fee,
             instance_state: <span class="self">self</span>.instance_state.clone(),
-            txn_garbage_collect_duration: <span class="self">self</span>.txn_garbage_collect_duration,
-            next_txn_garbage_collect_time,
             validated_state: <span class="self">self</span>.validated_state.clone(),
         }
     }
@@ -1539,8 +1451,6 @@
             <span class="kw">match </span><span class="self">self</span>.tx_receiver.try_recv() {
                 <span class="prelude-val">Ok</span>(tx) =&gt; {
                     <span class="kw">if </span><span class="self">self</span>.included_txns.contains(<span class="kw-2">&amp;</span>tx.commit)
-                        || <span class="self">self</span>.included_txns_old.contains(<span class="kw-2">&amp;</span>tx.commit)
-                        || <span class="self">self</span>.included_txns_expiring.contains(<span class="kw-2">&amp;</span>tx.commit)
                         || <span class="self">self</span>.txns_in_queue.contains(<span class="kw-2">&amp;</span>tx.commit)
                     {
                         <span class="kw">continue</span>;

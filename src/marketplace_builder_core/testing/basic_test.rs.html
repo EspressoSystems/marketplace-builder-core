@@ -387,9 +387,6 @@
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>hotshot::traits::election::static_committee::GeneralStaticCommittee;
 <span class="kw">pub use </span>hotshot_types::{
     data::{DaProposal, Leaf, QuorumProposal, ViewNumber},
@@ -428,11 +425,11 @@
     };
 
     <span class="kw">use </span><span class="kw">crate</span>::builder_state::{
-        BuiltFromProposedBlock, DaProposalMessage, DecideMessage, QCMessage, RequestMessage,
-        TransactionSource,
+        BuiltFromProposedBlock, DaProposalMessage, DecideMessage, QuorumProposalMessage,
+        RequestMessage, TransactionSource,
     };
-    <span class="kw">use </span><span class="kw">crate</span>::service::{handle_received_txns, GlobalState, ReceivedTransaction};
-    <span class="kw">use </span><span class="kw">crate</span>::BuilderStateId;
+    <span class="kw">use </span><span class="kw">crate</span>::service::{broadcast_channels, handle_received_txns, GlobalState};
+    <span class="kw">use </span><span class="kw">crate</span>::utils::BuilderStateId;
     <span class="kw">use </span>async_lock::RwLock;
     <span class="kw">use </span>async_std::task;
     <span class="kw">use </span>committable::{Commitment, CommitmentBoundsArkless, Committable};
@@ -486,17 +483,10 @@
         <span class="kw">const </span>TEST_NUM_NODES_IN_VID_COMPUTATION: usize = <span class="number">4</span>;
 
         <span class="comment">// settingup the broadcast channels i.e [From hostshot: (tx, decide, da, qc, )], [From api:(req - broadcast, res - mpsc channel) ]
-        </span><span class="kw">let </span>(decide_sender, decide_receiver) =
+        </span><span class="kw">let </span>(bootstrap_sender, bootstrap_receiver) =
             broadcast::&lt;MessageType&lt;TestTypes&gt;&gt;(num_test_messages * multiplication_factor);
-        <span class="kw">let </span>(da_sender, da_receiver) =
-            broadcast::&lt;MessageType&lt;TestTypes&gt;&gt;(num_test_messages * multiplication_factor);
-        <span class="kw">let </span>(qc_sender, qc_receiver) =
-            broadcast::&lt;MessageType&lt;TestTypes&gt;&gt;(num_test_messages * multiplication_factor);
-        <span class="kw">let </span>(bootstrap_sender, bootstrap_receiver) =
-            broadcast::&lt;MessageType&lt;TestTypes&gt;&gt;(num_test_messages * multiplication_factor);
-        <span class="kw">let </span>(tx_sender, tx_receiver) = broadcast::&lt;Arc&lt;ReceivedTransaction&lt;TestTypes&gt;&gt;&gt;(
-            num_test_messages * multiplication_factor,
-        );
+        <span class="kw">let </span>(senders, receivers) = broadcast_channels(num_test_messages * multiplication_factor);
+
         <span class="kw">let </span>tx_queue = Vec::new();
         <span class="comment">// generate the keys for the buidler
         </span><span class="kw">let </span>seed = [<span class="number">201_u8</span>; <span class="number">32</span>];
@@ -505,7 +495,7 @@
         <span class="comment">// instantiate the global state also
         </span><span class="kw">let </span>global_state = GlobalState::&lt;TestTypes&gt;::new(
             bootstrap_sender,
-            tx_sender.clone(),
+            senders.transactions.clone(),
             vid_commitment(<span class="kw-2">&amp;</span>[], <span class="number">8</span>),
             ViewNumber::new(<span class="number">0</span>),
             ViewNumber::new(<span class="number">0</span>),
@@ -515,7 +505,7 @@
         <span class="comment">// to store all the sent messages
         </span><span class="kw">let </span><span class="kw-2">mut </span>sdecide_msgs: Vec&lt;DecideMessage&lt;TestTypes&gt;&gt; = Vec::new();
         <span class="kw">let </span><span class="kw-2">mut </span>sda_msgs: Vec&lt;Arc&lt;DaProposalMessage&lt;TestTypes&gt;&gt;&gt; = Vec::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>sqc_msgs: Vec&lt;QCMessage&lt;TestTypes&gt;&gt; = Vec::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>sqc_msgs: Vec&lt;QuorumProposalMessage&lt;TestTypes&gt;&gt; = Vec::new();
         <span class="attr">#[allow(clippy::type_complexity)]
         </span><span class="kw">let </span><span class="kw-2">mut </span>sreq_msgs: Vec&lt;(
             UnboundedReceiver&lt;ResponseMessage&gt;,
@@ -525,6 +515,32 @@
         <span class="comment">// storing response messages
         </span><span class="kw">let </span><span class="kw-2">mut </span>rres_msgs: Vec&lt;ResponseMessage&gt; = Vec::new();
         <span class="kw">let </span>_validated_state = Arc::new(TestValidatedState::default());
+
+        <span class="kw">let </span>arc_rwlock_global_state = Arc::new(RwLock::new(global_state));
+        <span class="kw">let </span>arc_rwlock_global_state_clone = arc_rwlock_global_state.clone();
+        <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
+            <span class="kw">let </span>built_from_info = BuiltFromProposedBlock {
+                view_number: ViewNumber::new(<span class="number">0</span>),
+                vid_commitment: vid_commitment(<span class="kw-2">&amp;</span>[], <span class="number">8</span>),
+                leaf_commit: Commitment::&lt;Leaf&lt;TestTypes&gt;&gt;::default_commitment_no_preimage(),
+                builder_commitment: BuilderCommitment::from_bytes([]),
+            };
+            <span class="kw">let </span>builder_state = BuilderState::&lt;TestTypes&gt;::new(
+                built_from_info,
+                <span class="kw-2">&amp;</span>receivers,
+                bootstrap_receiver,
+                tx_queue,
+                arc_rwlock_global_state_clone,
+                NonZeroUsize::new(TEST_NUM_NODES_IN_VID_COMPUTATION).unwrap(),
+                Duration::from_millis(<span class="number">10</span>), <span class="comment">// max time to wait for non-zero txn block
+                </span><span class="number">0</span>,                         <span class="comment">// base fee
+                </span>Arc::new(TestInstanceState {}),
+                Duration::from_secs(<span class="number">3600</span>), <span class="comment">// duration for txn garbage collection
+                </span>Arc::new(TestValidatedState::default()),
+            );
+
+            builder_state.event_loop();
+        });
 
         <span class="comment">// generate num_test messages for each type and send it to the respective channels;
         </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..num_test_messages <span class="kw">as </span>u32 {
@@ -623,7 +639,7 @@
             };
             <span class="macro">tracing::debug!</span>(<span class="string">"Iteration: {} justify_qc: {:?}"</span>, i, justify_qc);
 
-            <span class="kw">let </span>qc_proposal = QuorumProposal::&lt;TestTypes&gt; {
+            <span class="kw">let </span>quorum_proposal = QuorumProposal::&lt;TestTypes&gt; {
                 block_header,
                 view_number: ViewNumber::new(i <span class="kw">as </span>u64),
                 justify_qc: justify_qc.clone(),
@@ -633,11 +649,11 @@
 
             <span class="kw">let </span>payload_vid_commitment =
                 &lt;TestBlockHeader <span class="kw">as </span>BlockHeader&lt;TestTypes&gt;&gt;::payload_commitment(
-                    <span class="kw-2">&amp;</span>qc_proposal.block_header,
+                    <span class="kw-2">&amp;</span>quorum_proposal.block_header,
                 );
             <span class="kw">let </span>payload_builder_commitment =
                 &lt;TestBlockHeader <span class="kw">as </span>BlockHeader&lt;TestTypes&gt;&gt;::builder_commitment(
-                    <span class="kw-2">&amp;</span>qc_proposal.block_header,
+                    <span class="kw-2">&amp;</span>quorum_proposal.block_header,
                 );
 
             <span class="kw">let </span>qc_signature = &lt;TestTypes <span class="kw">as </span>hotshot_types::traits::node_implementation::NodeType&gt;::SignatureKey::sign(
@@ -645,9 +661,9 @@
                         payload_vid_commitment.as_ref(),
                         ).expect(<span class="string">"Failed to sign payload commitment while preparing QC proposal"</span>);
 
-            <span class="kw">let </span>sqc_msg = QCMessage::&lt;TestTypes&gt; {
+            <span class="kw">let </span>sqc_msg = QuorumProposalMessage::&lt;TestTypes&gt; {
                 proposal: Arc::new(Proposal {
-                    data: qc_proposal.clone(),
+                    data: quorum_proposal.clone(),
                     signature: qc_signature,
                     _pd: PhantomData,
                 }),
@@ -655,17 +671,16 @@
             };
 
             <span class="comment">// Prepare the decide message
-            // let qc = QuorumCertificate::&lt;TestTypes&gt;::genesis();
             </span><span class="kw">let </span>leaf = <span class="kw">match </span>i {
                 <span class="number">0 </span>=&gt; Leaf::genesis(<span class="kw-2">&amp;</span>TestValidatedState::default(), <span class="kw-2">&amp;</span>TestInstanceState {}).<span class="kw">await</span>,
                 <span class="kw">_ </span>=&gt; {
                     <span class="kw">let </span>block_payload = BlockPayload::&lt;TestTypes&gt;::from_bytes(
                         <span class="kw-2">&amp;</span>encoded_transactions,
                         &lt;TestBlockHeader <span class="kw">as </span>BlockHeader&lt;TestTypes&gt;&gt;::metadata(
-                            <span class="kw-2">&amp;</span>qc_proposal.block_header,
+                            <span class="kw-2">&amp;</span>quorum_proposal.block_header,
                         ),
                     );
-                    <span class="kw">let </span><span class="kw-2">mut </span>current_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>qc_proposal);
+                    <span class="kw">let </span><span class="kw-2">mut </span>current_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal);
                     current_leaf
                         .fill_block_payload(block_payload, TEST_NUM_NODES_IN_VID_COMPUTATION)
                         .unwrap();
@@ -680,17 +695,23 @@
             <span class="comment">// validate the signature before pushing the message to the builder_state channels
             // currently this step happens in the service.rs, wheneve we receiver an hotshot event
             </span><span class="macro">tracing::debug!</span>(<span class="string">"Sending transaction message: {:?}"</span>, tx);
-            <span class="kw">for </span>res <span class="kw">in
-                </span>handle_received_txns(<span class="kw-2">&amp;</span>tx_sender, <span class="macro">vec!</span>[tx.clone()], TransactionSource::HotShot).<span class="kw">await
+            <span class="kw">for </span>res <span class="kw">in </span>handle_received_txns(
+                <span class="kw-2">&amp;</span>senders.transactions,
+                <span class="macro">vec!</span>[tx.clone()],
+                TransactionSource::HotShot,
+            )
+            .<span class="kw">await
             </span>{
                 res.unwrap();
             }
-            da_sender
+            senders
+                .da_proposal
                 .broadcast(MessageType::DaProposalMessage(Arc::clone(<span class="kw-2">&amp;</span>sda_msg)))
                 .<span class="kw">await
                 </span>.unwrap();
-            qc_sender
-                .broadcast(MessageType::QCMessage(sqc_msg.clone()))
+            senders
+                .quorum_proposal
+                .broadcast(MessageType::QuorumProposalMessage(sqc_msg.clone()))
                 .<span class="kw">await
                 </span>.unwrap();
 
@@ -717,38 +738,10 @@
             ));
         }
 
-        <span class="comment">//let global_state_clone = arc_rwlock_global_state.clone();
-        </span><span class="kw">let </span>arc_rwlock_global_state = Arc::new(RwLock::new(global_state));
-        <span class="kw">let </span>arc_rwlock_global_state_clone = arc_rwlock_global_state.clone();
-        <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
-            <span class="kw">let </span>built_from_info = BuiltFromProposedBlock {
-                view_number: ViewNumber::new(<span class="number">0</span>),
-                vid_commitment: vid_commitment(<span class="kw-2">&amp;</span>[], <span class="number">8</span>),
-                leaf_commit: Commitment::&lt;Leaf&lt;TestTypes&gt;&gt;::default_commitment_no_preimage(),
-                builder_commitment: BuilderCommitment::from_bytes([]),
-            };
-            <span class="kw">let </span>builder_state = BuilderState::&lt;TestTypes&gt;::new(
-                built_from_info,
-                decide_receiver,
-                da_receiver,
-                qc_receiver,
-                bootstrap_receiver,
-                tx_receiver,
-                tx_queue,
-                arc_rwlock_global_state_clone,
-                NonZeroUsize::new(TEST_NUM_NODES_IN_VID_COMPUTATION).unwrap(),
-                Duration::from_millis(<span class="number">10</span>), <span class="comment">// max time to wait for non-zero txn block
-                </span><span class="number">0</span>,                         <span class="comment">// base fee
-                </span>Arc::new(TestInstanceState {}),
-                Duration::from_secs(<span class="number">3600</span>), <span class="comment">// duration for txn garbage collection
-                </span>Arc::new(TestValidatedState::default()),
-            );
-
-            <span class="comment">//builder_state.event_loop().await;
-            </span>builder_state.event_loop();
-        });
-
-        handle.<span class="kw">await</span>;
+        <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+        </span>handle.<span class="kw">await</span>.unwrap();
+        <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+        </span>handle.<span class="kw">await</span>;
 
         <span class="comment">// go through the request messages in sreq_msgs and send the request message
         </span><span class="kw">for </span>req_msg <span class="kw">in </span>sreq_msgs.iter() {
@@ -767,7 +760,8 @@
         <span class="comment">// go through the decide messages in s_decide_msgs and send the request message
         </span><span class="kw">for </span>decide_msg <span class="kw">in </span>sdecide_msgs.iter() {
             task::sleep(std::time::Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
-            decide_sender
+            senders
+                .decide
                 .broadcast(MessageType::DecideMessage(decide_msg.clone()))
                 .<span class="kw">await
                 </span>.unwrap();
