@@ -37,8 +37,8 @@ mod tests {
     };
 
     use crate::builder_state::{
-        BuiltFromProposedBlock, DaProposalMessage, DecideMessage, QCMessage, RequestMessage,
-        TransactionSource,
+        BuiltFromProposedBlock, DaProposalMessage, DecideMessage, QuorumProposalMessage,
+        RequestMessage, TransactionSource,
     };
     use crate::service::{handle_received_txns, GlobalState, ReceivedTransaction};
     use async_lock::RwLock;
@@ -140,7 +140,7 @@ mod tests {
         // to store all the sent messages
         let mut sdecide_msgs: Vec<DecideMessage<TestTypes>> = Vec::new();
         let mut sda_msgs: Vec<Arc<DaProposalMessage<TestTypes>>> = Vec::new();
-        let mut sqc_msgs: Vec<QCMessage<TestTypes>> = Vec::new();
+        let mut sqc_msgs: Vec<QuorumProposalMessage<TestTypes>> = Vec::new();
         #[allow(clippy::type_complexity)]
         let mut sreq_msgs: Vec<(
             UnboundedReceiver<ResponseMessage>,
@@ -248,7 +248,7 @@ mod tests {
             };
             tracing::debug!("Iteration: {} justify_qc: {:?}", i, justify_qc);
 
-            let qc_proposal = QuorumProposal::<TestTypes> {
+            let quorum_proposal = QuorumProposal::<TestTypes> {
                 block_header,
                 view_number: ViewNumber::new(i as u64),
                 justify_qc: justify_qc.clone(),
@@ -258,11 +258,11 @@ mod tests {
 
             let payload_vid_commitment =
                 <TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(
-                    &qc_proposal.block_header,
+                    &quorum_proposal.block_header,
                 );
             let payload_builder_commitment =
                 <TestBlockHeader as BlockHeader<TestTypes>>::builder_commitment(
-                    &qc_proposal.block_header,
+                    &quorum_proposal.block_header,
                 );
 
             let qc_signature = <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
@@ -270,9 +270,9 @@ mod tests {
                         payload_vid_commitment.as_ref(),
                         ).expect("Failed to sign payload commitment while preparing QC proposal");
 
-            let sqc_msg = QCMessage::<TestTypes> {
+            let sqc_msg = QuorumProposalMessage::<TestTypes> {
                 proposal: Arc::new(Proposal {
-                    data: qc_proposal.clone(),
+                    data: quorum_proposal.clone(),
                     signature: qc_signature,
                     _pd: PhantomData,
                 }),
@@ -287,10 +287,10 @@ mod tests {
                     let block_payload = BlockPayload::<TestTypes>::from_bytes(
                         &encoded_transactions,
                         <TestBlockHeader as BlockHeader<TestTypes>>::metadata(
-                            &qc_proposal.block_header,
+                            &quorum_proposal.block_header,
                         ),
                     );
-                    let mut current_leaf = Leaf::from_quorum_proposal(&qc_proposal);
+                    let mut current_leaf = Leaf::from_quorum_proposal(&quorum_proposal);
                     current_leaf
                         .fill_block_payload(block_payload, TEST_NUM_NODES_IN_VID_COMPUTATION)
                         .unwrap();
@@ -318,7 +318,7 @@ mod tests {
                 .await
                 .unwrap();
             qc_sender
-                .broadcast(MessageType::QCMessage(sqc_msg.clone()))
+                .broadcast(MessageType::QuorumProposalMessage(sqc_msg.clone()))
                 .await
                 .unwrap();
 

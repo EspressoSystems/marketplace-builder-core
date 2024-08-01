@@ -13,8 +13,8 @@ use hotshot_types::{
 use committable::{Commitment, Committable};
 
 use crate::{
-    service::{GlobalState, ReceivedTransaction},
-    BlockId, BuilderStateId,
+    service::{BroadcastReceivers, GlobalState, ReceivedTransaction},
+    utils::{BlockId, BuilderStateId, RotatingSet},
 };
 use async_broadcast::broadcast;
 use async_broadcast::Receiver as BroadcastReceiver;
@@ -58,7 +58,7 @@ pub struct DaProposalMessage<TYPES: NodeType> {
 
 /// QC Message to be put on the quorum proposal channel
 #[derive(Clone, Debug, PartialEq)]
-pub struct QCMessage<TYPES: NodeType> {
+pub struct QuorumProposalMessage<TYPES: NodeType> {
     pub proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
     pub sender: TYPES::SignatureKey,
 }
@@ -105,6 +105,7 @@ pub struct BuiltFromProposedBlock<TYPES: NodeType> {
     pub leaf_commit: Commitment<Leaf<TYPES>>,
     pub builder_commitment: BuilderCommitment,
 }
+
 // implement display for the derived info
 impl<TYPES: NodeType> std::fmt::Display for BuiltFromProposedBlock<TYPES> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -114,14 +115,7 @@ impl<TYPES: NodeType> std::fmt::Display for BuiltFromProposedBlock<TYPES> {
 
 #[derive(Debug)]
 pub struct BuilderState<TYPES: NodeType> {
-    /// Recent included txs set while building blocks
-    pub included_txns: HashSet<Commitment<TYPES::Transaction>>,
-
-    /// Old txs to be garbage collected
-    pub included_txns_old: HashSet<Commitment<TYPES::Transaction>>,
-
-    /// Expiring txs to be garbage collected
-    pub included_txns_expiring: HashSet<Commitment<TYPES::Transaction>>,
+    pub included_txns: RotatingSet<Commitment<TYPES::Transaction>>,
 
     /// txns currently in the tx_queue
     pub txns_in_queue: HashSet<Commitment<TYPES::Transaction>>,
@@ -162,7 +156,7 @@ pub struct BuilderState<TYPES: NodeType> {
     pub global_state: Arc<RwLock<GlobalState<TYPES>>>,
 
     /// total nodes required for the VID computation as part of block header input response
-    pub total_nodes: NonZeroUsize,
+    pub num_nodes: NonZeroUsize,
 
     /// locally spawned builder Commitements
     pub builder_commitments: HashSet<(BuilderStateId<TYPES>, BuilderCommitment)>,
@@ -179,12 +173,6 @@ pub struct BuilderState<TYPES: NodeType> {
 
     /// instance state to enfoce max_block_size
     pub instance_state: Arc<TYPES::InstanceState>,
-
-    /// txn garbage collection every duration time
-    pub txn_garbage_collect_duration: Duration,
-
-    /// time of next garbage collection for txns
-    pub next_txn_garbage_collect_time: Instant,
 }
 
 impl<TYPES: NodeType> BuilderState<TYPES> {
@@ -211,28 +199,28 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         {
             // if we have matching da and quorum proposals, we can skip storing the one, and remove
             // the other from storage, and call build_block with both, to save a little space.
-            if let Entry::Occupied(qc_proposal) = self
+            if let Entry::Occupied(quorum_proposal) = self
                 .quorum_proposal_payload_commit_to_quorum_proposal
                 .entry((da_msg.builder_commitment.clone(), da_msg.view_number))
             {
-                let qc_proposal = qc_proposal.remove();
+                let quorum_proposal = quorum_proposal.remove();
 
                 // if we have a matching quorum proposal
                 //  if (this is the correct parent or
                 //      (the correct parent is missing and this is the highest view))
                 //    spawn a clone
-                if qc_proposal.data.view_number == da_msg.view_number {
+                if quorum_proposal.data.view_number == da_msg.view_number {
                     tracing::info!(
                         "Spawning a clone from process DA proposal for view number: {:?}",
                         da_msg.view_number
                     );
-                    // remove this entry from qc_proposal_payload_commit_to_quorum_proposal
+                    // remove this entry from quorum_proposal_payload_commit_to_quorum_proposal
                     self.quorum_proposal_payload_commit_to_quorum_proposal
                         .remove(&(da_msg.builder_commitment.clone(), da_msg.view_number));
 
                     let (req_sender, req_receiver) = broadcast(self.req_receiver.capacity());
                     self.clone_with_receiver(req_receiver)
-                        .spawn_clone(da_msg, qc_proposal, req_sender)
+                        .spawn_clone(da_msg, quorum_proposal, req_sender)
                         .await;
                 } else {
                     tracing::debug!("Not spawning a clone despite matching DA and QC payload commitments, as they corresponds to different view numbers");
@@ -249,7 +237,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     //#[tracing::instrument(skip_all, name = "Process Quorum Proposal")]
     #[tracing::instrument(skip_all, name = "process quorum proposal",
                                     fields(builder_built_from_proposed_block = %self.built_from_proposed_block))]
-    async fn process_quorum_proposal(&mut self, qc_msg: QCMessage<TYPES>) {
+    async fn process_quorum_proposal(&mut self, qc_msg: QuorumProposalMessage<TYPES>) {
         tracing::debug!(
             "Builder Received QC Message for view {:?}",
             qc_msg.proposal.data.view_number
@@ -298,9 +286,9 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
                 self.built_from_proposed_block
             );
         }
-        let qc_proposal = &qc_msg.proposal;
-        let view_number = qc_proposal.data.view_number;
-        let payload_builder_commitment = qc_proposal.data.block_header.builder_commitment();
+        let quorum_proposal = &qc_msg.proposal;
+        let view_number = quorum_proposal.data.view_number;
+        let payload_builder_commitment = quorum_proposal.data.block_header.builder_commitment();
 
         tracing::debug!(
             "Extracted payload builder commitment from the quorum proposal: {:?}",
@@ -331,13 +319,13 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
 
                     let (req_sender, req_receiver) = broadcast(self.req_receiver.capacity());
                     self.clone_with_receiver(req_receiver)
-                        .spawn_clone(da_proposal_info, qc_proposal.clone(), req_sender)
+                        .spawn_clone(da_proposal_info, quorum_proposal.clone(), req_sender)
                         .await;
                 } else {
                     tracing::debug!("Not spawning a clone despite matching DA and QC payload commitments, as they corresponds to different view numbers");
                 }
             } else {
-                e.insert(qc_proposal.clone());
+                e.insert(quorum_proposal.clone());
             }
         } else {
             tracing::debug!("Payload commitment already exists in the quorum_proposal_payload_commit_to_quorum_proposal hashmap, so ignoring it");
@@ -386,8 +374,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         quorum_proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
         req_sender: BroadcastSender<MessageType<TYPES>>,
     ) {
-        self.total_nodes =
-            NonZeroUsize::new(da_proposal_info.num_nodes).unwrap_or(self.total_nodes);
+        self.num_nodes = NonZeroUsize::new(da_proposal_info.num_nodes).unwrap_or(self.num_nodes);
         self.built_from_proposed_block.view_number = quorum_proposal.data.view_number;
         self.built_from_proposed_block.vid_commitment =
             quorum_proposal.data.block_header.payload_commitment();
@@ -401,7 +388,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             self.txns_in_queue.remove(tx);
         }
         self.included_txns
-            .extend(da_proposal_info.txn_commitments.iter());
+            .extend(da_proposal_info.txn_commitments.iter().cloned());
 
         self.tx_queue
             .retain(|tx| self.txns_in_queue.contains(&tx.commit));
@@ -597,7 +584,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
                     qc = self.qc_receiver.next() => {
                         match qc {
                             Some(qc) => {
-                                if let MessageType::QCMessage(rqc_msg) = qc {
+                                if let MessageType::QuorumProposalMessage(rqc_msg) = qc {
                                     tracing::debug!("Received quorum proposal msg in builder {:?}:\n {:?} for view ", self.built_from_proposed_block, rqc_msg.proposal.data.view_number);
                                     self.process_quorum_proposal(rqc_msg).await;
                                 } else {
@@ -655,7 +642,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
 pub enum MessageType<TYPES: NodeType> {
     DecideMessage(DecideMessage<TYPES>),
     DaProposalMessage(Arc<DaProposalMessage<TYPES>>),
-    QCMessage(QCMessage<TYPES>),
+    QuorumProposalMessage(QuorumProposalMessage<TYPES>),
     RequestMessage(RequestMessage<TYPES>),
 }
 
@@ -663,11 +650,8 @@ pub enum MessageType<TYPES: NodeType> {
 impl<TYPES: NodeType> BuilderState<TYPES> {
     pub fn new(
         built_from_proposed_block: BuiltFromProposedBlock<TYPES>,
-        decide_receiver: BroadcastReceiver<MessageType<TYPES>>,
-        da_proposal_receiver: BroadcastReceiver<MessageType<TYPES>>,
-        qc_receiver: BroadcastReceiver<MessageType<TYPES>>,
+        receivers: &BroadcastReceivers<TYPES>,
         req_receiver: BroadcastReceiver<MessageType<TYPES>>,
-        tx_receiver: BroadcastReceiver<Arc<ReceivedTransaction<TYPES>>>,
         tx_queue: Vec<Arc<ReceivedTransaction<TYPES>>>,
         global_state: Arc<RwLock<GlobalState<TYPES>>>,
         num_nodes: NonZeroUsize,
@@ -679,57 +663,32 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     ) -> Self {
         let txns_in_queue: HashSet<_> = tx_queue.iter().map(|tx| tx.commit).collect();
         BuilderState {
-            included_txns: HashSet::new(),
-            included_txns_old: HashSet::new(),
-            included_txns_expiring: HashSet::new(),
+            num_nodes,
             txns_in_queue,
             built_from_proposed_block,
-            decide_receiver,
-            da_proposal_receiver,
-            qc_receiver,
             req_receiver,
-            da_proposal_payload_commit_to_da_proposal: HashMap::new(),
-            quorum_proposal_payload_commit_to_quorum_proposal: HashMap::new(),
-            tx_receiver,
             tx_queue,
             global_state,
-            builder_commitments: HashSet::new(),
-            total_nodes: num_nodes,
             maximize_txn_capture_timeout,
             base_fee,
             instance_state,
-            txn_garbage_collect_duration,
-            next_txn_garbage_collect_time: Instant::now() + txn_garbage_collect_duration,
             validated_state,
+            included_txns: RotatingSet::new(txn_garbage_collect_duration),
+            da_proposal_payload_commit_to_da_proposal: HashMap::new(),
+            quorum_proposal_payload_commit_to_quorum_proposal: HashMap::new(),
+            builder_commitments: HashSet::new(),
+            decide_receiver: receivers.decide.activate_cloned(),
+            da_proposal_receiver: receivers.da_proposal.activate_cloned(),
+            qc_receiver: receivers.quorum_proposal.activate_cloned(),
+            tx_receiver: receivers.transactions.activate_cloned(),
         }
     }
     pub fn clone_with_receiver(&self, req_receiver: BroadcastReceiver<MessageType<TYPES>>) -> Self {
-        // Handle the garbage collection of txns
-        let (
-            included_txns,
-            included_txns_old,
-            included_txns_expiring,
-            next_txn_garbage_collect_time,
-        ) = if Instant::now() >= self.next_txn_garbage_collect_time {
-            (
-                HashSet::new(),
-                self.included_txns.clone(),
-                self.included_txns_old.clone(),
-                Instant::now() + self.txn_garbage_collect_duration,
-            )
-        } else {
-            (
-                self.included_txns.clone(),
-                self.included_txns_old.clone(),
-                self.included_txns_expiring.clone(),
-                self.next_txn_garbage_collect_time,
-            )
-        };
+        let mut included_txns = self.included_txns.clone();
+        included_txns.rotate();
 
         BuilderState {
             included_txns,
-            included_txns_old,
-            included_txns_expiring,
             txns_in_queue: self.txns_in_queue.clone(),
             built_from_proposed_block: self.built_from_proposed_block.clone(),
             decide_receiver: self.decide_receiver.clone(),
@@ -742,12 +701,10 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             tx_queue: self.tx_queue.clone(),
             global_state: self.global_state.clone(),
             builder_commitments: self.builder_commitments.clone(),
-            total_nodes: self.total_nodes,
+            num_nodes: self.num_nodes,
             maximize_txn_capture_timeout: self.maximize_txn_capture_timeout,
             base_fee: self.base_fee,
             instance_state: self.instance_state.clone(),
-            txn_garbage_collect_duration: self.txn_garbage_collect_duration,
-            next_txn_garbage_collect_time,
             validated_state: self.validated_state.clone(),
         }
     }
@@ -758,8 +715,6 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             match self.tx_receiver.try_recv() {
                 Ok(tx) => {
                     if self.included_txns.contains(&tx.commit)
-                        || self.included_txns_old.contains(&tx.commit)
-                        || self.included_txns_expiring.contains(&tx.commit)
                         || self.txns_in_queue.contains(&tx.commit)
                     {
                         continue;

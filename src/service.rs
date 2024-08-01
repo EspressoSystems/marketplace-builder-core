@@ -30,14 +30,14 @@ use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
     builder_state::{
-        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QCMessage, ResponseMessage,
-        TransactionSource,
+        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QuorumProposalMessage,
+        ResponseMessage, TransactionSource,
     },
-    BlockId, BuilderStateId,
+    utils::{BlockId, BuilderStateId},
 };
 use anyhow::anyhow;
 pub use async_broadcast::{broadcast, RecvError, TryRecvError};
-use async_broadcast::{Sender as BroadcastSender, TrySendError};
+use async_broadcast::{InactiveReceiver, Sender as BroadcastSender, TrySendError};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::{Commitment, Committable};
@@ -117,9 +117,6 @@ pub struct GlobalState<TYPES: NodeType> {
     // builder state -> last built block , it is used to respond the client
     // if the req channel times out during get_available_blocks
     pub builder_state_to_last_built_block: HashMap<BuilderStateId<TYPES>, ResponseMessage>,
-
-    // // scheduled GC by view number
-    // pub view_to_cleanup_targets: BTreeMap<TYPES::Time, BuilderStatesInfo<TYPES>>,
 
     // sending a transaction from the hotshot/private mempool to the builder states
     // NOTE: Currently, we don't differentiate between the transactions from the hotshot and the private mempool
@@ -387,6 +384,49 @@ impl<TYPES: NodeType> ReadState for ProxyGlobalState<TYPES> {
     ) -> T {
         op(self).await
     }
+}
+
+pub fn broadcast_channels<TYPES: NodeType>(
+    capacity: usize,
+) -> (BroadcastSenders<TYPES>, BroadcastReceivers<TYPES>) {
+    macro_rules! pair {
+        ($s:ident, $r:ident) => {
+            let ($s, $r) = broadcast(capacity);
+            let $r = $r.deactivate();
+        };
+    }
+
+    pair!(tx_sender, tx_receiver);
+    pair!(da_sender, da_receiver);
+    pair!(qc_sender, qc_receiver);
+    pair!(decide_sender, decide_receiver);
+
+    (
+        BroadcastSenders {
+            transactions: tx_sender,
+            da_proposal: da_sender,
+            quorum_proposal: qc_sender,
+            decide: decide_sender,
+        },
+        BroadcastReceivers {
+            transactions: tx_receiver,
+            da_proposal: da_receiver,
+            quorum_proposal: qc_receiver,
+            decide: decide_receiver,
+        },
+    )
+}
+
+// Receivers for HotShot events for the builder states
+pub struct BroadcastReceivers<TYPES: NodeType> {
+    /// For transactions, shared.
+    pub transactions: InactiveReceiver<Arc<ReceivedTransaction<TYPES>>>,
+    /// For the DA proposal.
+    pub da_proposal: InactiveReceiver<MessageType<TYPES>>,
+    /// For the quorum proposal.
+    pub quorum_proposal: InactiveReceiver<MessageType<TYPES>>,
+    /// For the decide.
+    pub decide: InactiveReceiver<MessageType<TYPES>>,
 }
 
 // Senders to broadcast data from HotShot to the builder states.
@@ -740,22 +780,22 @@ async fn handle_da_event<TYPES: NodeType>(
 
 async fn handle_qc_event<TYPES: NodeType>(
     qc_channel_sender: &BroadcastSender<MessageType<TYPES>>,
-    qc_proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
+    quorum_proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
     sender: <TYPES as NodeType>::SignatureKey,
     leader: <TYPES as NodeType>::SignatureKey,
 ) {
     tracing::debug!(
         "QCProposal: Leader: {:?} for the view: {:?}",
         leader,
-        qc_proposal.data.view_number
+        quorum_proposal.data.view_number
     );
 
-    let leaf = Leaf::from_quorum_proposal(&qc_proposal.data);
+    let leaf = Leaf::from_quorum_proposal(&quorum_proposal.data);
 
     // check if the sender is the leader and the signature is valid; if yes, broadcast the QC proposal
-    if sender == leader && sender.validate(&qc_proposal.signature, leaf.commit().as_ref()) {
-        let qc_msg = QCMessage::<TYPES> {
-            proposal: qc_proposal,
+    if sender == leader && sender.validate(&quorum_proposal.signature, leaf.commit().as_ref()) {
+        let qc_msg = QuorumProposalMessage::<TYPES> {
+            proposal: quorum_proposal,
             sender: leader,
         };
         let view_number = qc_msg.proposal.data.view_number;
@@ -764,7 +804,7 @@ async fn handle_qc_event<TYPES: NodeType>(
             view_number
         );
         if let Err(e) = qc_channel_sender
-            .broadcast(MessageType::QCMessage(qc_msg))
+            .broadcast(MessageType::QuorumProposalMessage(qc_msg))
             .await
         {
             tracing::warn!(
@@ -773,7 +813,7 @@ async fn handle_qc_event<TYPES: NodeType>(
             );
         }
     } else {
-        error!("Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}", qc_proposal.data.view_number, leader, sender);
+        error!("Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}", quorum_proposal.data.view_number, leader, sender);
     }
 }
 
