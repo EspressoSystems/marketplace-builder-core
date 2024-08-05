@@ -31,6 +31,7 @@ mod tests {
     };
 
     use hotshot_example_types::{
+        auction_results_provider_types::TestAuctionResult,
         block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
         state_types::{TestInstanceState, TestValidatedState},
     };
@@ -82,6 +83,7 @@ mod tests {
             type BuilderSignatureKey = BuilderKey;
             type Base = StaticVersion<0, 1>;
             type Upgrade = StaticVersion<0, 2>;
+            type AuctionResult = TestAuctionResult;
             const UPGRADE_HASH: [u8; 32] = [
                 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0,
                 0, 0, 0, 0,

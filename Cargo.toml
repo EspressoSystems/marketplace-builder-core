@@ -1,6 +1,6 @@
 [package]
 name = "marketplace-builder-core"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,11 +18,11 @@ committable = "0.2"
 derivative = "2.2"
 futures = "0.3"
 hex = "0.4.3"
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.67" }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.67" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.37" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.67" }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.67" }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.68" }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.68" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.38" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.68" }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.68" }
 lru = "0.12.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -39,7 +39,7 @@ vbs = "0.1"
 multimap = "0.10.0"
 
 [dev-dependencies]
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.67" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.68" }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
