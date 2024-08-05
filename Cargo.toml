@@ -23,7 +23,7 @@ hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", 
 hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.38" }
 hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.68" }
 hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.68" }
-lru = "0.12.3"
+lru = "0.12.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
