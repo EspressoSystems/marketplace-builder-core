@@ -121,12 +121,12 @@ mod tests {
         let mut sqc_msgs: Vec<QuorumProposalMessage<TestTypes>> = Vec::new();
         #[allow(clippy::type_complexity)]
         let mut sreq_msgs: Vec<(
-            UnboundedReceiver<ResponseMessage>,
+            UnboundedReceiver<ResponseMessage<TestTypes>>,
             BuilderStateId<TestTypes>,
             MessageType<TestTypes>,
         )> = Vec::new();
         // storing response messages
-        let mut rres_msgs: Vec<ResponseMessage> = Vec::new();
+        let mut rres_msgs: Vec<ResponseMessage<TestTypes>> = Vec::new();
         let _validated_state = Arc::new(TestValidatedState::default());
 
         let arc_rwlock_global_state = Arc::new(RwLock::new(global_state));
