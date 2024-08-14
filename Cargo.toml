@@ -20,7 +20,7 @@ futures = "0.3"
 hex = "0.4.3"
 hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.70" }
 hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.70" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.40" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", branch = "main" }
 hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.70" }
 hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.70" }
 lru = "0.12.3"
