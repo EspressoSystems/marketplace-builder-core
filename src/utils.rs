@@ -97,8 +97,8 @@ impl<TYPES: NodeType> std::fmt::Display for BlockId<TYPES> {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct BuilderStateId<TYPES: NodeType> {
-    pub parent_commitment: VidCommitment,
     pub view: TYPES::Time,
+    pub parent_commitment: VidCommitment,
 }
 
 impl<TYPES: NodeType> std::fmt::Display for BuilderStateId<TYPES> {
