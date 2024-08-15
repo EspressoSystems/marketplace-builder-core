@@ -66,7 +66,7 @@ pub struct QuorumProposalMessage<TYPES: NodeType> {
 #[derive(Clone, Debug)]
 pub struct RequestMessage<TYPES: NodeType> {
     pub requested_view_number: TYPES::Time,
-    pub response_channel: UnboundedSender<ResponseMessage>,
+    pub response_channel: UnboundedSender<ResponseMessage<TYPES>>,
 }
 pub enum TriggerStatus {
     Start,
@@ -85,8 +85,9 @@ pub struct BuildBlockInfo<TYPES: NodeType> {
 
 /// Response Message to be put on the response channel
 #[derive(Debug, Clone)]
-pub struct ResponseMessage {
+pub struct ResponseMessage<TYPES: NodeType> {
     pub builder_hash: BuilderCommitment,
+    pub transactions: Vec<TYPES::Transaction>,
     pub block_size: u64,
     pub offered_fee: u64,
 }
@@ -493,6 +494,10 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
                         builder_hash: response.id.hash.clone(),
                         block_size: response.block_size,
                         offered_fee: response.offered_fee,
+                        transactions: response
+                            .block_payload
+                            .transactions(&response.metadata)
+                            .collect(),
                     };
 
                     let builder_hash = response.id.hash.clone();
