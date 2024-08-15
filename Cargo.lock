@@ -1939,6 +1939,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "delegate"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e018fccbeeb50ff26562ece792ed06659b9c2dae79ece77c4456bb10d9bf79b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.74",
+]
+
+[[package]]
 name = "der"
 version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2958,7 +2969,7 @@ dependencies = [
 [[package]]
 name = "hotshot"
 version = "0.5.69"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.69#b3796d6abea494780f6220845d729cb186a11f6a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?rev=ae9679018f29168421d769a9d5e2bcb8bc332a0f#ae9679018f29168421d769a9d5e2bcb8bc332a0f"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3005,7 +3016,7 @@ dependencies = [
 [[package]]
 name = "hotshot-builder-api"
 version = "0.1.7"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.69#b3796d6abea494780f6220845d729cb186a11f6a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?rev=ae9679018f29168421d769a9d5e2bcb8bc332a0f#ae9679018f29168421d769a9d5e2bcb8bc332a0f"
 dependencies = [
  "async-trait",
  "clap",
@@ -3024,7 +3035,7 @@ dependencies = [
 [[package]]
 name = "hotshot-events-service"
 version = "0.1.38"
-source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?tag=0.1.40#9ed690db7a12a4e8a64bb49a0437086232888765"
+source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?branch=ag/bump#a638fd43766ac89698c98489b00ed09af6132d74"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3050,7 +3061,7 @@ dependencies = [
 [[package]]
 name = "hotshot-example-types"
 version = "0.5.69"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.69#b3796d6abea494780f6220845d729cb186a11f6a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?rev=ae9679018f29168421d769a9d5e2bcb8bc332a0f#ae9679018f29168421d769a9d5e2bcb8bc332a0f"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3083,7 +3094,7 @@ dependencies = [
 [[package]]
 name = "hotshot-orchestrator"
 version = "0.5.69"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.69#b3796d6abea494780f6220845d729cb186a11f6a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?rev=ae9679018f29168421d769a9d5e2bcb8bc332a0f#ae9679018f29168421d769a9d5e2bcb8bc332a0f"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3113,7 +3124,7 @@ dependencies = [
 [[package]]
 name = "hotshot-task"
 version = "0.5.69"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.69#b3796d6abea494780f6220845d729cb186a11f6a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?rev=ae9679018f29168421d769a9d5e2bcb8bc332a0f#ae9679018f29168421d769a9d5e2bcb8bc332a0f"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3128,7 +3139,7 @@ dependencies = [
 [[package]]
 name = "hotshot-task-impls"
 version = "0.5.69"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.69#b3796d6abea494780f6220845d729cb186a11f6a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?rev=ae9679018f29168421d769a9d5e2bcb8bc332a0f#ae9679018f29168421d769a9d5e2bcb8bc332a0f"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3165,7 +3176,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.11"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.69#b3796d6abea494780f6220845d729cb186a11f6a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?rev=ae9679018f29168421d769a9d5e2bcb8bc332a0f#ae9679018f29168421d769a9d5e2bcb8bc332a0f"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -3198,11 +3209,13 @@ dependencies = [
  "jf-utils",
  "jf-vid",
  "lazy_static",
+ "libp2p",
  "memoize",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "reqwest",
  "serde",
+ "serde_bytes",
  "sha2 0.10.8",
  "snafu",
  "tagged-base64",
@@ -4327,7 +4340,7 @@ dependencies = [
 [[package]]
 name = "libp2p-networking"
 version = "0.5.69"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.69#b3796d6abea494780f6220845d729cb186a11f6a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?rev=ae9679018f29168421d769a9d5e2bcb8bc332a0f#ae9679018f29168421d769a9d5e2bcb8bc332a0f"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -4337,6 +4350,7 @@ dependencies = [
  "bincode",
  "blake3",
  "custom_debug",
+ "delegate",
  "derive_builder",
  "either",
  "futures",

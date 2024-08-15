@@ -7,8 +7,8 @@ use hotshot_builder_api::v0_3::{
     builder::BuildError,
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
-use hotshot_types::bundle::Bundle;
 use hotshot_types::traits::block_contents::BuilderFee;
+use hotshot_types::{bundle::Bundle, traits::node_implementation::Versions};
 use hotshot_types::{
     data::{DaProposal, Leaf, QuorumProposal, ViewNumber},
     event::EventType,
@@ -309,36 +309,39 @@ where
     >>::Error: Display,
     for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
-    async fn bundle(&self, view_number: u64) -> Result<Bundle<TYPES>, BuildError> {
+    #[tracing::instrument(skip(self))]
+    async fn bundle(
+        &self,
+        parent_view: u64,
+        parent_hash: &VidCommitment,
+        _view_number: u64,
+    ) -> Result<Bundle<TYPES>, BuildError> {
         let start = Instant::now();
-        let requested_view = TYPES::Time::new(view_number);
-        // TODO: We should either change the API to match leader's intent or track the builder states
-        // differently, as this won't work for a view immediately after a view failure.
-        let parent_view = TYPES::Time::new(view_number.saturating_sub(1));
+
+        let parent_view = TYPES::Time::new(parent_view);
+        let state_id = BuilderStateId {
+            view: parent_view,
+            parent_commitment: parent_hash.clone(),
+        };
 
         loop {
             // Couldn't serve a bundle in time
             if start.elapsed() > self.api_timeout {
-                tracing::warn!(?requested_view, "Timeout while trying to serve a bundle");
+                tracing::warn!("Timeout while trying to serve a bundle");
                 return Err(BuildError::NotFound);
             };
 
-            // Look up a builder for this view.
-            //
-            // TODO: We currently choose the first one matching the view we found,
-            // we should introduce parent commitment to the API to match the leader's intent
-            let Some((state_id, sender)) = self
+            let Some(sender) = self
                 .global_state
                 .read_arc()
                 .await
                 .spawned_builder_states
-                .iter()
-                .find(|(id, _)| id.view == parent_view)
-                .map(|(id, sender)| (id.clone(), sender.clone()))
+                .get(&state_id)
+                .cloned()
             else {
                 let global_state = self.global_state.read_arc().await;
 
-                let past_gc = requested_view <= global_state.last_garbage_collected_view_num;
+                let past_gc = parent_view <= global_state.last_garbage_collected_view_num;
                 // Used as an indicator that we're just bootstrapping, as they should be equal at bootstrap
                 // and never otherwise.
                 let is_bootstrapping = global_state.highest_view_num_builder_id.view
@@ -347,7 +350,6 @@ where
                 if past_gc && !is_bootstrapping {
                     // If we couldn't find the state because the view has already been decided, we can just return an error
                     tracing::warn!(
-                        ?requested_view,
                         last_gc_view = ?global_state.last_garbage_collected_view_num,
                         highest_observed_view = ?global_state.highest_view_num_builder_id.view,
                         "Requested a bundle for view we already GCd as decided",
@@ -375,12 +377,7 @@ where
                 .broadcast(MessageType::RequestMessage(request))
                 .await
                 .map_err(|err| {
-                    tracing::warn!(
-                        %err,
-                        ?requested_view,
-                        %state_id,
-                        "Error requesting bundle",
-                    );
+                    tracing::warn!(%err, "Error requesting bundle");
 
                     BuildError::Error {
                         message: "Error requesting bundle".to_owned(),
@@ -393,22 +390,12 @@ where
             )
             .await
             .map_err(|err| {
-                tracing::warn!(
-                    %err,
-                    ?requested_view,
-                    %state_id,
-                    "Couldn't get a bundle in time",
-                );
+                tracing::warn!(%err, "Couldn't get a bundle in time");
 
                 BuildError::NotFound
             })?
             .map_err(|err| {
-                tracing::warn!(
-                    %err,
-                    ?requested_view,
-                    %state_id,
-                    "Channel closed while waiting for bundle",
-                );
+                tracing::warn!(%err, "Channel closed while waiting for bundle");
 
                 BuildError::Error {
                     message: "Channel closed while waiting for bundle".to_owned(),
@@ -451,7 +438,8 @@ where
                 signature,
             };
 
-            tracing::info!(?requested_view, ?bundle, "Serving bundle");
+            tracing::info!("Serving bundle");
+            tracing::trace!(?bundle);
 
             return Ok(bundle);
         }
@@ -560,18 +548,18 @@ pub struct BroadcastSenders<TYPES: NodeType> {
     pub decide: BroadcastSender<MessageType<TYPES>>,
 }
 
-async fn connect_to_events_service<TYPES: NodeType>(
+async fn connect_to_events_service<TYPES: NodeType, V: Versions>(
     hotshot_events_api_url: Url,
 ) -> Option<(
     surf_disco::socket::Connection<
         Event<TYPES>,
         surf_disco::socket::Unsupported,
         EventStreamError,
-        TYPES::Base,
+        V::Base,
     >,
     GeneralStaticCommittee<TYPES, <TYPES as NodeType>::SignatureKey>,
 )> {
-    let client = Client::<hotshot_events_service::events::Error, TYPES::Base>::new(
+    let client = Client::<hotshot_events_service::events::Error, V::Base>::new(
         hotshot_events_api_url.clone(),
     );
 
@@ -639,7 +627,10 @@ impl<TYPES: NodeType> BuilderHooks<TYPES> for NoHooks<TYPES> {}
 /*
 Running Non-Permissioned Builder Service
 */
-pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Time = ViewNumber>>(
+pub async fn run_non_permissioned_standalone_builder_service<
+    TYPES: NodeType<Time = ViewNumber>,
+    V: Versions,
+>(
     mut hooks: impl BuilderHooks<TYPES>,
 
     // Sending from the hotshot to the builder states.
@@ -649,7 +640,7 @@ pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Tim
     hotshot_events_api_url: Url,
 ) -> Result<(), anyhow::Error> {
     // connection to the events stream
-    let connected = connect_to_events_service(hotshot_events_api_url.clone()).await;
+    let connected = connect_to_events_service::<_, V>(hotshot_events_api_url.clone()).await;
     if connected.is_none() {
         return Err(anyhow!(
             "failed to connect to API at {hotshot_events_api_url}"
@@ -732,7 +723,8 @@ pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Tim
             }
             None => {
                 error!("Event stream ended");
-                let connected = connect_to_events_service(hotshot_events_api_url.clone()).await;
+                let connected =
+                    connect_to_events_service::<_, V>(hotshot_events_api_url.clone()).await;
                 if connected.is_none() {
                     return Err(anyhow!(
                         "failed to reconnect to API at {hotshot_events_api_url}"
@@ -751,6 +743,7 @@ Running Permissioned Builder Service
 pub async fn run_permissioned_standalone_builder_service<
     TYPES: NodeType<Time = ViewNumber>,
     I: NodeImplementation<TYPES>,
+    V: Versions,
 >(
     mut hooks: impl BuilderHooks<TYPES>,
 
@@ -758,7 +751,7 @@ pub async fn run_permissioned_standalone_builder_service<
     senders: BroadcastSenders<TYPES>,
 
     // hotshot context handle
-    hotshot_handle: Arc<SystemContextHandle<TYPES, I>>,
+    hotshot_handle: Arc<SystemContextHandle<TYPES, I, V>>,
 ) -> Result<(), anyhow::Error> {
     let mut event_stream = hotshot_handle.event_stream();
     loop {
