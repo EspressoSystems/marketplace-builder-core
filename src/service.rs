@@ -309,7 +309,6 @@ where
     >>::Error: Display,
     for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
-    /// TODO: fetch actual blocks
     async fn bundle(&self, view_number: u64) -> Result<Bundle<TYPES>, BuildError> {
         let start = Instant::now();
         let requested_view = TYPES::Time::new(view_number);
@@ -338,10 +337,14 @@ where
                 .map(|(id, sender)| (id.clone(), sender.clone()))
             else {
                 let global_state = self.global_state.read_arc().await;
-                if requested_view <= global_state.last_garbage_collected_view_num
-                    && global_state.highest_view_num_builder_id.view
-                        != global_state.last_garbage_collected_view_num
-                {
+
+                let past_gc = requested_view <= global_state.last_garbage_collected_view_num;
+                // Used as an indicator that we're just bootstrapping, as they should be equal at bootstrap
+                // and never otherwise.
+                let is_bootstrapping = global_state.highest_view_num_builder_id.view
+                    == global_state.last_garbage_collected_view_num;
+
+                if past_gc && !is_bootstrapping {
                     // If we couldn't find the state because the view has already been decided, we can just return an error
                     tracing::warn!(
                         ?requested_view,
