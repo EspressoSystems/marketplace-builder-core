@@ -47,7 +47,6 @@ mod tests {
     use committable::{Commitment, CommitmentBoundsArkless, Committable};
     use std::sync::Arc;
     use std::time::Duration;
-    
 
     use serde::{Deserialize, Serialize};
     /// This test simulates multiple builder states receiving messages from the channels and processing them
