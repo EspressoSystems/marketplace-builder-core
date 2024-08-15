@@ -205,8 +205,8 @@
 
 <span class="attr">#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>BuilderStateId&lt;TYPES: NodeType&gt; {
-    <span class="kw">pub </span>parent_commitment: VidCommitment,
     <span class="kw">pub </span>view: TYPES::Time,
+    <span class="kw">pub </span>parent_commitment: VidCommitment,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; std::fmt::Display <span class="kw">for </span>BuilderStateId&lt;TYPES&gt; {

@@ -734,6 +734,11 @@
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
 <a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     data::{Leaf, QuorumProposal},
     message::Proposal,
@@ -802,7 +807,7 @@
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>RequestMessage&lt;TYPES: NodeType&gt; {
     <span class="kw">pub </span>requested_view_number: TYPES::Time,
-    <span class="kw">pub </span>response_channel: UnboundedSender&lt;ResponseMessage&gt;,
+    <span class="kw">pub </span>response_channel: UnboundedSender&lt;ResponseMessage&lt;TYPES&gt;&gt;,
 }
 <span class="kw">pub enum </span>TriggerStatus {
     Start,
@@ -821,8 +826,9 @@
 
 <span class="doccomment">/// Response Message to be put on the response channel
 </span><span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>ResponseMessage {
+</span><span class="kw">pub struct </span>ResponseMessage&lt;TYPES: NodeType&gt; {
     <span class="kw">pub </span>builder_hash: BuilderCommitment,
+    <span class="kw">pub </span>transactions: Vec&lt;TYPES::Transaction&gt;,
     <span class="kw">pub </span>block_size: u64,
     <span class="kw">pub </span>offered_fee: u64,
 }
@@ -1229,6 +1235,10 @@
                         builder_hash: response.id.hash.clone(),
                         block_size: response.block_size,
                         offered_fee: response.offered_fee,
+                        transactions: response
+                            .block_payload
+                            .transactions(<span class="kw-2">&amp;</span>response.metadata)
+                            .collect(),
                     };
 
                     <span class="kw">let </span>builder_hash = response.id.hash.clone();

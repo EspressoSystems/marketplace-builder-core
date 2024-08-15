@@ -510,12 +510,12 @@
         <span class="kw">let </span><span class="kw-2">mut </span>sqc_msgs: Vec&lt;QuorumProposalMessage&lt;TestTypes&gt;&gt; = Vec::new();
         <span class="attr">#[allow(clippy::type_complexity)]
         </span><span class="kw">let </span><span class="kw-2">mut </span>sreq_msgs: Vec&lt;(
-            UnboundedReceiver&lt;ResponseMessage&gt;,
+            UnboundedReceiver&lt;ResponseMessage&lt;TestTypes&gt;&gt;,
             BuilderStateId&lt;TestTypes&gt;,
             MessageType&lt;TestTypes&gt;,
         )&gt; = Vec::new();
         <span class="comment">// storing response messages
-        </span><span class="kw">let </span><span class="kw-2">mut </span>rres_msgs: Vec&lt;ResponseMessage&gt; = Vec::new();
+        </span><span class="kw">let </span><span class="kw-2">mut </span>rres_msgs: Vec&lt;ResponseMessage&lt;TestTypes&gt;&gt; = Vec::new();
         <span class="kw">let </span>_validated_state = Arc::new(TestValidatedState::default());
 
         <span class="kw">let </span>arc_rwlock_global_state = Arc::new(RwLock::new(global_state));
