@@ -305,7 +305,12 @@ where
     for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
     /// TODO: fetch actual blocks
-    async fn bundle(&self, _view_number: u64) -> Result<Bundle<TYPES>, BuildError> {
+    async fn bundle(
+        &self,
+        _parent_view: u64,
+        _parent_hash: &VidCommitment,
+        _view_number: u64,
+    ) -> Result<Bundle<TYPES>, BuildError> {
         const FEE_AMOUNT: u64 = 1;
 
         let fee_signature =
