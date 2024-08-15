@@ -7,8 +7,8 @@ use hotshot_builder_api::v0_3::{
     builder::BuildError,
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
-use hotshot_types::bundle::Bundle;
 use hotshot_types::traits::block_contents::BuilderFee;
+use hotshot_types::{bundle::Bundle, traits::node_implementation::Versions};
 use hotshot_types::{
     data::{DaProposal, Leaf, QuorumProposal, ViewNumber},
     event::EventType,
@@ -441,18 +441,18 @@ pub struct BroadcastSenders<TYPES: NodeType> {
     pub decide: BroadcastSender<MessageType<TYPES>>,
 }
 
-async fn connect_to_events_service<TYPES: NodeType>(
+async fn connect_to_events_service<TYPES: NodeType, V: Versions>(
     hotshot_events_api_url: Url,
 ) -> Option<(
     surf_disco::socket::Connection<
         Event<TYPES>,
         surf_disco::socket::Unsupported,
         EventStreamError,
-        TYPES::Base,
+        V::Base,
     >,
     GeneralStaticCommittee<TYPES, <TYPES as NodeType>::SignatureKey>,
 )> {
-    let client = Client::<hotshot_events_service::events::Error, TYPES::Base>::new(
+    let client = Client::<hotshot_events_service::events::Error, V::Base>::new(
         hotshot_events_api_url.clone(),
     );
 
@@ -520,7 +520,10 @@ impl<TYPES: NodeType> BuilderHooks<TYPES> for NoHooks<TYPES> {}
 /*
 Running Non-Permissioned Builder Service
 */
-pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Time = ViewNumber>>(
+pub async fn run_non_permissioned_standalone_builder_service<
+    TYPES: NodeType<Time = ViewNumber>,
+    V: Versions,
+>(
     mut hooks: impl BuilderHooks<TYPES>,
 
     // Sending from the hotshot to the builder states.
@@ -530,7 +533,7 @@ pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Tim
     hotshot_events_api_url: Url,
 ) -> Result<(), anyhow::Error> {
     // connection to the events stream
-    let connected = connect_to_events_service(hotshot_events_api_url.clone()).await;
+    let connected = connect_to_events_service::<TYPES, V>(hotshot_events_api_url.clone()).await;
     if connected.is_none() {
         return Err(anyhow!(
             "failed to connect to API at {hotshot_events_api_url}"
@@ -613,7 +616,8 @@ pub async fn run_non_permissioned_standalone_builder_service<TYPES: NodeType<Tim
             }
             None => {
                 error!("Event stream ended");
-                let connected = connect_to_events_service(hotshot_events_api_url.clone()).await;
+                let connected =
+                    connect_to_events_service::<TYPES, V>(hotshot_events_api_url.clone()).await;
                 if connected.is_none() {
                     return Err(anyhow!(
                         "failed to reconnect to API at {hotshot_events_api_url}"
@@ -632,6 +636,7 @@ Running Permissioned Builder Service
 pub async fn run_permissioned_standalone_builder_service<
     TYPES: NodeType<Time = ViewNumber>,
     I: NodeImplementation<TYPES>,
+    V: Versions,
 >(
     mut hooks: impl BuilderHooks<TYPES>,
 
@@ -639,7 +644,7 @@ pub async fn run_permissioned_standalone_builder_service<
     senders: BroadcastSenders<TYPES>,
 
     // hotshot context handle
-    hotshot_handle: Arc<SystemContextHandle<TYPES, I>>,
+    hotshot_handle: Arc<SystemContextHandle<TYPES, I, V>>,
 ) -> Result<(), anyhow::Error> {
     let mut event_stream = hotshot_handle.event_stream();
     loop {
