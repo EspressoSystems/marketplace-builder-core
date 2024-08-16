@@ -142,7 +142,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
         let mut spawned_builder_states = HashMap::new();
         let bootstrap_id = BuilderStateId {
             parent_commitment: bootstrapped_builder_state_id,
-            view: bootstrapped_view_num,
+            parent_view: bootstrapped_view_num,
         };
         spawned_builder_states.insert(bootstrap_id.clone(), bootstrap_sender.clone());
         GlobalState {
@@ -165,7 +165,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
             .insert(parent_id.clone(), request_sender);
 
         // keep track of the max view number
-        if parent_id.view > self.highest_view_num_builder_id.view {
+        if parent_id.parent_view > self.highest_view_num_builder_id.parent_view {
             tracing::info!("registering builder {parent_id} as highest",);
             self.highest_view_num_builder_id = parent_id;
         } else {
@@ -204,9 +204,9 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
     pub fn remove_handles(&mut self, on_decide_view: TYPES::Time) -> TYPES::Time {
         // remove everything from the spawned builder states when view_num <= on_decide_view;
         // if we don't have a highest view > decide, use highest view as cutoff.
-        let cutoff = std::cmp::min(self.highest_view_num_builder_id.view, on_decide_view);
+        let cutoff = std::cmp::min(self.highest_view_num_builder_id.parent_view, on_decide_view);
         self.spawned_builder_states
-            .retain(|id, _| id.view >= cutoff);
+            .retain(|id, _| id.parent_view >= cutoff);
 
         let cutoff_u64 = cutoff.u64();
         let gc_view = if cutoff_u64 > 0 { cutoff_u64 - 1 } else { 0 };
@@ -252,7 +252,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
         // iterate over the spawned builder states and check if the view number exists
         self.spawned_builder_states
             .iter()
-            .any(|(id, _)| id.view == *key)
+            .any(|(id, _)| id.parent_view == *key)
     }
 
     pub fn should_view_handle_other_proposals(
@@ -260,7 +260,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
         builder_view: &TYPES::Time,
         proposal_view: &TYPES::Time,
     ) -> bool {
-        *builder_view == self.highest_view_num_builder_id.view
+        *builder_view == self.highest_view_num_builder_id.parent_view
             && !self.check_builder_state_existence_for_a_view(proposal_view)
     }
 }
@@ -320,7 +320,7 @@ where
 
         let parent_view = TYPES::Time::new(parent_view);
         let state_id = BuilderStateId {
-            view: parent_view,
+            parent_view: parent_view,
             parent_commitment: parent_hash.clone(),
         };
 
@@ -344,14 +344,14 @@ where
                 let past_gc = parent_view <= global_state.last_garbage_collected_view_num;
                 // Used as an indicator that we're just bootstrapping, as they should be equal at bootstrap
                 // and never otherwise.
-                let is_bootstrapping = global_state.highest_view_num_builder_id.view
+                let is_bootstrapping = global_state.highest_view_num_builder_id.parent_view
                     == global_state.last_garbage_collected_view_num;
 
                 if past_gc && !is_bootstrapping {
                     // If we couldn't find the state because the view has already been decided, we can just return an error
                     tracing::warn!(
                         last_gc_view = ?global_state.last_garbage_collected_view_num,
-                        highest_observed_view = ?global_state.highest_view_num_builder_id.view,
+                        highest_observed_view = ?global_state.highest_view_num_builder_id.parent_view,
                         "Requested a bundle for view we already GCd as decided",
                     );
                     return Err(BuildError::Error {

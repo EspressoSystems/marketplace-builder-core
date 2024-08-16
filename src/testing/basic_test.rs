@@ -344,7 +344,7 @@ mod tests {
                 response_receiver,
                 BuilderStateId {
                     parent_commitment: requested_vid_commitment,
-                    view: ViewNumber::new(i as u64),
+                    parent_view: ViewNumber::new(i as u64),
                 },
                 request_message,
             ));

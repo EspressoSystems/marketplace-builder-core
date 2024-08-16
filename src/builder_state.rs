@@ -398,7 +398,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         self.global_state.write_arc().await.register_builder_state(
             BuilderStateId {
                 parent_commitment: self.built_from_proposed_block.vid_commitment,
-                view: self.built_from_proposed_block.view_number,
+                parent_view: self.built_from_proposed_block.view_number,
             },
             req_sender,
         );
@@ -483,7 +483,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             let response = self
                 .build_block(BuilderStateId {
                     parent_commitment: self.built_from_proposed_block.vid_commitment,
-                    view: requested_view_number,
+                    parent_view: requested_view_number,
                 })
                 .await;
 
@@ -504,7 +504,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
                     self.global_state.write_arc().await.update_global_state(
                         BuilderStateId {
                             parent_commitment: self.built_from_proposed_block.vid_commitment,
-                            view: requested_view_number,
+                            parent_view: requested_view_number,
                         },
                         response,
                         response_msg.clone(),
