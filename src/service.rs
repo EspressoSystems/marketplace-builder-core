@@ -142,7 +142,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
         let mut spawned_builder_states = HashMap::new();
         let bootstrap_id = BuilderStateId {
             parent_commitment: bootstrapped_builder_state_id,
-            view: bootstrapped_view_num,
+            parent_view: bootstrapped_view_num,
         };
         spawned_builder_states.insert(bootstrap_id.clone(), bootstrap_sender.clone());
         GlobalState {
@@ -165,7 +165,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
             .insert(parent_id.clone(), request_sender);
 
         // keep track of the max view number
-        if parent_id.view > self.highest_view_num_builder_id.view {
+        if parent_id.parent_view > self.highest_view_num_builder_id.parent_view {
             tracing::info!("registering builder {parent_id} as highest",);
             self.highest_view_num_builder_id = parent_id;
         } else {
@@ -204,9 +204,9 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
     pub fn remove_handles(&mut self, on_decide_view: TYPES::Time) -> TYPES::Time {
         // remove everything from the spawned builder states when view_num <= on_decide_view;
         // if we don't have a highest view > decide, use highest view as cutoff.
-        let cutoff = std::cmp::min(self.highest_view_num_builder_id.view, on_decide_view);
+        let cutoff = std::cmp::min(self.highest_view_num_builder_id.parent_view, on_decide_view);
         self.spawned_builder_states
-            .retain(|id, _| id.view >= cutoff);
+            .retain(|id, _| id.parent_view >= cutoff);
 
         let cutoff_u64 = cutoff.u64();
         let gc_view = if cutoff_u64 > 0 { cutoff_u64 - 1 } else { 0 };
@@ -252,7 +252,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
         // iterate over the spawned builder states and check if the view number exists
         self.spawned_builder_states
             .iter()
-            .any(|(id, _)| id.view == *key)
+            .any(|(id, _)| id.parent_view == *key)
     }
 
     pub fn should_view_handle_other_proposals(
@@ -260,7 +260,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
         builder_view: &TYPES::Time,
         proposal_view: &TYPES::Time,
     ) -> bool {
-        *builder_view == self.highest_view_num_builder_id.view
+        *builder_view == self.highest_view_num_builder_id.parent_view
             && !self.check_builder_state_existence_for_a_view(proposal_view)
     }
 }
@@ -309,52 +309,49 @@ where
     >>::Error: Display,
     for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
+    #[tracing::instrument(skip(self))]
     async fn bundle(
         &self,
-        _parent_view: u64,
-        _parent_hash: &VidCommitment,
-        view_number: u64,
+        parent_view: u64,
+        parent_hash: &VidCommitment,
+        _view_number: u64,
     ) -> Result<Bundle<TYPES>, BuildError> {
         let start = Instant::now();
-        let requested_view = TYPES::Time::new(view_number);
-        // TODO: We should either change the API to match leader's intent or track the builder states
-        // differently, as this won't work for a view immediately after a view failure.
-        let parent_view = TYPES::Time::new(view_number.saturating_sub(1));
+
+        let parent_view = TYPES::Time::new(parent_view);
+        let state_id = BuilderStateId {
+            parent_view,
+            parent_commitment: *parent_hash,
+        };
 
         loop {
             // Couldn't serve a bundle in time
             if start.elapsed() > self.api_timeout {
-                tracing::warn!(?requested_view, "Timeout while trying to serve a bundle");
+                tracing::warn!("Timeout while trying to serve a bundle");
                 return Err(BuildError::NotFound);
             };
 
-            // Look up a builder for this view.
-            //
-            // TODO: We currently choose the first one matching the view we found,
-            // we should introduce parent commitment to the API to match the leader's intent
-            let Some((state_id, sender)) = self
+            let Some(sender) = self
                 .global_state
                 .read_arc()
                 .await
                 .spawned_builder_states
-                .iter()
-                .find(|(id, _)| id.view == parent_view)
-                .map(|(id, sender)| (id.clone(), sender.clone()))
+                .get(&state_id)
+                .cloned()
             else {
                 let global_state = self.global_state.read_arc().await;
 
-                let past_gc = requested_view <= global_state.last_garbage_collected_view_num;
+                let past_gc = parent_view <= global_state.last_garbage_collected_view_num;
                 // Used as an indicator that we're just bootstrapping, as they should be equal at bootstrap
                 // and never otherwise.
-                let is_bootstrapping = global_state.highest_view_num_builder_id.view
+                let is_bootstrapping = global_state.highest_view_num_builder_id.parent_view
                     == global_state.last_garbage_collected_view_num;
 
                 if past_gc && !is_bootstrapping {
                     // If we couldn't find the state because the view has already been decided, we can just return an error
                     tracing::warn!(
-                        ?requested_view,
                         last_gc_view = ?global_state.last_garbage_collected_view_num,
-                        highest_observed_view = ?global_state.highest_view_num_builder_id.view,
+                        highest_observed_view = ?global_state.highest_view_num_builder_id.parent_view,
                         "Requested a bundle for view we already GCd as decided",
                     );
                     return Err(BuildError::Error {
@@ -380,12 +377,7 @@ where
                 .broadcast(MessageType::RequestMessage(request))
                 .await
                 .map_err(|err| {
-                    tracing::warn!(
-                        %err,
-                        ?requested_view,
-                        %state_id,
-                        "Error requesting bundle",
-                    );
+                    tracing::warn!(%err, "Error requesting bundle");
 
                     BuildError::Error {
                         message: "Error requesting bundle".to_owned(),
@@ -398,22 +390,12 @@ where
             )
             .await
             .map_err(|err| {
-                tracing::warn!(
-                    %err,
-                    ?requested_view,
-                    %state_id,
-                    "Couldn't get a bundle in time",
-                );
+                tracing::warn!(%err, "Couldn't get a bundle in time");
 
                 BuildError::NotFound
             })?
             .map_err(|err| {
-                tracing::warn!(
-                    %err,
-                    ?requested_view,
-                    %state_id,
-                    "Channel closed while waiting for bundle",
-                );
+                tracing::warn!(%err, "Channel closed while waiting for bundle");
 
                 BuildError::Error {
                     message: "Channel closed while waiting for bundle".to_owned(),
@@ -456,7 +438,8 @@ where
                 signature,
             };
 
-            tracing::info!(?requested_view, ?bundle, "Serving bundle");
+            tracing::info!("Serving bundle");
+            tracing::trace!(?bundle);
 
             return Ok(bundle);
         }
@@ -741,7 +724,7 @@ pub async fn run_non_permissioned_standalone_builder_service<
             None => {
                 error!("Event stream ended");
                 let connected =
-                    connect_to_events_service::<TYPES, V>(hotshot_events_api_url.clone()).await;
+                    connect_to_events_service::<_, V>(hotshot_events_api_url.clone()).await;
                 if connected.is_none() {
                     return Err(anyhow!(
                         "failed to reconnect to API at {hotshot_events_api_url}"

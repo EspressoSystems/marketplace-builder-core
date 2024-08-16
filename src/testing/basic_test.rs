@@ -140,9 +140,7 @@ mod tests {
                 NonZeroUsize::new(TEST_NUM_NODES_IN_VID_COMPUTATION).unwrap(),
                 Duration::from_millis(10), // max time to wait for non-zero txn block
                 0,                         // base fee
-                Arc::new(TestInstanceState {
-                    ..Default::default()
-                }),
+                Arc::new(TestInstanceState::default()),
                 Duration::from_secs(3600), // duration for txn garbage collection
                 Arc::new(TestValidatedState::default()),
             );
@@ -208,9 +206,7 @@ mod tests {
                 0 => {
                     QuorumCertificate::<TestTypes>::genesis(
                         &TestValidatedState::default(),
-                        &TestInstanceState {
-                            delay_config: Default::default(),
-                        },
+                        &TestInstanceState::default(),
                     )
                     .await
                 }
@@ -285,9 +281,7 @@ mod tests {
                 0 => {
                     Leaf::genesis(
                         &TestValidatedState::default(),
-                        &TestInstanceState {
-                            delay_config: Default::default(),
-                        },
+                        &TestInstanceState::default(),
                     )
                     .await
                 }
@@ -350,7 +344,7 @@ mod tests {
                 response_receiver,
                 BuilderStateId {
                     parent_commitment: requested_vid_commitment,
-                    view: ViewNumber::new(i as u64),
+                    parent_view: ViewNumber::new(i as u64),
                 },
                 request_message,
             ));
