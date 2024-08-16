@@ -320,8 +320,8 @@ where
 
         let parent_view = TYPES::Time::new(parent_view);
         let state_id = BuilderStateId {
-            parent_view: parent_view,
-            parent_commitment: parent_hash.clone(),
+            parent_view,
+            parent_commitment: *parent_hash,
         };
 
         loop {
@@ -640,7 +640,7 @@ pub async fn run_non_permissioned_standalone_builder_service<
     hotshot_events_api_url: Url,
 ) -> Result<(), anyhow::Error> {
     // connection to the events stream
-    let connected = connect_to_events_service::<_, V>(hotshot_events_api_url.clone()).await;
+    let connected = connect_to_events_service::<TYPES, V>(hotshot_events_api_url.clone()).await;
     if connected.is_none() {
         return Err(anyhow!(
             "failed to connect to API at {hotshot_events_api_url}"
