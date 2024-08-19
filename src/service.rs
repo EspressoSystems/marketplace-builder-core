@@ -222,6 +222,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
         &self,
         txns: Vec<<TYPES as NodeType>::Transaction>,
     ) -> Vec<Result<Commitment<<TYPES as NodeType>::Transaction>, BuildError>> {
+        tracing::error!("submit txs: {:?}", txns);
         handle_received_txns(&self.tx_sender, txns, TransactionSource::External).await
     }
 
@@ -844,9 +845,10 @@ pub(crate) async fn handle_received_txns<TYPES: NodeType>(
     txns: Vec<TYPES::Transaction>,
     source: TransactionSource,
 ) -> Vec<Result<Commitment<<TYPES as NodeType>::Transaction>, BuildError>> {
-    let mut results = Vec::with_capacity(txns.len());
+    let mut results = Vec::with_capacity(txns.len()); // It's a bundle
     let time_in = Instant::now();
     for tx in txns.into_iter() {
+        tracing::error!("handle_received_txns tx: {:?} time: {:?}", tx, time_in);
         let commit = tx.commit();
         let res = tx_sender
             .try_broadcast(Arc::new(ReceivedTransaction {

@@ -412,12 +412,12 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         &mut self,
         state_id: BuilderStateId<TYPES>,
     ) -> Option<BuildBlockInfo<TYPES>> {
-        let timeout_after = Instant::now() + self.maximize_txn_capture_timeout;
+        let timeout_after = Instant::now() + self.maximize_txn_capture_timeout; // Sishan: everytime we call we will collect tx before recent future 
         let sleep_interval = self.maximize_txn_capture_timeout / 10;
         while Instant::now() <= timeout_after {
             self.collect_txns(timeout_after).await;
 
-            if !self.tx_queue.is_empty() // we have transactions
+            if !self.tx_queue.is_empty() // we have transactions // Sishan: it should have collected all before `timeout_after`
             || Instant::now() + sleep_interval > timeout_after
             // we don't have time for another iteration
             {
@@ -437,7 +437,8 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             let builder_hash = payload.builder_commitment(&metadata);
             // count the number of txns
             let txn_count = payload.num_transactions(&metadata);
-
+            tracing::error!("finally, self.tx_queue = {:?}, txn_count = {:?}", self.tx_queue, txn_count);
+            // self.tx_queue = Vec::new();
             // insert the recently built block into the builder commitments
             self.builder_commitments
                 .insert((state_id, builder_hash.clone()));
@@ -452,7 +453,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
                 txn_count,
                 builder_hash
             );
-
+            
             Some(BuildBlockInfo {
                 id: BlockId {
                     view: self.built_from_proposed_block.view_number,
