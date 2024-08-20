@@ -344,14 +344,19 @@ where
                 let past_gc = parent_view <= global_state.last_garbage_collected_view_num;
                 // Used as an indicator that we're just bootstrapping, as they should be equal at bootstrap
                 // and never otherwise.
-                let is_bootstrapping = global_state.highest_view_num_builder_id.parent_view
-                    == global_state.last_garbage_collected_view_num;
+                let last_gc_view = global_state.last_garbage_collected_view_num;
+                let highest_observed_view = global_state.highest_view_num_builder_id.view;
+                let is_bootstrapping = last_gc_view == highest_observed_view;
+
+                // Explicitly drop `global_state` to avoid the lock while sleeping in `else`.
+                drop(global_state);
 
                 if past_gc && !is_bootstrapping {
                     // If we couldn't find the state because the view has already been decided, we can just return an error
                     tracing::warn!(
-                        last_gc_view = ?global_state.last_garbage_collected_view_num,
-                        highest_observed_view = ?global_state.highest_view_num_builder_id.parent_view,
+                        ?requested_view,
+                        last_gc_view = ?last_gc_view,
+                        highest_observed_view = ?highest_observed_view,
                         "Requested a bundle for view we already GCd as decided",
                     );
                     return Err(BuildError::Error {
