@@ -46,6 +46,7 @@ where
 
     /// Insert a `key` into the set. Doesn't trigger garbage collection
     pub fn insert(&mut self, value: T) {
+        tracing::error!("we did do the insert() for RotatingSet");
         self.fresh.insert(value);
     }
 
@@ -61,6 +62,7 @@ where
     /// Trigger garbage collection.
     pub fn rotate(&mut self) -> bool {
         if self.last_rotation.elapsed() > self.period {
+            tracing::error!("Real rotate happens!!!");
             self.force_rotate();
             true
         } else {

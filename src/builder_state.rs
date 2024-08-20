@@ -388,6 +388,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         for tx in da_proposal_info.txn_commitments.iter() {
             self.txns_in_queue.remove(tx);
         }
+        tracing::error!("In spawn_clone(), included_txns = {:?}", self.included_txns);
         self.included_txns
             .extend(da_proposal_info.txn_commitments.iter().cloned());
 
@@ -415,6 +416,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     ) -> Option<BuildBlockInfo<TYPES>> {
         let timeout_after = Instant::now() + self.maximize_txn_capture_timeout; // Sishan: everytime we call we will collect tx before recent future 
         let sleep_interval = self.maximize_txn_capture_timeout / 10;
+        tracing::error!("Before collection, self.tx_queue = {:?}", self.tx_queue);
         while Instant::now() <= timeout_after {
             self.collect_txns(timeout_after).await;
 
@@ -427,6 +429,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
 
             async_sleep(sleep_interval).await
         }
+        tracing::error!("After collection, self.tx_queue = {:?}", self.tx_queue);
         if let Ok((payload, metadata)) =
             <TYPES::BlockPayload as BlockPayload<TYPES>>::from_transactions(
                 self.tx_queue.iter().map(|tx| tx.tx.clone()),
@@ -720,9 +723,11 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         while Instant::now() <= timeout_after {
             match self.tx_receiver.try_recv() {
                 Ok(tx) => {
+                    tracing::error!("adding tx {:?}", tx);
                     if self.included_txns.contains(&tx.commit)
                         || self.txns_in_queue.contains(&tx.commit)
                     {
+                        tracing::error!("tx.commit = {:?}, self.included_txns = {:?}, self.txns_in_queue = {:?}", tx.commit, self.included_txns, self.txns_in_queue);
                         continue;
                     }
                     self.txns_in_queue.insert(tx.commit);
