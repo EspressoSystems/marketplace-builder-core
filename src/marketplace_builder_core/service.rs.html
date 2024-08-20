@@ -995,18 +995,6 @@
 <a href="#995" id="995">995</a>
 <a href="#996" id="996">996</a>
 <a href="#997" id="997">997</a>
-<a href="#998" id="998">998</a>
-<a href="#999" id="999">999</a>
-<a href="#1000" id="1000">1000</a>
-<a href="#1001" id="1001">1001</a>
-<a href="#1002" id="1002">1002</a>
-<a href="#1003" id="1003">1003</a>
-<a href="#1004" id="1004">1004</a>
-<a href="#1005" id="1005">1005</a>
-<a href="#1006" id="1006">1006</a>
-<a href="#1007" id="1007">1007</a>
-<a href="#1008" id="1008">1008</a>
-<a href="#1009" id="1009">1009</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
@@ -1151,7 +1139,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>spawned_builder_states = HashMap::new();
         <span class="kw">let </span>bootstrap_id = BuilderStateId {
             parent_commitment: bootstrapped_builder_state_id,
-            view: bootstrapped_view_num,
+            parent_view: bootstrapped_view_num,
         };
         spawned_builder_states.insert(bootstrap_id.clone(), bootstrap_sender.clone());
         GlobalState {
@@ -1174,7 +1162,7 @@
             .insert(parent_id.clone(), request_sender);
 
         <span class="comment">// keep track of the max view number
-        </span><span class="kw">if </span>parent_id.view &gt; <span class="self">self</span>.highest_view_num_builder_id.view {
+        </span><span class="kw">if </span>parent_id.parent_view &gt; <span class="self">self</span>.highest_view_num_builder_id.parent_view {
             <span class="macro">tracing::info!</span>(<span class="string">"registering builder {parent_id} as highest"</span>,);
             <span class="self">self</span>.highest_view_num_builder_id = parent_id;
         } <span class="kw">else </span>{
@@ -1213,9 +1201,9 @@
     </span><span class="kw">pub fn </span>remove_handles(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on_decide_view: TYPES::Time) -&gt; TYPES::Time {
         <span class="comment">// remove everything from the spawned builder states when view_num &lt;= on_decide_view;
         // if we don't have a highest view &gt; decide, use highest view as cutoff.
-        </span><span class="kw">let </span>cutoff = std::cmp::min(<span class="self">self</span>.highest_view_num_builder_id.view, on_decide_view);
+        </span><span class="kw">let </span>cutoff = std::cmp::min(<span class="self">self</span>.highest_view_num_builder_id.parent_view, on_decide_view);
         <span class="self">self</span>.spawned_builder_states
-            .retain(|id, <span class="kw">_</span>| id.view &gt;= cutoff);
+            .retain(|id, <span class="kw">_</span>| id.parent_view &gt;= cutoff);
 
         <span class="kw">let </span>cutoff_u64 = cutoff.u64();
         <span class="kw">let </span>gc_view = <span class="kw">if </span>cutoff_u64 &gt; <span class="number">0 </span>{ cutoff_u64 - <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">0 </span>};
@@ -1261,7 +1249,7 @@
         <span class="comment">// iterate over the spawned builder states and check if the view number exists
         </span><span class="self">self</span>.spawned_builder_states
             .iter()
-            .any(|(id, <span class="kw">_</span>)| id.view == <span class="kw-2">*</span>key)
+            .any(|(id, <span class="kw">_</span>)| id.parent_view == <span class="kw-2">*</span>key)
     }
 
     <span class="kw">pub fn </span>should_view_handle_other_proposals(
@@ -1269,7 +1257,7 @@
         builder_view: <span class="kw-2">&amp;</span>TYPES::Time,
         proposal_view: <span class="kw-2">&amp;</span>TYPES::Time,
     ) -&gt; bool {
-        <span class="kw-2">*</span>builder_view == <span class="self">self</span>.highest_view_num_builder_id.view
+        <span class="kw-2">*</span>builder_view == <span class="self">self</span>.highest_view_num_builder_id.parent_view
             &amp;&amp; !<span class="self">self</span>.check_builder_state_existence_for_a_view(proposal_view)
     }
 }
@@ -1318,40 +1306,43 @@ Handling Builder API responses
     &gt;&gt;::Error: Display,
     <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
 {
-    <span class="kw">async fn </span>bundle(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Result</span>&lt;Bundle&lt;TYPES&gt;, BuildError&gt; {
+    <span class="attr">#[tracing::instrument(skip(<span class="self">self</span>))]
+    </span><span class="kw">async fn </span>bundle(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        parent_view: u64,
+        parent_hash: <span class="kw-2">&amp;</span>VidCommitment,
+        _view_number: u64,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Bundle&lt;TYPES&gt;, BuildError&gt; {
         <span class="kw">let </span>start = Instant::now();
-        <span class="kw">let </span>requested_view = TYPES::Time::new(view_number);
-        <span class="comment">// TODO: We should either change the API to match leader's intent or track the builder states
-        // differently, as this won't work for a view immediately after a view failure.
-        </span><span class="kw">let </span>parent_view = TYPES::Time::new(view_number.saturating_sub(<span class="number">1</span>));
+
+        <span class="kw">let </span>parent_view = TYPES::Time::new(parent_view);
+        <span class="kw">let </span>state_id = BuilderStateId {
+            parent_view,
+            parent_commitment: <span class="kw-2">*</span>parent_hash,
+        };
 
         <span class="kw">loop </span>{
             <span class="comment">// Couldn't serve a bundle in time
             </span><span class="kw">if </span>start.elapsed() &gt; <span class="self">self</span>.api_timeout {
-                <span class="macro">tracing::warn!</span>(<span class="question-mark">?</span>requested_view, <span class="string">"Timeout while trying to serve a bundle"</span>);
+                <span class="macro">tracing::warn!</span>(<span class="string">"Timeout while trying to serve a bundle"</span>);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(BuildError::NotFound);
             };
 
-            <span class="comment">// Look up a builder for this view.
-            //
-            // TODO: We currently choose the first one matching the view we found,
-            // we should introduce parent commitment to the API to match the leader's intent
-            </span><span class="kw">let </span><span class="prelude-val">Some</span>((state_id, sender)) = <span class="self">self
+            <span class="kw">let </span><span class="prelude-val">Some</span>(sender) = <span class="self">self
                 </span>.global_state
                 .read_arc()
                 .<span class="kw">await
                 </span>.spawned_builder_states
-                .iter()
-                .find(|(id, <span class="kw">_</span>)| id.view == parent_view)
-                .map(|(id, sender)| (id.clone(), sender.clone()))
+                .get(<span class="kw-2">&amp;</span>state_id)
+                .cloned()
             <span class="kw">else </span>{
                 <span class="kw">let </span>global_state = <span class="self">self</span>.global_state.read_arc().<span class="kw">await</span>;
 
-                <span class="kw">let </span>past_gc = requested_view &lt;= global_state.last_garbage_collected_view_num;
+                <span class="kw">let </span>past_gc = parent_view &lt;= global_state.last_garbage_collected_view_num;
                 <span class="comment">// Used as an indicator that we're just bootstrapping, as they should be equal at bootstrap
                 // and never otherwise.
                 </span><span class="kw">let </span>last_gc_view = global_state.last_garbage_collected_view_num;
-                <span class="kw">let </span>highest_observed_view = global_state.highest_view_num_builder_id.view;
+                <span class="kw">let </span>highest_observed_view = global_state.highest_view_num_builder_id.parent_view;
                 <span class="kw">let </span>is_bootstrapping = last_gc_view == highest_observed_view;
 
                 <span class="comment">// Explicitly drop `global_state` to avoid the lock while sleeping in `else`.
@@ -1360,7 +1351,6 @@ Handling Builder API responses
                 <span class="kw">if </span>past_gc &amp;&amp; !is_bootstrapping {
                     <span class="comment">// If we couldn't find the state because the view has already been decided, we can just return an error
                     </span><span class="macro">tracing::warn!</span>(
-                        <span class="question-mark">?</span>requested_view,
                         last_gc_view = <span class="question-mark">?</span>last_gc_view,
                         highest_observed_view = <span class="question-mark">?</span>highest_observed_view,
                         <span class="string">"Requested a bundle for view we already GCd as decided"</span>,
@@ -1388,12 +1378,7 @@ Handling Builder API responses
                 .broadcast(MessageType::RequestMessage(request))
                 .<span class="kw">await
                 </span>.map_err(|err| {
-                    <span class="macro">tracing::warn!</span>(
-                        %err,
-                        <span class="question-mark">?</span>requested_view,
-                        %state_id,
-                        <span class="string">"Error requesting bundle"</span>,
-                    );
+                    <span class="macro">tracing::warn!</span>(%err, <span class="string">"Error requesting bundle"</span>);
 
                     BuildError::Error {
                         message: <span class="string">"Error requesting bundle"</span>.to_owned(),
@@ -1406,22 +1391,12 @@ Handling Builder API responses
             )
             .<span class="kw">await
             </span>.map_err(|err| {
-                <span class="macro">tracing::warn!</span>(
-                    %err,
-                    <span class="question-mark">?</span>requested_view,
-                    %state_id,
-                    <span class="string">"Couldn't get a bundle in time"</span>,
-                );
+                <span class="macro">tracing::warn!</span>(%err, <span class="string">"Couldn't get a bundle in time"</span>);
 
                 BuildError::NotFound
             })<span class="question-mark">?
             </span>.map_err(|err| {
-                <span class="macro">tracing::warn!</span>(
-                    %err,
-                    <span class="question-mark">?</span>requested_view,
-                    %state_id,
-                    <span class="string">"Channel closed while waiting for bundle"</span>,
-                );
+                <span class="macro">tracing::warn!</span>(%err, <span class="string">"Channel closed while waiting for bundle"</span>);
 
                 BuildError::Error {
                     message: <span class="string">"Channel closed while waiting for bundle"</span>.to_owned(),
@@ -1464,7 +1439,8 @@ Handling Builder API responses
                 signature,
             };
 
-            <span class="macro">tracing::info!</span>(<span class="question-mark">?</span>requested_view, <span class="question-mark">?</span>bundle, <span class="string">"Serving bundle"</span>);
+            <span class="macro">tracing::info!</span>(<span class="string">"Serving bundle"</span>);
+            <span class="macro">tracing::trace!</span>(<span class="question-mark">?</span>bundle);
 
             <span class="kw">return </span><span class="prelude-val">Ok</span>(bundle);
         }
@@ -1749,7 +1725,7 @@ Running Non-Permissioned Builder Service
             <span class="prelude-val">None </span>=&gt; {
                 <span class="macro">error!</span>(<span class="string">"Event stream ended"</span>);
                 <span class="kw">let </span>connected =
-                    connect_to_events_service::&lt;TYPES, V&gt;(hotshot_events_api_url.clone()).<span class="kw">await</span>;
+                    connect_to_events_service::&lt;<span class="kw">_</span>, V&gt;(hotshot_events_api_url.clone()).<span class="kw">await</span>;
                 <span class="kw">if </span>connected.is_none() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
                         <span class="string">"failed to reconnect to API at {hotshot_events_api_url}"

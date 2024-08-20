@@ -106,6 +106,10 @@
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     hash::Hash,
@@ -205,13 +209,17 @@
 
 <span class="attr">#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>BuilderStateId&lt;TYPES: NodeType&gt; {
-    <span class="kw">pub </span>view: TYPES::Time,
+    <span class="kw">pub </span>parent_view: TYPES::Time,
     <span class="kw">pub </span>parent_commitment: VidCommitment,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; std::fmt::Display <span class="kw">for </span>BuilderStateId&lt;TYPES&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"BuilderState({}@{})"</span>, <span class="self">self</span>.parent_commitment, <span class="kw-2">*</span><span class="self">self</span>.view)
+        <span class="macro">write!</span>(
+            f,
+            <span class="string">"BuilderState({}@{})"</span>,
+            <span class="self">self</span>.parent_commitment, <span class="kw-2">*</span><span class="self">self</span>.parent_view
+        )
     }
 }
 </code></pre></div></section></main></body></html>

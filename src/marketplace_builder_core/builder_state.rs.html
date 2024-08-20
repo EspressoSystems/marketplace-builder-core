@@ -1139,7 +1139,7 @@
         </span><span class="self">self</span>.global_state.write_arc().<span class="kw">await</span>.register_builder_state(
             BuilderStateId {
                 parent_commitment: <span class="self">self</span>.built_from_proposed_block.vid_commitment,
-                view: <span class="self">self</span>.built_from_proposed_block.view_number,
+                parent_view: <span class="self">self</span>.built_from_proposed_block.view_number,
             },
             req_sender,
         );
@@ -1224,7 +1224,7 @@
             <span class="kw">let </span>response = <span class="self">self
                 </span>.build_block(BuilderStateId {
                     parent_commitment: <span class="self">self</span>.built_from_proposed_block.vid_commitment,
-                    view: requested_view_number,
+                    parent_view: requested_view_number,
                 })
                 .<span class="kw">await</span>;
 
@@ -1245,7 +1245,7 @@
                     <span class="self">self</span>.global_state.write_arc().<span class="kw">await</span>.update_global_state(
                         BuilderStateId {
                             parent_commitment: <span class="self">self</span>.built_from_proposed_block.vid_commitment,
-                            view: requested_view_number,
+                            parent_view: requested_view_number,
                         },
                         response,
                         response_msg.clone(),
