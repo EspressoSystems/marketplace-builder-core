@@ -21,4 +21,5 @@ pub mod service;
 pub mod utils;
 
 // tracking the testing
+#[cfg(test)]
 pub mod testing;
