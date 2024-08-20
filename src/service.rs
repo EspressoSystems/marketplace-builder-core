@@ -345,7 +345,7 @@ where
                 // Used as an indicator that we're just bootstrapping, as they should be equal at bootstrap
                 // and never otherwise.
                 let last_gc_view = global_state.last_garbage_collected_view_num;
-                let highest_observed_view = global_state.highest_view_num_builder_id.view;
+                let highest_observed_view = global_state.highest_view_num_builder_id.parent_view;
                 let is_bootstrapping = last_gc_view == highest_observed_view;
 
                 // Explicitly drop `global_state` to avoid the lock while sleeping in `else`.
