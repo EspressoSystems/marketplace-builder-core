@@ -354,7 +354,6 @@ where
                 if past_gc && !is_bootstrapping {
                     // If we couldn't find the state because the view has already been decided, we can just return an error
                     tracing::warn!(
-                        ?requested_view,
                         last_gc_view = ?last_gc_view,
                         highest_observed_view = ?highest_observed_view,
                         "Requested a bundle for view we already GCd as decided",
