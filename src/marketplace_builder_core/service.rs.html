@@ -1003,6 +1003,10 @@
 <a href="#1003" id="1003">1003</a>
 <a href="#1004" id="1004">1004</a>
 <a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
@@ -1346,15 +1350,19 @@ Handling Builder API responses
                 <span class="kw">let </span>past_gc = requested_view &lt;= global_state.last_garbage_collected_view_num;
                 <span class="comment">// Used as an indicator that we're just bootstrapping, as they should be equal at bootstrap
                 // and never otherwise.
-                </span><span class="kw">let </span>is_bootstrapping = global_state.highest_view_num_builder_id.view
-                    == global_state.last_garbage_collected_view_num;
+                </span><span class="kw">let </span>last_gc_view = global_state.last_garbage_collected_view_num;
+                <span class="kw">let </span>highest_observed_view = global_state.highest_view_num_builder_id.view;
+                <span class="kw">let </span>is_bootstrapping = last_gc_view == highest_observed_view;
+
+                <span class="comment">// Explicitly drop `global_state` to avoid the lock while sleeping in `else`.
+                </span>drop(global_state);
 
                 <span class="kw">if </span>past_gc &amp;&amp; !is_bootstrapping {
                     <span class="comment">// If we couldn't find the state because the view has already been decided, we can just return an error
                     </span><span class="macro">tracing::warn!</span>(
                         <span class="question-mark">?</span>requested_view,
-                        last_gc_view = <span class="question-mark">?</span>global_state.last_garbage_collected_view_num,
-                        highest_observed_view = <span class="question-mark">?</span>global_state.highest_view_num_builder_id.view,
+                        last_gc_view = <span class="question-mark">?</span>last_gc_view,
+                        highest_observed_view = <span class="question-mark">?</span>highest_observed_view,
                         <span class="string">"Requested a bundle for view we already GCd as decided"</span>,
                     );
                     <span class="kw">return </span><span class="prelude-val">Err</span>(BuildError::Error {
