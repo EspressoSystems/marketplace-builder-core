@@ -25,6 +25,7 @@ use hotshot_types::{
     vid::VidCommitment,
 };
 use tracing::error;
+use vbs::version::StaticVersionType;
 
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 
@@ -552,18 +553,18 @@ pub struct BroadcastSenders<TYPES: NodeType> {
     pub decide: BroadcastSender<MessageType<TYPES>>,
 }
 
-async fn connect_to_events_service<TYPES: NodeType, V: Versions>(
+async fn connect_to_events_service<TYPES: NodeType, ApiVer: StaticVersionType>(
     hotshot_events_api_url: Url,
 ) -> Option<(
     surf_disco::socket::Connection<
         Event<TYPES>,
         surf_disco::socket::Unsupported,
         EventStreamError,
-        V::Base,
+        ApiVer,
     >,
     GeneralStaticCommittee<TYPES, <TYPES as NodeType>::SignatureKey>,
 )> {
-    let client = Client::<hotshot_events_service::events::Error, V::Base>::new(
+    let client = Client::<hotshot_events_service::events::Error, ApiVer>::new(
         hotshot_events_api_url.clone(),
     );
 
@@ -633,7 +634,7 @@ Running Non-Permissioned Builder Service
 */
 pub async fn run_non_permissioned_standalone_builder_service<
     TYPES: NodeType<Time = ViewNumber>,
-    V: Versions,
+    ApiVer: StaticVersionType,
 >(
     mut hooks: impl BuilderHooks<TYPES>,
 
@@ -644,7 +645,8 @@ pub async fn run_non_permissioned_standalone_builder_service<
     hotshot_events_api_url: Url,
 ) -> Result<(), anyhow::Error> {
     // connection to the events stream
-    let connected = connect_to_events_service::<TYPES, V>(hotshot_events_api_url.clone()).await;
+    let connected =
+        connect_to_events_service::<TYPES, ApiVer>(hotshot_events_api_url.clone()).await;
     if connected.is_none() {
         return Err(anyhow!(
             "failed to connect to API at {hotshot_events_api_url}"
@@ -728,7 +730,7 @@ pub async fn run_non_permissioned_standalone_builder_service<
             None => {
                 error!("Event stream ended");
                 let connected =
-                    connect_to_events_service::<_, V>(hotshot_events_api_url.clone()).await;
+                    connect_to_events_service::<_, ApiVer>(hotshot_events_api_url.clone()).await;
                 if connected.is_none() {
                     return Err(anyhow!(
                         "failed to reconnect to API at {hotshot_events_api_url}"
