@@ -75,10 +75,10 @@ mod tests {
         // Number of views to simulate
         const NUM_ROUNDS: usize = 5;
         // Number of transactions to submit per round
-        const NUM_TXNS_PER_ROUND: usize = 5;
+        const NUM_TXNS_PER_ROUND: usize = 4;
         // Capacity of broadcast channels
         const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
-        // Number of nodes on DA commetee
+        // Number of nodes on DA committee
         const NUM_STORAGE_NODES: usize = 4;
 
         // Transactions to send
@@ -129,16 +129,17 @@ mod tests {
             Arc::new(TestValidatedState::default()),
         );
 
-        // start the event loop
+        // start the state's event loop
         builder_state.event_loop();
 
-        // to store all the sent messages
+        // state tracked across the loop
         let mut sqc_msgs: Vec<QuorumProposalMessage<TestTypes>> = Vec::new();
-
         let mut proposed_transactions: Option<Vec<TestTransaction>> = None;
         let mut transaction_history = Vec::new();
 
-        // generate num_test messages for each type and send it to the respective channels;
+        // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
+        // then construct DA and Quorum Proposals based on what we received from builder in the previous round
+        // and request a new bundle.
         for round in 0..NUM_ROUNDS {
             let prev_round = round.checked_sub(1);
 
@@ -153,8 +154,6 @@ mod tests {
                     &block_payload,
                     &TestMetadata,
                 );
-
-            let transactions_to_submit = &all_transactions[round];
 
             let seed = [round as u8; 32];
             let (pub_key, private_key) = BLSPubKey::generated_from_seed_indexed(seed, round as u64);
@@ -191,18 +190,11 @@ mod tests {
                         leaf_commit: leaf.commit(),
                     };
 
-                    let prev_view_number = prev_proposal.data.view_number.u64();
-                    let view_number =
-                        if prev_view_number == 0 && prev_justify_qc.view_number.u64() == 0 {
-                            ViewNumber::new(0)
-                        } else {
-                            ViewNumber::new(1 + prev_justify_qc.view_number.u64())
-                        };
                     // form a justify qc
                     SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold> {
                         vote_commitment: q_data.commit(),
                         data: q_data,
-                        view_number,
+                        view_number: ViewNumber::new(round as u64),
                         signatures: prev_justify_qc.signatures.clone(),
                         _pd: PhantomData,
                     }
@@ -231,7 +223,10 @@ mod tests {
                 }),
                 sender: pub_key,
             };
+            sqc_msgs.push(sqc_msg.clone());
 
+            // Submit transactions for this round to the builder
+            let transactions_to_submit = &all_transactions[round];
             for res in handle_received_txns(
                 &senders.transactions,
                 transactions_to_submit.clone(),
@@ -239,9 +234,10 @@ mod tests {
             )
             .await
             {
-                res.unwrap();
+                res.expect("Couldn't submit transactions");
             }
 
+            // Broadcast proposals for this round
             senders
                 .da_proposal
                 .broadcast(MessageType::DaProposalMessage(Arc::clone(&da_proposal)))
@@ -249,9 +245,12 @@ mod tests {
                 .unwrap();
             senders
                 .quorum_proposal
-                .broadcast(MessageType::QuorumProposalMessage(sqc_msg.clone()))
+                .broadcast(MessageType::QuorumProposalMessage(sqc_msg))
                 .await
                 .unwrap();
+
+            // Wait a bit to give BuilderState time to fork
+            async_sleep(Duration::from_millis(100)).await;
 
             let (response_sender, response_receiver) = unbounded();
             let request_message = MessageType::<TestTypes>::RequestMessage(RequestMessage {
@@ -259,35 +258,29 @@ mod tests {
                 response_channel: response_sender,
             });
 
-            sqc_msgs.push(sqc_msg);
-            let req_msg = (
-                response_receiver,
-                BuilderStateId {
-                    parent_commitment: block_vid_commitment,
-                    view: ViewNumber::new(round as u64),
-                },
-                request_message,
-            );
-
-            async_sleep(Duration::from_millis(100)).await;
-
+            // Find target builder and request a bundle
             global_state
                 .read_arc()
                 .await
                 .spawned_builder_states
-                .get(&req_msg.1)
-                .expect("Failed to get channel for matching builder")
-                .broadcast(req_msg.2.clone())
+                .get(&BuilderStateId {
+                    parent_commitment: block_vid_commitment,
+                    view: ViewNumber::new(round as u64),
+                })
+                .expect("Failed to get channel for matching builder state")
+                .broadcast(request_message)
                 .await
-                .unwrap();
+                .expect("Failed to send request to matching builder state");
 
-            let res_msg = req_msg
-                .0
+            let res_msg = response_receiver
                 .recv()
                 .timeout(Duration::from_secs(10))
                 .await
-                .unwrap()
-                .unwrap();
+                .expect("Timeout waiting for bundle")
+                .expect("Failed to receive bundle");
+
+            // Save received transactions so that we can "propose" them in
+            // the next round
             proposed_transactions = Some(res_msg.transactions.clone());
             transaction_history.extend(res_msg.transactions);
         }
