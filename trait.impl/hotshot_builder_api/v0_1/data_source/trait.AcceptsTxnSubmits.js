@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"marketplace_builder_core":[["impl&lt;TYPES: <a class=\"trait\" href=\"marketplace_builder_core/testing/basic_test/trait.NodeType.html\" title=\"trait marketplace_builder_core::testing::basic_test::NodeType\">NodeType</a>&gt; AcceptsTxnSubmits&lt;TYPES&gt; for <a class=\"struct\" href=\"marketplace_builder_core/service/struct.ProxyGlobalState.html\" title=\"struct marketplace_builder_core::service::ProxyGlobalState\">ProxyGlobalState</a>&lt;TYPES&gt;"]]
+"marketplace_builder_core":[["impl&lt;TYPES: NodeType&gt; AcceptsTxnSubmits&lt;TYPES&gt; for <a class=\"struct\" href=\"marketplace_builder_core/service/struct.ProxyGlobalState.html\" title=\"struct marketplace_builder_core::service::ProxyGlobalState\">ProxyGlobalState</a>&lt;TYPES&gt;"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

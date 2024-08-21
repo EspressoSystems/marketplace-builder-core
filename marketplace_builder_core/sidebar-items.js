@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["builder_state","service","testing","utils"]};
+window.SIDEBAR_ITEMS = {"mod":["builder_state","service","utils"]};
