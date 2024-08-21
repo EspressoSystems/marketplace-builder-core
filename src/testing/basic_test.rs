@@ -41,10 +41,10 @@ async fn test_builder() {
     // Number of views to simulate
     const NUM_ROUNDS: usize = 5;
     // Number of transactions to submit per round
-    const NUM_TXNS_PER_ROUND: usize = 5;
+    const NUM_TXNS_PER_ROUND: usize = 4;
     // Capacity of broadcast channels
     const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
-    // Number of nodes on DA commetee
+    // Number of nodes on DA committee
     const NUM_STORAGE_NODES: usize = 4;
 
     let (senders, global_state) = start_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
@@ -63,6 +63,9 @@ async fn test_builder() {
     let mut prev_quorum_proposal: Option<QuorumProposal<TestTypes>> = None;
     let mut transaction_history = Vec::new();
 
+    // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
+    // then construct DA and Quorum Proposals based on what we received from builder in the previous round
+    // and request a new bundle.
     #[allow(clippy::needless_range_loop)] // intent is clearer this way
     for round in 0..NUM_ROUNDS {
         // simulate transaction being submitted to the builder
@@ -118,13 +121,6 @@ async fn test_builder() {
             }
             Some(prev_proposal) => {
                 let prev_justify_qc = &prev_proposal.justify_qc;
-                let prev_view_number = prev_proposal.view_number.u64();
-                let view_number = if prev_view_number == 0 && prev_justify_qc.view_number.u64() == 0
-                {
-                    ViewNumber::new(0)
-                } else {
-                    ViewNumber::new(1 + prev_justify_qc.view_number.u64())
-                };
                 let quorum_data = QuorumData::<TestTypes> {
                     leaf_commit: Leaf::from_quorum_proposal(&prev_proposal).commit(),
                 };
@@ -133,7 +129,7 @@ async fn test_builder() {
                 SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold> {
                     vote_commitment: quorum_data.commit(),
                     data: quorum_data,
-                    view_number,
+                    view_number: ViewNumber::new(round as u64),
                     signatures: prev_justify_qc.signatures.clone(),
                     _pd: PhantomData,
                 }
