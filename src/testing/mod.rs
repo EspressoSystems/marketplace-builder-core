@@ -30,6 +30,7 @@ use committable::{Commitment, CommitmentBoundsArkless};
 use std::sync::Arc;
 use std::time::Duration;
 pub mod basic_test;
+pub mod order_test;
 
 #[derive(
     Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
