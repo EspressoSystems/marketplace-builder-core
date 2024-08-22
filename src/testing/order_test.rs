@@ -32,10 +32,10 @@ use hotshot::rand;
 use std::sync::Arc;
 use std::time::Duration;
 
-// Sishan TODO: Change the type TestTransaction to a general type
-fn order_check(
-    transaction_history: Vec<TestTransaction>,
-    all_transactions: Vec<Vec<TestTransaction>>,
+/// The function checks whether the common part of two transaction vectors have the same order
+fn order_check<T: Eq + Clone>(
+    transaction_history: Vec<T>,
+    all_transactions: Vec<Vec<T>>,
 ) -> bool {
     let all_transactions_vec = all_transactions.into_iter().flatten().collect::<Vec<_>>();
     let common_txs: Vec<_> = transaction_history
@@ -276,7 +276,7 @@ async fn test_builder_order() {
     }
 
     // we should've served all transactions submitted, and in correct order
-    // Sishan TODO: add some comments if failing the assertion
+    // the test will fail if the common part of two vectors of transactions don't have the same order
     assert_eq!(
         order_check(transaction_history, real_all_transactions),
         true
