@@ -37,12 +37,12 @@ fn order_check<T: Eq + Clone>(transaction_history: Vec<T>, all_transactions: Vec
     let all_transactions_vec = all_transactions.into_iter().flatten().collect::<Vec<_>>();
     let common_txs: Vec<_> = transaction_history
         .iter()
-        .filter(|item| all_transactions_vec.contains(&item))
+        .filter(|item| all_transactions_vec.contains(item))
         .collect();
 
     let another_common_txs: Vec<_> = all_transactions_vec
         .iter()
-        .filter(|item| transaction_history.contains(&item))
+        .filter(|item| transaction_history.contains(item))
         .collect();
 
     common_txs == another_common_txs
@@ -274,8 +274,5 @@ async fn test_builder_order() {
 
     // we should've served all transactions submitted, and in correct order
     // the test will fail if the common part of two vectors of transactions don't have the same order
-    assert_eq!(
-        order_check(transaction_history, real_all_transactions),
-        true
-    );
+    assert!(order_check(transaction_history, real_all_transactions));
 }
