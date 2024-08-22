@@ -33,10 +33,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// The function checks whether the common part of two transaction vectors have the same order
-fn order_check<T: Eq + Clone>(
-    transaction_history: Vec<T>,
-    all_transactions: Vec<Vec<T>>,
-) -> bool {
+fn order_check<T: Eq + Clone>(transaction_history: Vec<T>, all_transactions: Vec<Vec<T>>) -> bool {
     let all_transactions_vec = all_transactions.into_iter().flatten().collect::<Vec<_>>();
     let common_txs: Vec<_> = transaction_history
         .iter()
