@@ -921,85 +921,8 @@
 <a href="#921" id="921">921</a>
 <a href="#922" id="922">922</a>
 <a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
-<a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
-<a href="#953" id="953">953</a>
-<a href="#954" id="954">954</a>
-<a href="#955" id="955">955</a>
-<a href="#956" id="956">956</a>
-<a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
-<a href="#959" id="959">959</a>
-<a href="#960" id="960">960</a>
-<a href="#961" id="961">961</a>
-<a href="#962" id="962">962</a>
-<a href="#963" id="963">963</a>
-<a href="#964" id="964">964</a>
-<a href="#965" id="965">965</a>
-<a href="#966" id="966">966</a>
-<a href="#967" id="967">967</a>
-<a href="#968" id="968">968</a>
-<a href="#969" id="969">969</a>
-<a href="#970" id="970">970</a>
-<a href="#971" id="971">971</a>
-<a href="#972" id="972">972</a>
-<a href="#973" id="973">973</a>
-<a href="#974" id="974">974</a>
-<a href="#975" id="975">975</a>
-<a href="#976" id="976">976</a>
-<a href="#977" id="977">977</a>
-<a href="#978" id="978">978</a>
-<a href="#979" id="979">979</a>
-<a href="#980" id="980">980</a>
-<a href="#981" id="981">981</a>
-<a href="#982" id="982">982</a>
-<a href="#983" id="983">983</a>
-<a href="#984" id="984">984</a>
-<a href="#985" id="985">985</a>
-<a href="#986" id="986">986</a>
-<a href="#987" id="987">987</a>
-<a href="#988" id="988">988</a>
-<a href="#989" id="989">989</a>
-<a href="#990" id="990">990</a>
-<a href="#991" id="991">991</a>
-<a href="#992" id="992">992</a>
-<a href="#993" id="993">993</a>
-<a href="#994" id="994">994</a>
-<a href="#995" id="995">995</a>
-<a href="#996" id="996">996</a>
-<a href="#997" id="997">997</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
-<span class="kw">use </span>hotshot::{
-    traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
-    types::{Event, SystemContextHandle},
-};
+<span class="kw">use </span>hotshot::{traits::election::static_committee::GeneralStaticCommittee, types::Event};
 <span class="kw">use </span>hotshot_builder_api::v0_3::{
     builder::BuildError,
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
@@ -1012,7 +935,6 @@
     message::Proposal,
     traits::{
         block_contents::BlockPayload,
-        consensus_api::ConsensusApi,
         election::Membership,
         network::Topic,
         node_implementation::{ConsensusTime, NodeType},
@@ -1262,9 +1184,12 @@
     }
 }
 
-<span class="kw">pub struct </span>ProxyGlobalState&lt;TYPES: NodeType&gt; {
+<span class="kw">pub struct </span>ProxyGlobalState&lt;TYPES: NodeType, H: BuilderHooks&lt;TYPES&gt;&gt; {
     <span class="comment">// global state
     </span>global_state: Arc&lt;RwLock&lt;GlobalState&lt;TYPES&gt;&gt;&gt;,
+
+    <span class="comment">// hooks
+    </span>hooks: Arc&lt;H&gt;,
 
     <span class="comment">// identity keys for the builder
     // May be ideal place as GlobalState interacts with hotshot apis
@@ -1278,9 +1203,14 @@
     </span>api_timeout: Duration,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ProxyGlobalState&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES, H&gt; ProxyGlobalState&lt;TYPES, H&gt;
+<span class="kw">where
+    </span>TYPES: NodeType,
+    H: BuilderHooks&lt;TYPES&gt;,
+{
     <span class="kw">pub fn </span>new(
         global_state: Arc&lt;RwLock&lt;GlobalState&lt;TYPES&gt;&gt;&gt;,
+        hooks: Arc&lt;H&gt;,
         builder_keys: (
             TYPES::BuilderSignatureKey,
             &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
@@ -1288,6 +1218,7 @@
         api_timeout: Duration,
     ) -&gt; <span class="self">Self </span>{
         ProxyGlobalState {
+            hooks,
             global_state,
             builder_keys,
             api_timeout,
@@ -1299,9 +1230,11 @@
 Handling Builder API responses
 */
 </span><span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderDataSource&lt;TYPES&gt; <span class="kw">for </span>ProxyGlobalState&lt;TYPES&gt;
+</span><span class="kw">impl</span>&lt;TYPES, H&gt; BuilderDataSource&lt;TYPES&gt; <span class="kw">for </span>ProxyGlobalState&lt;TYPES, H&gt;
 <span class="kw">where
-    for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
+    </span>TYPES: NodeType,
+    H: BuilderHooks&lt;TYPES&gt;,
+    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType <span class="kw">as </span>TryFrom&lt;
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64,
     &gt;&gt;::Error: Display,
     <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;&gt;::Error: Display,
@@ -1454,7 +1387,11 @@ Handling Builder API responses
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; AcceptsTxnSubmits&lt;TYPES&gt; <span class="kw">for </span>ProxyGlobalState&lt;TYPES&gt; {
+</span><span class="kw">impl</span>&lt;TYPES, H&gt; AcceptsTxnSubmits&lt;TYPES&gt; <span class="kw">for </span>ProxyGlobalState&lt;TYPES, H&gt;
+<span class="kw">where
+    </span>TYPES: NodeType,
+    H: BuilderHooks&lt;TYPES&gt;,
+{
     <span class="kw">async fn </span>submit_txns(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         txns: Vec&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Transaction&gt;,
@@ -1464,6 +1401,7 @@ Handling Builder API responses
             txns.len(),
             txns.iter().map(|txn| txn.commit()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
         );
+        <span class="kw">let </span>txns = <span class="self">self</span>.hooks.process_transactions(txns).<span class="kw">await</span>;
         <span class="kw">let </span>response = <span class="self">self
             </span>.global_state
             .read_arc()
@@ -1483,8 +1421,12 @@ Handling Builder API responses
     }
 }
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; ReadState <span class="kw">for </span>ProxyGlobalState&lt;TYPES&gt; {
-    <span class="kw">type </span>State = ProxyGlobalState&lt;TYPES&gt;;
+</span><span class="kw">impl</span>&lt;TYPES, H&gt; ReadState <span class="kw">for </span>ProxyGlobalState&lt;TYPES, H&gt;
+<span class="kw">where
+    </span>TYPES: NodeType,
+    H: BuilderHooks&lt;TYPES&gt; + <span class="lifetime">'static</span>,
+{
+    <span class="kw">type </span>State = ProxyGlobalState&lt;TYPES, H&gt;;
 
     <span class="kw">async fn </span>read&lt;T&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1611,14 +1553,14 @@ Handling Builder API responses
 </span><span class="kw">pub trait </span>BuilderHooks&lt;TYPES: NodeType&gt;: Sync + Send {
     <span class="attr">#[inline(always)]
     </span><span class="kw">async fn </span>process_transactions(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        <span class="self">self</span>: <span class="kw-2">&amp;</span>Arc&lt;<span class="self">Self</span>&gt;,
         transactions: Vec&lt;TYPES::Transaction&gt;,
     ) -&gt; Vec&lt;TYPES::Transaction&gt; {
         transactions
     }
 
     <span class="attr">#[inline(always)]
-    </span><span class="kw">async fn </span>handle_hotshot_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _event: <span class="kw-2">&amp;</span>Event&lt;TYPES&gt;) {}
+    </span><span class="kw">async fn </span>handle_hotshot_event(<span class="self">self</span>: <span class="kw-2">&amp;</span>Arc&lt;<span class="self">Self</span>&gt;, _event: <span class="kw-2">&amp;</span>Event&lt;TYPES&gt;) {}
 }
 
 <span class="kw">pub struct </span>NoHooks&lt;TYPES: NodeType&gt;(<span class="kw">pub </span>PhantomData&lt;TYPES&gt;);
@@ -1632,7 +1574,7 @@ Running Non-Permissioned Builder Service
     TYPES: NodeType&lt;Time = ViewNumber&gt;,
     V: Versions,
 &gt;(
-    <span class="kw-2">mut </span>hooks: <span class="kw">impl </span>BuilderHooks&lt;TYPES&gt;,
+    hooks: Arc&lt;<span class="kw">impl </span>BuilderHooks&lt;TYPES&gt;&gt;,
 
     <span class="comment">// Sending from the hotshot to the builder states.
     </span>senders: BroadcastSenders&lt;TYPES&gt;,
@@ -1733,96 +1675,6 @@ Running Non-Permissioned Builder Service
                 }
                 (subscribed_events, membership) =
                     connected.context(<span class="string">"Failed to reconnect to events service"</span>)<span class="question-mark">?</span>;
-            }
-        }
-    }
-}
-
-<span class="comment">/*
-Running Permissioned Builder Service
-*/
-</span><span class="kw">pub async fn </span>run_permissioned_standalone_builder_service&lt;
-    TYPES: NodeType&lt;Time = ViewNumber&gt;,
-    I: NodeImplementation&lt;TYPES&gt;,
-    V: Versions,
-&gt;(
-    <span class="kw-2">mut </span>hooks: <span class="kw">impl </span>BuilderHooks&lt;TYPES&gt;,
-
-    <span class="comment">// Sending from the hotshot to the builder states.
-    </span>senders: BroadcastSenders&lt;TYPES&gt;,
-
-    <span class="comment">// hotshot context handle
-    </span>hotshot_handle: Arc&lt;SystemContextHandle&lt;TYPES, I, V&gt;&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>event_stream = hotshot_handle.event_stream();
-    <span class="kw">loop </span>{
-        <span class="macro">tracing::debug!</span>(<span class="string">"Waiting for events from HotShot"</span>);
-        <span class="kw">match </span>event_stream.next().<span class="kw">await </span>{
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">error!</span>(<span class="string">"Didn't receive any event from the HotShot event stream"</span>);
-            }
-            <span class="prelude-val">Some</span>(event) =&gt; {
-                hooks.handle_hotshot_event(<span class="kw-2">&amp;</span>event).<span class="kw">await</span>;
-
-                <span class="kw">match </span>event.event {
-                    <span class="comment">// error event
-                    </span>EventType::Error { error } =&gt; {
-                        <span class="macro">error!</span>(<span class="string">"Error event in HotShot: {:?}"</span>, error);
-                    }
-                    <span class="comment">// tx event
-                    </span>EventType::Transactions { transactions } =&gt; {
-                        <span class="kw">let </span>transactions = hooks.process_transactions(transactions).<span class="kw">await</span>;
-
-                        <span class="kw">for </span>res <span class="kw">in </span>handle_received_txns(
-                            <span class="kw-2">&amp;</span>senders.transactions,
-                            transactions,
-                            TransactionSource::HotShot,
-                        )
-                        .<span class="kw">await
-                        </span>{
-                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = res {
-                                <span class="macro">tracing::warn!</span>(<span class="string">"Failed to handle transactions; {:?}"</span>, e);
-                            }
-                        }
-                    }
-                    <span class="comment">// decide event
-                    </span>EventType::Decide { leaf_chain, .. } =&gt; {
-                        <span class="kw">let </span>latest_decide_view_number = leaf_chain[<span class="number">0</span>].leaf.view_number();
-
-                        handle_decide_event(<span class="kw-2">&amp;</span>senders.decide, latest_decide_view_number).<span class="kw">await</span>;
-                    }
-                    <span class="comment">// DA proposal event
-                    </span>EventType::DaProposal { proposal, sender } =&gt; {
-                        <span class="comment">// get the leader for current view
-                        </span><span class="kw">let </span>leader = hotshot_handle.leader(proposal.data.view_number).<span class="kw">await</span>;
-                        <span class="comment">// get the committee staked node count
-                        </span><span class="kw">let </span>total_nodes = hotshot_handle.total_nodes();
-
-                        handle_da_event(
-                            <span class="kw-2">&amp;</span>senders.da_proposal,
-                            proposal,
-                            sender,
-                            leader,
-                            total_nodes,
-                        )
-                        .<span class="kw">await</span>;
-                    }
-                    <span class="comment">// QC proposal event
-                    </span>EventType::QuorumProposal { proposal, sender } =&gt; {
-                        <span class="comment">// get the leader for current view
-                        </span><span class="kw">let </span>leader = hotshot_handle.leader(proposal.data.view_number).<span class="kw">await</span>;
-                        handle_qc_event(
-                            <span class="kw-2">&amp;</span>senders.quorum_proposal,
-                            Arc::new(proposal),
-                            sender,
-                            leader,
-                        )
-                        .<span class="kw">await</span>;
-                    }
-                    <span class="kw">_ </span>=&gt; {
-                        <span class="macro">tracing::trace!</span>(<span class="string">"Unhandled event from Builder: {:?}"</span>, event.event);
-                    }
-                }
             }
         }
     }
