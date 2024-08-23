@@ -8,7 +8,7 @@ use hotshot_types::{
 
 use crate::builder_state::MessageType;
 
-use std::{collections::HashSet, marker::PhantomData};
+use std::{collections::HashSet, fmt::Debug, marker::PhantomData};
 
 use async_compatibility_layer::art::async_sleep;
 use async_compatibility_layer::channel::unbounded;
@@ -33,8 +33,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// The function checks whether the common part of two transaction vectors have the same order
-fn order_check<T: Eq + Clone>(transaction_history: Vec<T>, all_transactions: Vec<Vec<T>>) -> bool {
+fn order_check<T: Eq + Clone + Debug>(transaction_history: Vec<T>, all_transactions: Vec<Vec<T>>) -> bool {
     let all_transactions_vec = all_transactions.into_iter().flatten().collect::<Vec<_>>();
+    tracing::debug!("Doing order check, transaction_history = {:?}, all_transactions = {:?}", transaction_history, all_transactions_vec);
     let common_txs: Vec<_> = transaction_history
         .iter()
         .filter(|item| all_transactions_vec.contains(item))
@@ -70,7 +71,7 @@ async fn test_builder_order() {
     let (senders, global_state) = start_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
 
     // Transactions to send
-    let real_all_transactions = (0..NUM_ROUNDS)
+    let all_transactions = (0..NUM_ROUNDS)
         .map(|round| {
             (0..NUM_TXNS_PER_ROUND)
                 .map(|tx_num| TestTransaction::new(vec![round as u8, tx_num as u8]))
@@ -88,29 +89,6 @@ async fn test_builder_order() {
     let skip_round = random_rounds[0]; // the round we want to skip all the transactions
     let adjust_add_round = random_rounds[1]; // the round we want to randomly add some transactions
     let adjust_remove_round = random_rounds[2]; // the round we want to skip some transactions
-    let all_transactions = (0..NUM_ROUNDS)
-        .map(|round| {
-            if round == skip_round {
-                Vec::new()
-            } else {
-                let mut standard_vec = (0..NUM_TXNS_PER_ROUND)
-                    .map(|tx_num| TestTransaction::new(vec![round as u8, tx_num as u8]))
-                    .collect::<Vec<_>>();
-                if round == adjust_add_round {
-                    standard_vec.insert(
-                        rand::random::<usize>() % NUM_TXNS_PER_ROUND,
-                        TestTransaction::new(vec![round as u8, (NUM_TXNS_PER_ROUND + 1) as u8]),
-                    );
-                    standard_vec
-                } else if round == adjust_remove_round {
-                    standard_vec.remove(rand::random::<usize>() % NUM_TXNS_PER_ROUND);
-                    standard_vec
-                } else {
-                    standard_vec
-                }
-            }
-        })
-        .collect::<Vec<_>>();
 
     // set up state to track between simulated consensus rounds
     let mut prev_proposed_transactions: Option<Vec<TestTransaction>> = None;
@@ -267,12 +245,33 @@ async fn test_builder_order() {
             .unwrap();
         // in the next round we will use received transactions to simulate
         // the block being proposed
-        prev_proposed_transactions = Some(res_msg.transactions.clone());
+        tracing::debug!("Before assignment, prev_proposed_transactions = {:?}, res_msg = {:?}, req_msg = {:?}", prev_proposed_transactions, res_msg, req_msg);
+
+        // play with transactions propsed by proposers: skip the whole round OR interspersed some txs randomly OR remove some txs randomly
+        if let MessageType::<TestTypes>::RequestMessage(ref request) = req_msg.2 {
+            let view_number = request.requested_view_number;
+            if view_number == ViewNumber::new(skip_round as u64) {
+                prev_proposed_transactions = None;
+            }
+            else {
+                let mut proposed_transactions = res_msg.transactions.clone();
+                if view_number == ViewNumber::new(adjust_add_round as u64) {
+                    proposed_transactions.insert(rand::random::<usize>() % NUM_TXNS_PER_ROUND, TestTransaction::new(vec![adjust_add_round as u8, (NUM_TXNS_PER_ROUND + 1) as u8]));
+                } else if view_number == ViewNumber::new(adjust_remove_round as u64) {
+                    proposed_transactions.remove(rand::random::<usize>() % NUM_TXNS_PER_ROUND);
+                }
+                prev_proposed_transactions = Some(proposed_transactions);
+            }
+        } else {
+            tracing::error!("Unable to get request from RequestMessage");
+        }
         // save transactions to history
-        transaction_history.extend(res_msg.transactions);
+        if prev_proposed_transactions != None {
+            transaction_history.extend(prev_proposed_transactions.clone().unwrap());
+        }
     }
 
     // we should've served all transactions submitted, and in correct order
     // the test will fail if the common part of two vectors of transactions don't have the same order
-    assert!(order_check(transaction_history, real_all_transactions));
+    assert!(order_check(transaction_history, all_transactions));
 }
