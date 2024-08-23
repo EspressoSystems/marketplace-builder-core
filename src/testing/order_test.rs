@@ -33,9 +33,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// The function checks whether the common part of two transaction vectors have the same order
-fn order_check<T: Eq + Clone + Debug>(transaction_history: Vec<T>, all_transactions: Vec<Vec<T>>) -> bool {
+fn order_check<T: Eq + Clone + Debug>(
+    transaction_history: Vec<T>,
+    all_transactions: Vec<Vec<T>>,
+) -> bool {
     let all_transactions_vec = all_transactions.into_iter().flatten().collect::<Vec<_>>();
-    tracing::debug!("Doing order check, transaction_history = {:?}, all_transactions = {:?}", transaction_history, all_transactions_vec);
+    tracing::debug!(
+        "Doing order check, transaction_history = {:?}, all_transactions = {:?}",
+        transaction_history,
+        all_transactions_vec
+    );
     let common_txs: Vec<_> = transaction_history
         .iter()
         .filter(|item| all_transactions_vec.contains(item))
@@ -245,18 +252,28 @@ async fn test_builder_order() {
             .unwrap();
         // in the next round we will use received transactions to simulate
         // the block being proposed
-        tracing::debug!("Before assignment, prev_proposed_transactions = {:?}, res_msg = {:?}, req_msg = {:?}", prev_proposed_transactions, res_msg, req_msg);
+        tracing::debug!(
+            "Before assignment, prev_proposed_transactions = {:?}, res_msg = {:?}, req_msg = {:?}",
+            prev_proposed_transactions,
+            res_msg,
+            req_msg
+        );
 
         // play with transactions propsed by proposers: skip the whole round OR interspersed some txs randomly OR remove some txs randomly
         if let MessageType::<TestTypes>::RequestMessage(ref request) = req_msg.2 {
             let view_number = request.requested_view_number;
             if view_number == ViewNumber::new(skip_round as u64) {
                 prev_proposed_transactions = None;
-            }
-            else {
+            } else {
                 let mut proposed_transactions = res_msg.transactions.clone();
                 if view_number == ViewNumber::new(adjust_add_round as u64) {
-                    proposed_transactions.insert(rand::random::<usize>() % NUM_TXNS_PER_ROUND, TestTransaction::new(vec![adjust_add_round as u8, (NUM_TXNS_PER_ROUND + 1) as u8]));
+                    proposed_transactions.insert(
+                        rand::random::<usize>() % NUM_TXNS_PER_ROUND,
+                        TestTransaction::new(vec![
+                            adjust_add_round as u8,
+                            (NUM_TXNS_PER_ROUND + 1) as u8,
+                        ]),
+                    );
                 } else if view_number == ViewNumber::new(adjust_remove_round as u64) {
                     proposed_transactions.remove(rand::random::<usize>() % NUM_TXNS_PER_ROUND);
                 }
