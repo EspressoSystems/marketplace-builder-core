@@ -93,10 +93,10 @@ async fn test_builder_order() {
         unique_rounds.insert(random_round);
     }
     let random_rounds: Vec<_> = unique_rounds.into_iter().collect();
-    let skip_round = 2; //random_rounds[0]; // the round we want to skip all the transactions
-    let adjust_add_round = 0; // random_rounds[1]; // the round we want to randomly add some transactions
+    let skip_round = random_rounds[0]; // the round we want to skip all the transactions
+    let adjust_add_round = random_rounds[1]; // the round we want to randomly add some transactions
     let adjust_remove_round = -1; // the round we want to skip some transactions, after it is enabled the test is expected to fail
-    let adjust_remove_tail_round = 1; //random_rounds[2]; // the round we want to cut off the end of the bundle
+    let adjust_remove_tail_round = random_rounds[2]; // the round we want to cut off the end of the bundle
     let propose_in_advance_round = NUM_ROUNDS - 2; // the round we want to include tx in later round to propose in advance
 
     // set up state to track between simulated consensus rounds
