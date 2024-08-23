@@ -29,7 +29,7 @@ use async_lock::RwLock;
 use committable::{Commitment, CommitmentBoundsArkless};
 use std::sync::Arc;
 use std::time::Duration;
-// pub mod basic_test;
+pub mod basic_test;
 pub mod order_test;
 
 #[derive(
