@@ -1,13 +1,24 @@
 use std::{
     collections::HashSet,
+    future::Future,
     hash::Hash,
     mem,
+    pin::Pin,
+    task::Poll,
     time::{Duration, Instant},
 };
 
+use either::Either::{self, Left, Right};
+use futures::{FutureExt, Stream, StreamExt};
+use hotshot::types::Event;
+use hotshot_events_service::events::Error as EventStreamError;
 use hotshot_types::{
     traits::node_implementation::NodeType, utils::BuilderCommitment, vid::VidCommitment,
 };
+use surf_disco::Client;
+use tracing::error;
+use url::Url;
+use vbs::version::StaticVersionType;
 
 /// A set that allows for time-based garbage collection,
 /// implemented as three sets that are periodically shifted right.
@@ -108,5 +119,101 @@ impl<TYPES: NodeType> std::fmt::Display for BuilderStateId<TYPES> {
             "BuilderState({}@{})",
             self.parent_commitment, *self.parent_view
         )
+    }
+}
+
+type EventServiceConnection<TYPES, V> = surf_disco::socket::Connection<
+    Event<TYPES>,
+    surf_disco::socket::Unsupported,
+    EventStreamError,
+    V,
+>;
+
+type EventServiceReconnect<TYPES, V> =
+    Pin<Box<dyn Future<Output = anyhow::Result<EventServiceConnection<TYPES, V>>> + Send + Sync>>;
+
+/// A wrapper around event streaming API that provides auto-reconnection capability
+pub struct EventServiceStream<TYPES: NodeType, V: StaticVersionType> {
+    api_url: Url,
+    connection: Either<EventServiceConnection<TYPES, V>, EventServiceReconnect<TYPES, V>>,
+}
+
+impl<TYPES: NodeType, V: StaticVersionType> EventServiceStream<TYPES, V> {
+    async fn connect_inner(
+        url: Url,
+    ) -> anyhow::Result<
+        surf_disco::socket::Connection<
+            Event<TYPES>,
+            surf_disco::socket::Unsupported,
+            EventStreamError,
+            V,
+        >,
+    > {
+        let client = Client::<hotshot_events_service::events::Error, V>::new(url.clone());
+
+        if !(client.connect(None).await) {
+            anyhow::bail!("Couldn't connect to API url");
+        }
+
+        tracing::info!("Builder client connected to the hotshot events api");
+
+        Ok(client
+            .socket("hotshot-events/events")
+            .subscribe::<Event<TYPES>>()
+            .await?)
+    }
+
+    /// Establish initial connection to the events service at `api_url`
+    pub async fn connect(api_url: Url) -> anyhow::Result<Self> {
+        let connection = Self::connect_inner(api_url.clone()).await?;
+
+        Ok(Self {
+            api_url,
+            connection: Left(connection),
+        })
+    }
+}
+
+impl<TYPES: NodeType, V: StaticVersionType + 'static> Stream for EventServiceStream<TYPES, V> {
+    type Item = Event<TYPES>;
+
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        match &mut self.connection {
+            Left(connection) => {
+                let Poll::Ready(next) = connection.poll_next_unpin(cx) else {
+                    return Poll::Pending;
+                };
+                match next {
+                    Some(Ok(event)) => Poll::Ready(Some(event)),
+                    Some(Err(err)) => {
+                        error!("Error in the event stream: {err:?}");
+                        Poll::Pending
+                    }
+                    None => {
+                        let fut = Self::connect_inner(self.api_url.clone());
+                        let _ = std::mem::replace(&mut self.connection, Right(Box::pin(fut)));
+                        Poll::Pending
+                    }
+                }
+            }
+            Right(reconnect_future) => {
+                let Poll::Ready(ready) = reconnect_future.poll_unpin(cx) else {
+                    return Poll::Pending;
+                };
+                match ready {
+                    Ok(connection) => {
+                        let _ = std::mem::replace(&mut self.connection, Left(connection));
+                        Poll::Pending
+                    }
+                    Err(err) => {
+                        error!("Failed to reconnect to the event service: {err:?}");
+                        Poll::Ready(None)
+                    }
+                }
+            }
+        }
     }
 }

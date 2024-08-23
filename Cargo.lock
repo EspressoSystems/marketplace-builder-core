@@ -4699,6 +4699,7 @@ dependencies = [
  "clap",
  "committable",
  "derivative",
+ "either",
  "futures",
  "hex",
  "hotshot",

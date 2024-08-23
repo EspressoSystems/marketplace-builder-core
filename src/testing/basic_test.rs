@@ -99,7 +99,6 @@ async fn test_builder() {
         let da_proposal = Arc::new(DaProposalMessage {
             view_number: ViewNumber::new(round as u64),
             txn_commitments,
-            num_nodes: NUM_STORAGE_NODES,
             sender: pub_key,
             builder_commitment: block_builder_commitment.clone(),
         });
