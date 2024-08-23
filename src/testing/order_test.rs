@@ -89,7 +89,7 @@ async fn test_builder_order() {
     // generate three different random number between (0..NUM_ROUNDS) to do some changes for output transactions
     let mut unique_rounds = HashSet::new();
     while unique_rounds.len() < 3 {
-        let random_round = rand::random::<usize>() % NUM_ROUNDS;
+        let random_round = rand::random::<usize>() % (NUM_ROUNDS - 2);
         unique_rounds.insert(random_round);
     }
     let random_rounds: Vec<_> = unique_rounds.into_iter().collect();
@@ -97,6 +97,7 @@ async fn test_builder_order() {
     let adjust_add_round = 0; // random_rounds[1]; // the round we want to randomly add some transactions
     let adjust_remove_round = -1; // the round we want to skip some transactions, after it is enabled the test is expected to fail
     let adjust_remove_tail_round = 1; //random_rounds[2]; // the round we want to cut off the end of the bundle
+    let propose_in_advance_round = NUM_ROUNDS - 2; // the round we want to include tx in later round to propose in advance
 
     // set up state to track between simulated consensus rounds
     let mut prev_proposed_transactions: Option<Vec<TestTransaction>> = None;
@@ -279,6 +280,8 @@ async fn test_builder_order() {
                     proposed_transactions.remove(rand::random::<usize>() % NUM_TXNS_PER_ROUND);
                 } else if view_number == ViewNumber::new(adjust_remove_tail_round as u64) {
                     proposed_transactions.pop();
+                } else if view_number == ViewNumber::new(propose_in_advance_round as u64) {
+                    proposed_transactions.push(TestTransaction::new(vec![(propose_in_advance_round + 1) as u8, 0 as u8,]));
                 }
                 prev_proposed_transactions = Some(proposed_transactions);
             }
