@@ -1,8 +1,5 @@
 use anyhow::Context;
-use hotshot::{
-    traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
-    types::{Event, SystemContextHandle},
-};
+use hotshot::{traits::election::static_committee::GeneralStaticCommittee, types::Event};
 use hotshot_builder_api::v0_3::{
     builder::BuildError,
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
@@ -15,7 +12,6 @@ use hotshot_types::{
     message::Proposal,
     traits::{
         block_contents::BlockPayload,
-        consensus_api::ConsensusApi,
         election::Membership,
         network::Topic,
         node_implementation::{ConsensusTime, NodeType},
@@ -265,9 +261,12 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
     }
 }
 
-pub struct ProxyGlobalState<TYPES: NodeType> {
+pub struct ProxyGlobalState<TYPES: NodeType, H: BuilderHooks<TYPES>> {
     // global state
     global_state: Arc<RwLock<GlobalState<TYPES>>>,
+
+    // hooks
+    hooks: Arc<H>,
 
     // identity keys for the builder
     // May be ideal place as GlobalState interacts with hotshot apis
@@ -281,9 +280,14 @@ pub struct ProxyGlobalState<TYPES: NodeType> {
     api_timeout: Duration,
 }
 
-impl<TYPES: NodeType> ProxyGlobalState<TYPES> {
+impl<TYPES, H> ProxyGlobalState<TYPES, H>
+where
+    TYPES: NodeType,
+    H: BuilderHooks<TYPES>,
+{
     pub fn new(
         global_state: Arc<RwLock<GlobalState<TYPES>>>,
+        hooks: Arc<H>,
         builder_keys: (
             TYPES::BuilderSignatureKey,
             <<TYPES as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
@@ -291,6 +295,7 @@ impl<TYPES: NodeType> ProxyGlobalState<TYPES> {
         api_timeout: Duration,
     ) -> Self {
         ProxyGlobalState {
+            hooks,
             global_state,
             builder_keys,
             api_timeout,
@@ -302,8 +307,10 @@ impl<TYPES: NodeType> ProxyGlobalState<TYPES> {
 Handling Builder API responses
 */
 #[async_trait]
-impl<TYPES: NodeType> BuilderDataSource<TYPES> for ProxyGlobalState<TYPES>
+impl<TYPES, H> BuilderDataSource<TYPES> for ProxyGlobalState<TYPES, H>
 where
+    TYPES: NodeType,
+    H: BuilderHooks<TYPES>,
     for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
         &'a TaggedBase64,
     >>::Error: Display,
@@ -457,7 +464,11 @@ where
 }
 
 #[async_trait]
-impl<TYPES: NodeType> AcceptsTxnSubmits<TYPES> for ProxyGlobalState<TYPES> {
+impl<TYPES, H> AcceptsTxnSubmits<TYPES> for ProxyGlobalState<TYPES, H>
+where
+    TYPES: NodeType,
+    H: BuilderHooks<TYPES>,
+{
     async fn submit_txns(
         &self,
         txns: Vec<<TYPES as NodeType>::Transaction>,
@@ -467,6 +478,7 @@ impl<TYPES: NodeType> AcceptsTxnSubmits<TYPES> for ProxyGlobalState<TYPES> {
             txns.len(),
             txns.iter().map(|txn| txn.commit()).collect::<Vec<_>>()
         );
+        let txns = self.hooks.process_transactions(txns).await;
         let response = self
             .global_state
             .read_arc()
@@ -486,8 +498,12 @@ impl<TYPES: NodeType> AcceptsTxnSubmits<TYPES> for ProxyGlobalState<TYPES> {
     }
 }
 #[async_trait]
-impl<TYPES: NodeType> ReadState for ProxyGlobalState<TYPES> {
-    type State = ProxyGlobalState<TYPES>;
+impl<TYPES, H> ReadState for ProxyGlobalState<TYPES, H>
+where
+    TYPES: NodeType,
+    H: BuilderHooks<TYPES> + 'static,
+{
+    type State = ProxyGlobalState<TYPES, H>;
 
     async fn read<T>(
         &self,
@@ -614,14 +630,14 @@ async fn connect_to_events_service<TYPES: NodeType, V: Versions>(
 pub trait BuilderHooks<TYPES: NodeType>: Sync + Send {
     #[inline(always)]
     async fn process_transactions(
-        &mut self,
+        self: &Arc<Self>,
         transactions: Vec<TYPES::Transaction>,
     ) -> Vec<TYPES::Transaction> {
         transactions
     }
 
     #[inline(always)]
-    async fn handle_hotshot_event(&mut self, _event: &Event<TYPES>) {}
+    async fn handle_hotshot_event(self: &Arc<Self>, _event: &Event<TYPES>) {}
 }
 
 pub struct NoHooks<TYPES: NodeType>(pub PhantomData<TYPES>);
@@ -635,7 +651,7 @@ pub async fn run_non_permissioned_standalone_builder_service<
     TYPES: NodeType<Time = ViewNumber>,
     V: Versions,
 >(
-    mut hooks: impl BuilderHooks<TYPES>,
+    hooks: Arc<impl BuilderHooks<TYPES>>,
 
     // Sending from the hotshot to the builder states.
     senders: BroadcastSenders<TYPES>,
@@ -736,96 +752,6 @@ pub async fn run_non_permissioned_standalone_builder_service<
                 }
                 (subscribed_events, membership) =
                     connected.context("Failed to reconnect to events service")?;
-            }
-        }
-    }
-}
-
-/*
-Running Permissioned Builder Service
-*/
-pub async fn run_permissioned_standalone_builder_service<
-    TYPES: NodeType<Time = ViewNumber>,
-    I: NodeImplementation<TYPES>,
-    V: Versions,
->(
-    mut hooks: impl BuilderHooks<TYPES>,
-
-    // Sending from the hotshot to the builder states.
-    senders: BroadcastSenders<TYPES>,
-
-    // hotshot context handle
-    hotshot_handle: Arc<SystemContextHandle<TYPES, I, V>>,
-) -> Result<(), anyhow::Error> {
-    let mut event_stream = hotshot_handle.event_stream();
-    loop {
-        tracing::debug!("Waiting for events from HotShot");
-        match event_stream.next().await {
-            None => {
-                error!("Didn't receive any event from the HotShot event stream");
-            }
-            Some(event) => {
-                hooks.handle_hotshot_event(&event).await;
-
-                match event.event {
-                    // error event
-                    EventType::Error { error } => {
-                        error!("Error event in HotShot: {:?}", error);
-                    }
-                    // tx event
-                    EventType::Transactions { transactions } => {
-                        let transactions = hooks.process_transactions(transactions).await;
-
-                        for res in handle_received_txns(
-                            &senders.transactions,
-                            transactions,
-                            TransactionSource::HotShot,
-                        )
-                        .await
-                        {
-                            if let Err(e) = res {
-                                tracing::warn!("Failed to handle transactions; {:?}", e);
-                            }
-                        }
-                    }
-                    // decide event
-                    EventType::Decide { leaf_chain, .. } => {
-                        let latest_decide_view_number = leaf_chain[0].leaf.view_number();
-
-                        handle_decide_event(&senders.decide, latest_decide_view_number).await;
-                    }
-                    // DA proposal event
-                    EventType::DaProposal { proposal, sender } => {
-                        // get the leader for current view
-                        let leader = hotshot_handle.leader(proposal.data.view_number).await;
-                        // get the committee staked node count
-                        let total_nodes = hotshot_handle.total_nodes();
-
-                        handle_da_event(
-                            &senders.da_proposal,
-                            proposal,
-                            sender,
-                            leader,
-                            total_nodes,
-                        )
-                        .await;
-                    }
-                    // QC proposal event
-                    EventType::QuorumProposal { proposal, sender } => {
-                        // get the leader for current view
-                        let leader = hotshot_handle.leader(proposal.data.view_number).await;
-                        handle_qc_event(
-                            &senders.quorum_proposal,
-                            Arc::new(proposal),
-                            sender,
-                            leader,
-                        )
-                        .await;
-                    }
-                    _ => {
-                        tracing::trace!("Unhandled event from Builder: {:?}", event.event);
-                    }
-                }
             }
         }
     }
