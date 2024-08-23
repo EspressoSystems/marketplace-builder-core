@@ -67,9 +67,9 @@ async fn test_builder_order() {
     tracing::info!("Testing the builder core with multiple messages from the channels");
 
     // Number of views to simulate
-    const NUM_ROUNDS: usize = 5;
+    const NUM_ROUNDS: usize = 10;
     // Number of transactions to submit per round
-    const NUM_TXNS_PER_ROUND: usize = 4;
+    const NUM_TXNS_PER_ROUND: usize = 5;
     // Capacity of broadcast channels
     const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
     // Number of nodes on DA committee
@@ -93,9 +93,10 @@ async fn test_builder_order() {
         unique_rounds.insert(random_round);
     }
     let random_rounds: Vec<_> = unique_rounds.into_iter().collect();
-    let skip_round = random_rounds[0]; // the round we want to skip all the transactions
-    let adjust_add_round = random_rounds[1]; // the round we want to randomly add some transactions
-    let adjust_remove_round = random_rounds[2]; // the round we want to skip some transactions
+    let skip_round = 2; //random_rounds[0]; // the round we want to skip all the transactions
+    let adjust_add_round = 0; // random_rounds[1]; // the round we want to randomly add some transactions
+    let adjust_remove_round = -1; // the round we want to skip some transactions, after it is enabled the test is expected to fail
+    let adjust_remove_tail_round = 1; //random_rounds[2]; // the round we want to cut off the end of the bundle
 
     // set up state to track between simulated consensus rounds
     let mut prev_proposed_transactions: Option<Vec<TestTransaction>> = None;
@@ -276,6 +277,8 @@ async fn test_builder_order() {
                     );
                 } else if view_number == ViewNumber::new(adjust_remove_round as u64) {
                     proposed_transactions.remove(rand::random::<usize>() % NUM_TXNS_PER_ROUND);
+                } else if view_number == ViewNumber::new(adjust_remove_tail_round as u64) {
+                    proposed_transactions.pop();
                 }
                 prev_proposed_transactions = Some(proposed_transactions);
             }
