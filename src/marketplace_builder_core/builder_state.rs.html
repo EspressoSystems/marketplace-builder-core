@@ -731,14 +731,6 @@
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
 <a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     data::{Leaf, QuorumProposal},
     message::Proposal,
@@ -766,11 +758,11 @@
 <span class="kw">use </span>core::panic;
 <span class="kw">use </span>futures::StreamExt;
 
+<span class="kw">use </span>std::cmp::PartialEq;
 <span class="kw">use </span>std::collections::{HashMap, HashSet};
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::time::Instant;
-<span class="kw">use </span>std::{cmp::PartialEq, num::NonZeroUsize};
 <span class="kw">use </span>std::{collections::hash_map::Entry, time::Duration};
 
 <span class="kw">pub type </span>TxTimeStamp = u128;
@@ -792,7 +784,6 @@
 </span><span class="kw">pub struct </span>DaProposalMessage&lt;TYPES: NodeType&gt; {
     <span class="kw">pub </span>view_number: TYPES::Time,
     <span class="kw">pub </span>txn_commitments: Vec&lt;Commitment&lt;TYPES::Transaction&gt;&gt;,
-    <span class="kw">pub </span>num_nodes: usize,
     <span class="kw">pub </span>sender: &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
     <span class="kw">pub </span>builder_commitment: BuilderCommitment,
 }
@@ -896,9 +887,6 @@
 
     <span class="doccomment">/// global state handle, defined in the service.rs
     </span><span class="kw">pub </span>global_state: Arc&lt;RwLock&lt;GlobalState&lt;TYPES&gt;&gt;&gt;,
-
-    <span class="doccomment">/// total nodes required for the VID computation as part of block header input response
-    </span><span class="kw">pub </span>num_nodes: NonZeroUsize,
 
     <span class="doccomment">/// locally spawned builder Commitements
     </span><span class="kw">pub </span>builder_commitments: HashSet&lt;(BuilderStateId&lt;TYPES&gt;, BuilderCommitment)&gt;,
@@ -1116,7 +1104,6 @@
         quorum_proposal: Arc&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
         req_sender: BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
     ) {
-        <span class="self">self</span>.num_nodes = NonZeroUsize::new(da_proposal_info.num_nodes).unwrap_or(<span class="self">self</span>.num_nodes);
         <span class="self">self</span>.built_from_proposed_block.view_number = quorum_proposal.data.view_number;
         <span class="self">self</span>.built_from_proposed_block.vid_commitment =
             quorum_proposal.data.block_header.payload_commitment();
@@ -1400,7 +1387,6 @@
         req_receiver: BroadcastReceiver&lt;MessageType&lt;TYPES&gt;&gt;,
         tx_queue: Vec&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
         global_state: Arc&lt;RwLock&lt;GlobalState&lt;TYPES&gt;&gt;&gt;,
-        num_nodes: NonZeroUsize,
         maximize_txn_capture_timeout: Duration,
         base_fee: u64,
         instance_state: Arc&lt;TYPES::InstanceState&gt;,
@@ -1409,7 +1395,6 @@
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>txns_in_queue: HashSet&lt;<span class="kw">_</span>&gt; = tx_queue.iter().map(|tx| tx.commit).collect();
         BuilderState {
-            num_nodes,
             txns_in_queue,
             built_from_proposed_block,
             req_receiver,
@@ -1447,7 +1432,6 @@
             tx_queue: <span class="self">self</span>.tx_queue.clone(),
             global_state: <span class="self">self</span>.global_state.clone(),
             builder_commitments: <span class="self">self</span>.builder_commitments.clone(),
-            num_nodes: <span class="self">self</span>.num_nodes,
             maximize_txn_capture_timeout: <span class="self">self</span>.maximize_txn_capture_timeout,
             base_fee: <span class="self">self</span>.base_fee,
             instance_state: <span class="self">self</span>.instance_state.clone(),

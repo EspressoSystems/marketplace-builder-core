@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"marketplace_builder_core":[["impl&lt;TYPES: NodeType, V: StaticVersionType + 'static&gt; Stream for <a class=\"struct\" href=\"marketplace_builder_core/utils/struct.EventServiceStream.html\" title=\"struct marketplace_builder_core::utils::EventServiceStream\">EventServiceStream</a>&lt;TYPES, V&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
