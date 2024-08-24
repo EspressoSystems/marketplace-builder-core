@@ -1,4 +1,4 @@
-use std::{hash::Hash, num::NonZeroUsize};
+use std::hash::Hash;
 
 use crate::{
     builder_state::{BuilderState, MessageType},
@@ -75,8 +75,6 @@ async fn start_builder_state(
         senders.transactions.clone(),
         genesis_vid_commitment,
         ViewNumber::genesis(),
-        ViewNumber::genesis(),
-        0,
     )));
 
     // instantiate the bootstrap builder state
@@ -86,7 +84,6 @@ async fn start_builder_state(
         bootstrap_receiver,
         Vec::new(),
         Arc::clone(&global_state),
-        NonZeroUsize::new(num_storage_nodes).unwrap(),
         Duration::from_millis(10), // max time to wait for non-zero txn block
         0,                         // base fee
         Arc::new(TestInstanceState::default()),

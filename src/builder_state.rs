@@ -25,11 +25,11 @@ use async_lock::RwLock;
 use core::panic;
 use futures::StreamExt;
 
+use std::cmp::PartialEq;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Instant;
-use std::{cmp::PartialEq, num::NonZeroUsize};
 use std::{collections::hash_map::Entry, time::Duration};
 
 pub type TxTimeStamp = u128;
@@ -51,7 +51,6 @@ pub struct DecideMessage<TYPES: NodeType> {
 pub struct DaProposalMessage<TYPES: NodeType> {
     pub view_number: TYPES::Time,
     pub txn_commitments: Vec<Commitment<TYPES::Transaction>>,
-    pub num_nodes: usize,
     pub sender: <TYPES as NodeType>::SignatureKey,
     pub builder_commitment: BuilderCommitment,
 }
@@ -155,9 +154,6 @@ pub struct BuilderState<TYPES: NodeType> {
 
     /// global state handle, defined in the service.rs
     pub global_state: Arc<RwLock<GlobalState<TYPES>>>,
-
-    /// total nodes required for the VID computation as part of block header input response
-    pub num_nodes: NonZeroUsize,
 
     /// locally spawned builder Commitements
     pub builder_commitments: HashSet<(BuilderStateId<TYPES>, BuilderCommitment)>,
@@ -375,7 +371,6 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         quorum_proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
         req_sender: BroadcastSender<MessageType<TYPES>>,
     ) {
-        self.num_nodes = NonZeroUsize::new(da_proposal_info.num_nodes).unwrap_or(self.num_nodes);
         self.built_from_proposed_block.view_number = quorum_proposal.data.view_number;
         self.built_from_proposed_block.vid_commitment =
             quorum_proposal.data.block_header.payload_commitment();
@@ -659,7 +654,6 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         req_receiver: BroadcastReceiver<MessageType<TYPES>>,
         tx_queue: Vec<Arc<ReceivedTransaction<TYPES>>>,
         global_state: Arc<RwLock<GlobalState<TYPES>>>,
-        num_nodes: NonZeroUsize,
         maximize_txn_capture_timeout: Duration,
         base_fee: u64,
         instance_state: Arc<TYPES::InstanceState>,
@@ -668,7 +662,6 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     ) -> Self {
         let txns_in_queue: HashSet<_> = tx_queue.iter().map(|tx| tx.commit).collect();
         BuilderState {
-            num_nodes,
             txns_in_queue,
             built_from_proposed_block,
             req_receiver,
@@ -706,7 +699,6 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             tx_queue: self.tx_queue.clone(),
             global_state: self.global_state.clone(),
             builder_commitments: self.builder_commitments.clone(),
-            num_nodes: self.num_nodes,
             maximize_txn_capture_timeout: self.maximize_txn_capture_timeout,
             base_fee: self.base_fee,
             instance_state: self.instance_state.clone(),
