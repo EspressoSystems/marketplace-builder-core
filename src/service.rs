@@ -3,7 +3,6 @@ use hotshot::types::Event;
 use hotshot_builder_api::v0_3::{
     builder::{define_api, submit_api, BuildError, Error as BuilderApiError},
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
-    Version as MarketplaceBuilderVersion,
 };
 use hotshot_types::bundle::Bundle;
 use hotshot_types::traits::block_contents::BuilderFee;
