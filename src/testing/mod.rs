@@ -159,7 +159,7 @@ async fn calc_proposal_msg(
         Some(prev_proposal) => {
             let prev_justify_qc = &prev_proposal.justify_qc;
             let quorum_data = QuorumData::<TestTypes> {
-                leaf_commit: Leaf::from_quorum_proposal(&prev_proposal).commit(),
+                leaf_commit: Leaf::from_quorum_proposal(prev_proposal).commit(),
             };
 
             // form a justify qc

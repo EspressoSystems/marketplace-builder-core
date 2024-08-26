@@ -80,8 +80,9 @@ async fn test_builder_order() {
 
     // generate three different random number between (0..NUM_ROUNDS) to do some changes for output transactions
     let mut unique_rounds = HashSet::new();
+    #[deny(clippy::modulo_one)]
     while unique_rounds.len() < 3 {
-        let random_round = rand::random::<usize>() % (NUM_ROUNDS - 2);
+        let random_round = std::cmp::max(rand::random::<usize>() % (NUM_ROUNDS - 2), 1);
         unique_rounds.insert(random_round);
     }
     let random_rounds: Vec<_> = unique_rounds.into_iter().collect();
@@ -192,7 +193,7 @@ async fn test_builder_order() {
                 } else if view_number == ViewNumber::new(propose_in_advance_round as u64) {
                     proposed_transactions.push(TestTransaction::new(vec![
                         (propose_in_advance_round + 1) as u8,
-                        0 as u8,
+                        0_u8,
                     ]));
                 }
                 prev_proposed_transactions = Some(proposed_transactions);
@@ -201,7 +202,7 @@ async fn test_builder_order() {
             tracing::error!("Unable to get request from RequestMessage");
         }
         // save transactions to history
-        if prev_proposed_transactions != None {
+        if prev_proposed_transactions.is_some() {
             transaction_history.extend(prev_proposed_transactions.clone().unwrap());
         }
     }
@@ -242,11 +243,7 @@ async fn test_builder_order_chain_fork() {
         .collect::<Vec<_>>();
 
     // generate three different random number between (0..NUM_ROUNDS) to do some changes for output transactions
-    let mut unique_rounds = HashSet::new();
-    while unique_rounds.len() < 1 {
-        let random_round = rand::random::<usize>() % (NUM_ROUNDS - 2);
-        unique_rounds.insert(random_round);
-    }
+    // let random_round = rand::random::<usize>() % (NUM_ROUNDS - 2);
     // let random_rounds: Vec<_> = unique_rounds.into_iter().collect();
     let skip_round = 1; //random_rounds[0]; // the round we want to skip all the transactions
 
@@ -343,7 +340,7 @@ async fn test_builder_order_chain_fork() {
             tracing::error!("Unable to get request from RequestMessage");
         }
         // save transactions to history
-        if prev_proposed_transactions != None {
+        if prev_proposed_transactions.is_some() {
             transaction_history.extend(prev_proposed_transactions.clone().unwrap());
         }
     }
