@@ -20,6 +20,7 @@ use hotshot_types::{
     vid::VidCommitment,
 };
 use tracing::{error, instrument};
+use vbs::version::StaticVersion;
 
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 
@@ -304,8 +305,9 @@ where
     pub fn into_app(self) -> Result<App<Self, BuilderApiError>, AppError> {
         let builder_api = define_api::<Self, TYPES>(&Default::default())?;
 
+        // TODO: Replace StaticVersion with proper constant when added in HotShot
         let private_mempool_api =
-            submit_api::<Self, TYPES, MarketplaceBuilderVersion>(&Default::default())?;
+            submit_api::<Self, TYPES, StaticVersion<0, 1>>(&Default::default())?;
 
         let mut app: App<ProxyGlobalState<TYPES, H>, BuilderApiError> = App::with_state(self);
 
