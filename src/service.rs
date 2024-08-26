@@ -1,8 +1,9 @@
-use anyhow::bail;
+use anyhow::{bail, Context};
 use hotshot::types::Event;
 use hotshot_builder_api::v0_3::{
-    builder::BuildError,
+    builder::{define_api, submit_api, BuildError, Error as BuilderApiError},
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
+    Version as MarketplaceBuilderVersion,
 };
 use hotshot_types::bundle::Bundle;
 use hotshot_types::traits::block_contents::BuilderFee;
@@ -19,6 +20,8 @@ use hotshot_types::{
     vid::VidCommitment,
 };
 use tracing::{error, instrument};
+use url::Url;
+use vbs::version::StaticVersionType;
 
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 
@@ -43,7 +46,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::{fmt::Display, time::Instant};
 use tagged_base64::TaggedBase64;
-use tide_disco::method::ReadState;
+use tide_disco::{api::ApiError, app::AppError, method::ReadState, App};
 
 // It holds all the necessary information for a block
 #[derive(Debug)]
@@ -277,6 +280,10 @@ impl<TYPES, H> ProxyGlobalState<TYPES, H>
 where
     TYPES: NodeType,
     H: BuilderHooks<TYPES>,
+    for<'a> <<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
+        &'a TaggedBase64,
+    >>::Error: Display,
+    for<'a> <TYPES::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
     pub fn new(
         global_state: Arc<RwLock<GlobalState<TYPES>>>,
@@ -293,6 +300,22 @@ where
             builder_keys,
             api_timeout,
         }
+    }
+
+    // Consumes `self` and returns a tide_disco [`App`] with builder and private mempool APIs registered
+    pub fn into_app(self) -> Result<App<Self, BuilderApiError>, AppError> {
+        let builder_api = define_api::<Self, TYPES>(&Default::default())?;
+
+        let private_mempool_api =
+            submit_api::<Self, TYPES, MarketplaceBuilderVersion>(&Default::default())?;
+
+        let mut app: App<ProxyGlobalState<TYPES, H>, BuilderApiError> = App::with_state(self);
+
+        app.register_module("block_info", builder_api)?;
+
+        app.register_module("txn_submit", private_mempool_api)?;
+
+        Ok(app)
     }
 }
 
