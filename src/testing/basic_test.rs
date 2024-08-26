@@ -1,390 +1,225 @@
-pub use hotshot::traits::election::static_committee::GeneralStaticCommittee;
-pub use hotshot_types::{
-    data::{DaProposal, Leaf, QuorumProposal, ViewNumber},
+use hotshot_types::{
+    data::{Leaf, QuorumProposal, ViewNumber},
     message::Proposal,
-    signature_key::{BLSPrivKey, BLSPubKey},
+    signature_key::BLSPubKey,
     simple_certificate::{QuorumCertificate, SimpleCertificate, SuccessThreshold},
-    traits::{
-        block_contents::BlockPayload,
-        node_implementation::{ConsensusTime, NodeType},
-    },
+    traits::{block_contents::BlockPayload, node_implementation::ConsensusTime},
 };
 
-pub use crate::builder_state::{BuilderState, MessageType, ResponseMessage};
-pub use async_broadcast::{
-    broadcast, Receiver as BroadcastReceiver, RecvError, Sender as BroadcastSender, TryRecvError,
+use crate::builder_state::MessageType;
+
+use std::marker::PhantomData;
+
+use async_compatibility_layer::art::async_sleep;
+use async_compatibility_layer::channel::unbounded;
+use async_std::prelude::FutureExt;
+use hotshot::types::SignatureKey;
+use hotshot_types::{simple_vote::QuorumData, traits::block_contents::vid_commitment};
+
+use hotshot_example_types::{
+    block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
+    state_types::{TestInstanceState, TestValidatedState},
 };
-/// The following tests are performed:
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::{hash::Hash, marker::PhantomData, num::NonZeroUsize};
 
-    use async_compatibility_layer::channel::unbounded;
-    use async_compatibility_layer::{art::async_spawn, channel::UnboundedReceiver};
-    use hotshot::types::SignatureKey;
-    use hotshot_types::{
-        signature_key::BuilderKey,
-        simple_vote::QuorumData,
-        traits::block_contents::{vid_commitment, BlockHeader},
-        utils::BuilderCommitment,
-    };
+use crate::utils::BuilderStateId;
+use crate::{
+    builder_state::{DaProposalMessage, QuorumProposalMessage, RequestMessage, TransactionSource},
+    testing::TestTypes,
+};
+use crate::{service::handle_received_txns, testing::start_builder_state};
+use committable::Committable;
+use std::sync::Arc;
+use std::time::Duration;
 
-    use hotshot_example_types::{
-        auction_results_provider_types::TestAuctionResult,
-        block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
-        state_types::{TestInstanceState, TestValidatedState},
-    };
+/// This test simulates multiple builder states receiving messages from the channels and processing them
+#[async_std::test]
+async fn test_builder() {
+    async_compatibility_layer::logging::setup_logging();
+    async_compatibility_layer::logging::setup_backtrace();
+    tracing::info!("Testing the builder core with multiple messages from the channels");
 
-    use crate::builder_state::{
-        BuiltFromProposedBlock, DaProposalMessage, DecideMessage, QuorumProposalMessage,
-        RequestMessage, TransactionSource,
-    };
-    use crate::service::{broadcast_channels, handle_received_txns, GlobalState};
-    use crate::utils::BuilderStateId;
-    use async_lock::RwLock;
-    use async_std::task;
-    use committable::{Commitment, CommitmentBoundsArkless, Committable};
-    use std::sync::Arc;
-    use std::time::Duration;
+    // Number of views to simulate
+    const NUM_ROUNDS: usize = 5;
+    // Number of transactions to submit per round
+    const NUM_TXNS_PER_ROUND: usize = 4;
+    // Capacity of broadcast channels
+    const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
+    // Number of nodes on DA committee
+    const NUM_STORAGE_NODES: usize = 4;
 
-    use serde::{Deserialize, Serialize};
-    /// This test simulates multiple builder states receiving messages from the channels and processing them
-    #[async_std::test]
-    //#[instrument]
-    async fn test_builder() {
-        async_compatibility_layer::logging::setup_logging();
-        async_compatibility_layer::logging::setup_backtrace();
-        tracing::info!("Testing the builder core with multiple messages from the channels");
-        #[derive(
-            Copy,
-            Clone,
-            Debug,
-            Default,
-            Hash,
-            PartialEq,
-            Eq,
-            PartialOrd,
-            Ord,
-            Serialize,
-            Deserialize,
-        )]
-        struct TestTypes;
-        impl NodeType for TestTypes {
-            type Time = ViewNumber;
-            type BlockHeader = TestBlockHeader;
-            type BlockPayload = TestBlockPayload;
-            type SignatureKey = BLSPubKey;
-            type Transaction = TestTransaction;
-            type ValidatedState = TestValidatedState;
-            type InstanceState = TestInstanceState;
-            type Membership = GeneralStaticCommittee<TestTypes, Self::SignatureKey>;
-            type BuilderSignatureKey = BuilderKey;
-            type AuctionResult = TestAuctionResult;
+    let (senders, global_state) = start_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
+
+    // Transactions to send
+    let all_transactions = (0..NUM_ROUNDS)
+        .map(|round| {
+            (0..NUM_TXNS_PER_ROUND)
+                .map(|tx_num| TestTransaction::new(vec![round as u8, tx_num as u8]))
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    // set up state to track between simulated consensus rounds
+    let mut prev_proposed_transactions: Option<Vec<TestTransaction>> = None;
+    let mut prev_quorum_proposal: Option<QuorumProposal<TestTypes>> = None;
+    let mut transaction_history = Vec::new();
+
+    // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
+    // then construct DA and Quorum Proposals based on what we received from builder in the previous round
+    // and request a new bundle.
+    #[allow(clippy::needless_range_loop)] // intent is clearer this way
+    for round in 0..NUM_ROUNDS {
+        // simulate transaction being submitted to the builder
+        for res in handle_received_txns(
+            &senders.transactions,
+            all_transactions[round].clone(),
+            TransactionSource::HotShot,
+        )
+        .await
+        {
+            res.unwrap();
         }
 
-        // no of test messages to send
-        let num_test_messages = 5;
-        let multiplication_factor = 5;
-        const TEST_NUM_NODES_IN_VID_COMPUTATION: usize = 4;
-
-        // settingup the broadcast channels i.e [From hostshot: (tx, decide, da, qc, )], [From api:(req - broadcast, res - mpsc channel) ]
-        let (bootstrap_sender, bootstrap_receiver) =
-            broadcast::<MessageType<TestTypes>>(num_test_messages * multiplication_factor);
-        let (senders, receivers) = broadcast_channels(num_test_messages * multiplication_factor);
-
-        let tx_queue = Vec::new();
-        // generate the keys for the buidler
-        let seed = [201_u8; 32];
-        let (_builder_pub_key, _builder_private_key) =
-            BLSPubKey::generated_from_seed_indexed(seed, 2011_u64);
-        // instantiate the global state also
-        let global_state = GlobalState::<TestTypes>::new(
-            bootstrap_sender,
-            senders.transactions.clone(),
-            vid_commitment(&[], 8),
-            ViewNumber::new(0),
-            ViewNumber::new(0),
-            10,
-        );
-
-        // to store all the sent messages
-        let mut sdecide_msgs: Vec<DecideMessage<TestTypes>> = Vec::new();
-        let mut sda_msgs: Vec<Arc<DaProposalMessage<TestTypes>>> = Vec::new();
-        let mut sqc_msgs: Vec<QuorumProposalMessage<TestTypes>> = Vec::new();
-        #[allow(clippy::type_complexity)]
-        let mut sreq_msgs: Vec<(
-            UnboundedReceiver<ResponseMessage<TestTypes>>,
-            BuilderStateId<TestTypes>,
-            MessageType<TestTypes>,
-        )> = Vec::new();
-        // storing response messages
-        let mut rres_msgs: Vec<ResponseMessage<TestTypes>> = Vec::new();
-        let _validated_state = Arc::new(TestValidatedState::default());
-
-        let arc_rwlock_global_state = Arc::new(RwLock::new(global_state));
-        let arc_rwlock_global_state_clone = arc_rwlock_global_state.clone();
-        let handle = async_spawn(async move {
-            let built_from_info = BuiltFromProposedBlock {
-                view_number: ViewNumber::new(0),
-                vid_commitment: vid_commitment(&[], 8),
-                leaf_commit: Commitment::<Leaf<TestTypes>>::default_commitment_no_preimage(),
-                builder_commitment: BuilderCommitment::from_bytes([]),
-            };
-            let builder_state = BuilderState::<TestTypes>::new(
-                built_from_info,
-                &receivers,
-                bootstrap_receiver,
-                tx_queue,
-                arc_rwlock_global_state_clone,
-                NonZeroUsize::new(TEST_NUM_NODES_IN_VID_COMPUTATION).unwrap(),
-                Duration::from_millis(10), // max time to wait for non-zero txn block
-                0,                         // base fee
-                Arc::new(TestInstanceState::default()),
-                Duration::from_secs(3600), // duration for txn garbage collection
-                Arc::new(TestValidatedState::default()),
+        // get transactions submitted in previous rounds, [] for genesis
+        // and simulate the block built from those
+        let transactions = prev_proposed_transactions.take().unwrap_or_default();
+        let txn_commitments = transactions.iter().map(Committable::commit).collect();
+        let encoded_transactions = TestTransaction::encode(&transactions);
+        let block_payload = TestBlockPayload { transactions };
+        let block_vid_commitment = vid_commitment(&encoded_transactions, NUM_STORAGE_NODES);
+        let block_builder_commitment =
+            <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(
+                &block_payload,
+                &TestMetadata,
             );
 
-            builder_state.event_loop();
+        // generate key for leader of this round
+        let seed = [round as u8; 32];
+        let (pub_key, private_key) = BLSPubKey::generated_from_seed_indexed(seed, round as u64);
+
+        let da_proposal = Arc::new(DaProposalMessage {
+            view_number: ViewNumber::new(round as u64),
+            txn_commitments,
+            sender: pub_key,
+            builder_commitment: block_builder_commitment.clone(),
         });
 
-        // generate num_test messages for each type and send it to the respective channels;
-        for i in 0..num_test_messages as u32 {
-            // Prepare the transaction message
-            let tx = TestTransaction::new(vec![i as u8]);
-            let encoded_transactions = TestTransaction::encode(&[tx.clone()]);
-            let block_payload = TestBlockPayload {
-                transactions: vec![tx.clone()],
-            };
-            let metadata = TestMetadata {};
+        let block_header = TestBlockHeader {
+            block_number: round as u64,
+            payload_commitment: block_vid_commitment,
+            builder_commitment: block_builder_commitment,
+            timestamp: round as u64,
+        };
 
-            let seed = [i as u8; 32];
-            let (pub_key, private_key) = BLSPubKey::generated_from_seed_indexed(seed, i as u64);
+        let justify_qc = match prev_quorum_proposal.take() {
+            None => {
+                QuorumCertificate::<TestTypes>::genesis(
+                    &TestValidatedState::default(),
+                    &TestInstanceState::default(),
+                )
+                .await
+            }
+            Some(prev_proposal) => {
+                let prev_justify_qc = &prev_proposal.justify_qc;
+                let quorum_data = QuorumData::<TestTypes> {
+                    leaf_commit: Leaf::from_quorum_proposal(&prev_proposal).commit(),
+                };
 
-            let sda_msg = DaProposalMessage {
-                view_number: ViewNumber::new(i as u64),
-                txn_commitments: vec![tx.commit()],
-                num_nodes: TEST_NUM_NODES_IN_VID_COMPUTATION,
-                sender: pub_key,
-                builder_commitment:
-                    <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(
-                        &block_payload,
-                        &metadata,
-                    ),
-            };
-            let sda_msg = Arc::new(sda_msg);
-
-            // Prepare the QC proposal message
-            // calculate the vid commitment over the encoded_transactions
-            tracing::debug!(
-                "Encoded transactions: {:?} Num nodes:{}",
-                encoded_transactions,
-                TEST_NUM_NODES_IN_VID_COMPUTATION
-            );
-            let block_payload_commitment =
-                vid_commitment(&encoded_transactions, TEST_NUM_NODES_IN_VID_COMPUTATION);
-
-            tracing::debug!(
-                "Block Payload vid commitment: {:?}",
-                block_payload_commitment
-            );
-
-            let builder_commitment =
-                <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(
-                    &block_payload,
-                    &metadata,
-                );
-
-            let block_header = TestBlockHeader {
-                block_number: i as u64,
-                payload_commitment: block_payload_commitment,
-                builder_commitment,
-                timestamp: i as u64,
-            };
-
-            let justify_qc = match i {
-                0 => {
-                    QuorumCertificate::<TestTypes>::genesis(
-                        &TestValidatedState::default(),
-                        &TestInstanceState::default(),
-                    )
-                    .await
+                // form a justify qc
+                SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold> {
+                    vote_commitment: quorum_data.commit(),
+                    data: quorum_data,
+                    view_number: ViewNumber::new(round as u64),
+                    signatures: prev_justify_qc.signatures.clone(),
+                    _pd: PhantomData,
                 }
-                _ => {
-                    let previous_justify_qc =
-                        sqc_msgs[(i - 1) as usize].proposal.data.justify_qc.clone();
-                    // metadata
-                    let _metadata = <TestBlockHeader as BlockHeader<TestTypes>>::metadata(
-                        &sqc_msgs[(i - 1) as usize].proposal.data.block_header,
-                    );
-                    let leaf =
-                        Leaf::from_quorum_proposal(&sqc_msgs[(i - 1) as usize].proposal.data);
+            }
+        };
+        tracing::debug!("Iteration: {} justify_qc: {:?}", round, justify_qc);
 
-                    let q_data = QuorumData::<TestTypes> {
-                        leaf_commit: leaf.commit(),
-                    };
+        let quorum_proposal = QuorumProposal::<TestTypes> {
+            block_header,
+            view_number: ViewNumber::new(round as u64),
+            justify_qc: justify_qc.clone(),
+            upgrade_certificate: None,
+            proposal_certificate: None,
+        };
 
-                    let previous_qc_view_number =
-                        sqc_msgs[(i - 1) as usize].proposal.data.view_number.u64();
-                    let view_number = if previous_qc_view_number == 0
-                        && previous_justify_qc.view_number.u64() == 0
-                    {
-                        ViewNumber::new(0)
-                    } else {
-                        ViewNumber::new(1 + previous_justify_qc.view_number.u64())
-                    };
-                    // form a justify qc
-                    SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold> {
-                        data: q_data.clone(),
-                        vote_commitment: q_data.commit(),
-                        view_number,
-                        signatures: previous_justify_qc.signatures.clone(),
-                        _pd: PhantomData,
-                    }
-                }
-            };
-            tracing::debug!("Iteration: {} justify_qc: {:?}", i, justify_qc);
+        prev_quorum_proposal = Some(quorum_proposal.clone());
 
-            let quorum_proposal = QuorumProposal::<TestTypes> {
-                block_header,
-                view_number: ViewNumber::new(i as u64),
-                justify_qc: justify_qc.clone(),
-                upgrade_certificate: None,
-                proposal_certificate: None,
-            };
-
-            let payload_vid_commitment =
-                <TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(
-                    &quorum_proposal.block_header,
-                );
-            let payload_builder_commitment =
-                <TestBlockHeader as BlockHeader<TestTypes>>::builder_commitment(
-                    &quorum_proposal.block_header,
-                );
-
-            let qc_signature = <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
+        let qc_signature = <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
                         &private_key,
-                        payload_vid_commitment.as_ref(),
+                        block_vid_commitment.as_ref(),
                         ).expect("Failed to sign payload commitment while preparing QC proposal");
 
-            let sqc_msg = QuorumProposalMessage::<TestTypes> {
+        let quorum_proposal_msg =
+            MessageType::QuorumProposalMessage(QuorumProposalMessage::<TestTypes> {
                 proposal: Arc::new(Proposal {
                     data: quorum_proposal.clone(),
                     signature: qc_signature,
                     _pd: PhantomData,
                 }),
                 sender: pub_key,
-            };
-
-            // Prepare the decide message
-            let leaf = match i {
-                0 => {
-                    Leaf::genesis(
-                        &TestValidatedState::default(),
-                        &TestInstanceState::default(),
-                    )
-                    .await
-                }
-                _ => {
-                    let block_payload = BlockPayload::<TestTypes>::from_bytes(
-                        &encoded_transactions,
-                        <TestBlockHeader as BlockHeader<TestTypes>>::metadata(
-                            &quorum_proposal.block_header,
-                        ),
-                    );
-                    let mut current_leaf = Leaf::from_quorum_proposal(&quorum_proposal);
-                    current_leaf
-                        .fill_block_payload(block_payload, TEST_NUM_NODES_IN_VID_COMPUTATION)
-                        .unwrap();
-                    current_leaf
-                }
-            };
-
-            let sdecide_msg = DecideMessage::<TestTypes> {
-                latest_decide_view_number: leaf.view_number(),
-            };
-
-            // validate the signature before pushing the message to the builder_state channels
-            // currently this step happens in the service.rs, wheneve we receiver an hotshot event
-            tracing::debug!("Sending transaction message: {:?}", tx);
-            for res in handle_received_txns(
-                &senders.transactions,
-                vec![tx.clone()],
-                TransactionSource::HotShot,
-            )
-            .await
-            {
-                res.unwrap();
-            }
-            senders
-                .da_proposal
-                .broadcast(MessageType::DaProposalMessage(Arc::clone(&sda_msg)))
-                .await
-                .unwrap();
-            senders
-                .quorum_proposal
-                .broadcast(MessageType::QuorumProposalMessage(sqc_msg.clone()))
-                .await
-                .unwrap();
-
-            // send decide and request messages later
-            let _requested_builder_commitment = payload_builder_commitment;
-            let requested_vid_commitment = payload_vid_commitment;
-
-            let (response_sender, response_receiver) = unbounded();
-            let request_message = MessageType::<TestTypes>::RequestMessage(RequestMessage {
-                requested_view_number: ViewNumber::new(i as u64),
-                response_channel: response_sender,
             });
 
-            sdecide_msgs.push(sdecide_msg);
-            sda_msgs.push(sda_msg);
-            sqc_msgs.push(sqc_msg);
-            sreq_msgs.push((
-                response_receiver,
-                BuilderStateId {
-                    parent_commitment: requested_vid_commitment,
-                    parent_view: ViewNumber::new(i as u64),
-                },
-                request_message,
-            ));
-        }
+        // send quorum and DA proposals for this round
+        senders
+            .da_proposal
+            .broadcast(MessageType::DaProposalMessage(Arc::clone(&da_proposal)))
+            .await
+            .unwrap();
+        senders
+            .quorum_proposal
+            .broadcast(quorum_proposal_msg)
+            .await
+            .unwrap();
 
-        #[cfg(async_executor_impl = "tokio")]
-        handle.await.unwrap();
-        #[cfg(async_executor_impl = "async-std")]
-        handle.await;
+        let (response_sender, response_receiver) = unbounded();
+        let request_message = MessageType::<TestTypes>::RequestMessage(RequestMessage {
+            requested_view_number: ViewNumber::new(round as u64),
+            response_channel: response_sender,
+        });
 
-        // go through the request messages in sreq_msgs and send the request message
-        for req_msg in sreq_msgs.iter() {
-            task::sleep(std::time::Duration::from_millis(100)).await;
-            arc_rwlock_global_state
-                .read_arc()
-                .await
-                .get_channel_for_matching_builder_or_highest_view_buider(&req_msg.1)
-                .expect("Failed to get channel for matching builder or highest view builder")
-                .broadcast(req_msg.2.clone())
-                .await
-                .unwrap();
-        }
+        let req_msg = (
+            response_receiver,
+            BuilderStateId {
+                parent_commitment: block_vid_commitment,
+                parent_view: ViewNumber::new(round as u64),
+            },
+            request_message,
+        );
 
-        task::sleep(std::time::Duration::from_millis(1000)).await;
-        // go through the decide messages in s_decide_msgs and send the request message
-        for decide_msg in sdecide_msgs.iter() {
-            task::sleep(std::time::Duration::from_millis(100)).await;
-            senders
-                .decide
-                .broadcast(MessageType::DecideMessage(decide_msg.clone()))
-                .await
-                .unwrap();
-        }
+        // give builder state time to fork
+        async_sleep(Duration::from_millis(100)).await;
 
-        for req_msg in sreq_msgs.iter() {
-            while let Ok(res_msg) = req_msg.0.try_recv() {
-                rres_msgs.push(res_msg);
-            }
-            //task::sleep(std::time::Duration::from_secs(60)).await;
-        }
-        assert_eq!(rres_msgs.len(), (num_test_messages));
+        // get the builder state for parent view we've just simulated
+        global_state
+            .read_arc()
+            .await
+            .spawned_builder_states
+            .get(&req_msg.1)
+            .expect("Failed to get channel for matching builder")
+            .broadcast(req_msg.2.clone())
+            .await
+            .unwrap();
+
+        // get response
+        let res_msg = req_msg
+            .0
+            .recv()
+            .timeout(Duration::from_secs(10))
+            .await
+            .unwrap()
+            .unwrap();
+        // in the next round we will use received transactions to simulate
+        // the block being proposed
+        prev_proposed_transactions = Some(res_msg.transactions.clone());
+        // save transactions to history
+        transaction_history.extend(res_msg.transactions);
     }
+
+    // we should've served all transactions submitted, and in correct order
+    assert_eq!(
+        transaction_history,
+        all_transactions.into_iter().flatten().collect::<Vec<_>>()
+    );
 }
