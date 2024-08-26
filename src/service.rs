@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::bail;
 use hotshot::types::Event;
 use hotshot_builder_api::v0_3::{
     builder::{define_api, submit_api, BuildError, Error as BuilderApiError},
@@ -20,8 +20,6 @@ use hotshot_types::{
     vid::VidCommitment,
 };
 use tracing::{error, instrument};
-use url::Url;
-use vbs::version::StaticVersionType;
 
 use std::{fmt::Debug, marker::PhantomData, time::Duration};
 
@@ -46,7 +44,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::{fmt::Display, time::Instant};
 use tagged_base64::TaggedBase64;
-use tide_disco::{api::ApiError, app::AppError, method::ReadState, App};
+use tide_disco::{app::AppError, method::ReadState, App};
 
 // It holds all the necessary information for a block
 #[derive(Debug)]
