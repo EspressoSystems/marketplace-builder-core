@@ -155,6 +155,8 @@ async fn test_builder_order() {
             .unwrap();
 
         // get response
+        // in the next round we will use received transactions to simulate
+        // the block being proposed
         let res_msg = req_msg
             .0
             .recv()
@@ -162,14 +164,6 @@ async fn test_builder_order() {
             .await
             .unwrap()
             .unwrap();
-        // in the next round we will use received transactions to simulate
-        // the block being proposed
-        tracing::debug!(
-            "Before assignment, prev_proposed_transactions = {:?}, res_msg = {:?}, req_msg = {:?}",
-            prev_proposed_transactions,
-            res_msg,
-            req_msg
-        );
 
         // play with transactions propsed by proposers: skip the whole round OR interspersed some txs randomly OR remove some txs randomly
         if let MessageType::<TestTypes>::RequestMessage(ref request) = req_msg.2 {
@@ -316,10 +310,8 @@ async fn test_builder_order_chain_fork() {
             .await
             .unwrap();
 
-        tracing::error!("enter fork condition and calculate the second pack");
         prev_quorum_proposal_2 = Some(quorum_proposal_2.clone());
         // send quorum and DA proposals for this round
-        tracing::error!("send da proposal 2 {:?}", da_proposal_msg_2);
         senders
             .da_proposal
             .broadcast(da_proposal_msg_2)
@@ -354,6 +346,8 @@ async fn test_builder_order_chain_fork() {
             .unwrap();
 
         // get response
+        // in the next round we will use received transactions to simulate
+        // the block being proposed
         let res_msg = req_msg
             .0
             .recv()
@@ -361,14 +355,6 @@ async fn test_builder_order_chain_fork() {
             .await
             .unwrap()
             .unwrap();
-        // in the next round we will use received transactions to simulate
-        // the block being proposed
-        tracing::debug!(
-            "Before assignment, prev_proposed_transactions = {:?}, res_msg = {:?}, req_msg = {:?}, fork = {fork}",
-            prev_proposed_transactions,
-            res_msg,
-            req_msg
-        );
 
         if fork {
             let (response_sender_2, response_receiver_2) = unbounded();
@@ -376,10 +362,13 @@ async fn test_builder_order_chain_fork() {
                 requested_view_number: ViewNumber::new(round as u64),
                 response_channel: response_sender_2,
             });
-
+            async_sleep(Duration::from_millis(100)).await;
             let req_msg_2 = (response_receiver_2, builder_state_id_2, request_message_2);
+
+            // give builder state time to fork
+            async_sleep(Duration::from_millis(100)).await;
+
             // get the builder state for parent view we've just simulated
-            tracing::error!("req_msg_2.1 = {:?}", req_msg_2.1);
             global_state
                 .read_arc()
                 .await
@@ -399,12 +388,6 @@ async fn test_builder_order_chain_fork() {
                 .unwrap()
                 .unwrap();
 
-            tracing::debug!(
-                "Before assignment, prev_proposed_transactions_2 = {:?}, res_msg_2 = {:?}, req_msg_2 = {:?}",
-                prev_proposed_transactions_2,
-                res_msg_2,
-                req_msg_2
-            );
             // play with transactions propsed by proposers: at the fork_round, one chain propose while the other chain does not propose any
             let proposed_transactions_2 = res_msg_2.transactions.clone();
             prev_proposed_transactions_2 = Some(proposed_transactions_2);
@@ -435,7 +418,18 @@ async fn test_builder_order_chain_fork() {
     }
 
     // we should've served all transactions submitted, and in correct order
-    // the test will fail if the common part of two vectors of transactions don't have the same order
-    assert!(order_check(transaction_history, all_transactions.clone()));
-    assert!(order_check(transaction_history_2, all_transactions));
+    // the test will fail if any transaction is skipped or re-ordered
+    async_sleep(Duration::from_millis(500)).await;
+    assert_eq!(
+        transaction_history,
+        all_transactions
+            .clone()
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        transaction_history_2,
+        all_transactions.into_iter().flatten().collect::<Vec<_>>()
+    );
 }
