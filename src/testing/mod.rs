@@ -1,7 +1,10 @@
 use std::{hash::Hash, marker::PhantomData};
 
 use crate::{
-    builder_state::{BuilderState, DaProposalMessage, MessageType, QuorumProposalMessage, RequestMessage, ResponseMessage},
+    builder_state::{
+        BuilderState, DaProposalMessage, MessageType, QuorumProposalMessage, RequestMessage,
+        ResponseMessage,
+    },
     service::BroadcastSenders,
     utils::BuilderStateId,
 };
@@ -217,7 +220,7 @@ async fn calc_proposal_msg(
 
 async fn get_req_msg(
     round: u64,
-    builder_state_id:BuilderStateId<TestTypes>,
+    builder_state_id: BuilderStateId<TestTypes>,
 ) -> (
     UnboundedReceiver<ResponseMessage<TestTypes>>,
     BuilderStateId<TestTypes>,

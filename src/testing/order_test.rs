@@ -19,7 +19,7 @@ use crate::{
 };
 use crate::{
     service::handle_received_txns,
-    testing::{calc_proposal_msg, start_builder_state, get_req_msg},
+    testing::{calc_proposal_msg, get_req_msg, start_builder_state},
 };
 use hotshot::rand;
 use std::time::Duration;
@@ -323,7 +323,6 @@ async fn test_builder_order_chain_fork() {
             .await
             .unwrap();
 
-        
         let req_msg = get_req_msg(round as u64, builder_state_id).await;
         // give builder state time to fork
         async_sleep(Duration::from_millis(100)).await;
@@ -355,7 +354,6 @@ async fn test_builder_order_chain_fork() {
             let req_msg_2 = get_req_msg(round as u64, builder_state_id_2).await;
             // give builder state time to fork
             async_sleep(Duration::from_secs(1)).await;
-            
 
             // get the builder state for parent view we've just simulated
             global_state
