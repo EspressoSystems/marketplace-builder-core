@@ -163,7 +163,7 @@ async fn calc_proposal_msg(
             };
 
             // form a justify qc
-            SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold>::new (
+            SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold>::new(
                 quorum_data.clone(),
                 quorum_data.commit(),
                 ViewNumber::new(round as u64),
