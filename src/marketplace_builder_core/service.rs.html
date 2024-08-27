@@ -808,12 +808,12 @@
 <a href="#808" id="808">808</a>
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::bail;
 <span class="kw">use </span>hotshot::types::Event;
 <span class="kw">use </span>hotshot_builder_api::v0_3::{
     builder::{define_api, submit_api, BuildError, Error <span class="kw">as </span>BuilderApiError},
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
-    Version <span class="kw">as </span>MarketplaceBuilderVersion,
 };
 <span class="kw">use </span>hotshot_types::bundle::Bundle;
 <span class="kw">use </span>hotshot_types::traits::block_contents::BuilderFee;
@@ -830,6 +830,7 @@
     vid::VidCommitment,
 };
 <span class="kw">use </span>tracing::{error, instrument};
+<span class="kw">use </span>vbs::version::StaticVersion;
 
 <span class="kw">use </span>std::{fmt::Debug, marker::PhantomData, time::Duration};
 
@@ -1114,8 +1115,9 @@
     </span><span class="kw">pub fn </span>into_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;App&lt;<span class="self">Self</span>, BuilderApiError&gt;, AppError&gt; {
         <span class="kw">let </span>builder_api = define_api::&lt;<span class="self">Self</span>, TYPES&gt;(<span class="kw-2">&amp;</span>Default::default())<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>private_mempool_api =
-            submit_api::&lt;<span class="self">Self</span>, TYPES, MarketplaceBuilderVersion&gt;(<span class="kw-2">&amp;</span>Default::default())<span class="question-mark">?</span>;
+        <span class="comment">// TODO: Replace StaticVersion with proper constant when added in HotShot
+        </span><span class="kw">let </span>private_mempool_api =
+            submit_api::&lt;<span class="self">Self</span>, TYPES, StaticVersion&lt;<span class="number">0</span>, <span class="number">1</span>&gt;&gt;(<span class="kw-2">&amp;</span>Default::default())<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;ProxyGlobalState&lt;TYPES, H&gt;, BuilderApiError&gt; = App::with_state(<span class="self">self</span>);
 
