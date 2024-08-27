@@ -163,13 +163,13 @@ async fn calc_proposal_msg(
             };
 
             // form a justify qc
-            SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold> {
-                vote_commitment: quorum_data.commit(),
-                data: quorum_data,
-                view_number: ViewNumber::new(round as u64),
-                signatures: prev_justify_qc.signatures.clone(),
-                _pd: PhantomData,
-            }
+            SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold>::new (
+                quorum_data.clone(),
+                quorum_data.commit(),
+                ViewNumber::new(round as u64),
+                prev_justify_qc.signatures.clone(),
+                PhantomData,
+            )
         }
     };
 
