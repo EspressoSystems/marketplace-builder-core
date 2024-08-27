@@ -245,12 +245,18 @@ async fn test_builder_order_chain_fork() {
     // generate three different random number between (0..NUM_ROUNDS) to do some changes for output transactions
     // let random_round = rand::random::<usize>() % (NUM_ROUNDS - 2);
     // let random_rounds: Vec<_> = unique_rounds.into_iter().collect();
-    let skip_round = 1; //random_rounds[0]; // the round we want to skip all the transactions
+    let fork_round = 1; //random_rounds[0]; // the round we want to skip all the transactions for the fork chain
 
     // set up state to track between simulated consensus rounds
     let mut prev_proposed_transactions: Option<Vec<TestTransaction>> = None;
     let mut prev_quorum_proposal: Option<QuorumProposal<TestTypes>> = None;
     let mut transaction_history = Vec::new();
+
+    // set up state to track the fork-ed chain
+    let mut prev_proposed_transactions_2: Option<Vec<TestTransaction>> = None;
+    let mut prev_quorum_proposal_2: Option<QuorumProposal<TestTypes>> = None;
+    let mut transaction_history_2 = Vec::new();
+    let mut fork: bool;
 
     // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
     // then construct DA and Quorum Proposals based on what we received from builder in the previous round
@@ -272,10 +278,32 @@ async fn test_builder_order_chain_fork() {
         // and simulate the block built from those
         let transactions = prev_proposed_transactions.take().unwrap_or_default();
         let (quorum_proposal, quorum_proposal_msg, da_proposal_msg, builder_state_id) =
-            calc_proposal_msg(NUM_STORAGE_NODES, round, prev_quorum_proposal, transactions).await;
+            calc_proposal_msg(
+                NUM_STORAGE_NODES,
+                round,
+                prev_quorum_proposal,
+                transactions.clone(),
+            )
+            .await;
+
+        let transactions_2 = prev_proposed_transactions_2.take().unwrap_or_default();
+        let (quorum_proposal_2, quorum_proposal_msg_2, da_proposal_msg_2, builder_state_id_2) =
+            calc_proposal_msg(
+                NUM_STORAGE_NODES,
+                round,
+                prev_quorum_proposal_2.clone(),
+                transactions_2.clone(),
+            )
+            .await;
+        if transactions_2 != transactions {
+            fork = true;
+            tracing::debug!("Fork Exist.")
+        } else {
+            fork = false;
+            tracing::debug!("No fork.");
+        }
 
         prev_quorum_proposal = Some(quorum_proposal.clone());
-
         // send quorum and DA proposals for this round
         senders
             .da_proposal
@@ -285,6 +313,21 @@ async fn test_builder_order_chain_fork() {
         senders
             .quorum_proposal
             .broadcast(quorum_proposal_msg)
+            .await
+            .unwrap();
+
+        tracing::error!("enter fork condition and calculate the second pack");
+        prev_quorum_proposal_2 = Some(quorum_proposal_2.clone());
+        // send quorum and DA proposals for this round
+        tracing::error!("send da proposal 2 {:?}", da_proposal_msg_2);
+        senders
+            .da_proposal
+            .broadcast(da_proposal_msg_2)
+            .await
+            .unwrap();
+        senders
+            .quorum_proposal
+            .broadcast(quorum_proposal_msg_2)
             .await
             .unwrap();
 
@@ -321,31 +364,78 @@ async fn test_builder_order_chain_fork() {
         // in the next round we will use received transactions to simulate
         // the block being proposed
         tracing::debug!(
-            "Before assignment, prev_proposed_transactions = {:?}, res_msg = {:?}, req_msg = {:?}",
+            "Before assignment, prev_proposed_transactions = {:?}, res_msg = {:?}, req_msg = {:?}, fork = {fork}",
             prev_proposed_transactions,
             res_msg,
             req_msg
         );
 
-        // play with transactions propsed by proposers: skip the whole round OR interspersed some txs randomly OR remove some txs randomly
-        if let MessageType::<TestTypes>::RequestMessage(ref request) = req_msg.2 {
-            let view_number = request.requested_view_number;
-            if view_number == ViewNumber::new(skip_round as u64) {
-                prev_proposed_transactions = None;
+        if fork {
+            let (response_sender_2, response_receiver_2) = unbounded();
+            let request_message_2 = MessageType::<TestTypes>::RequestMessage(RequestMessage {
+                requested_view_number: ViewNumber::new(round as u64),
+                response_channel: response_sender_2,
+            });
+
+            let req_msg_2 = (response_receiver_2, builder_state_id_2, request_message_2);
+            // get the builder state for parent view we've just simulated
+            tracing::error!("req_msg_2.1 = {:?}", req_msg_2.1);
+            global_state
+                .read_arc()
+                .await
+                .spawned_builder_states
+                .get(&req_msg_2.1)
+                .expect("Failed to get channel for matching builder")
+                .broadcast(req_msg_2.2.clone())
+                .await
+                .unwrap();
+
+            // get response
+            let res_msg_2 = req_msg_2
+                .0
+                .recv()
+                .timeout(Duration::from_secs(10))
+                .await
+                .unwrap()
+                .unwrap();
+
+            tracing::debug!(
+                "Before assignment, prev_proposed_transactions_2 = {:?}, res_msg_2 = {:?}, req_msg_2 = {:?}",
+                prev_proposed_transactions_2,
+                res_msg_2,
+                req_msg_2
+            );
+            // play with transactions propsed by proposers: at the fork_round, one chain propose while the other chain does not propose any
+            let proposed_transactions_2 = res_msg_2.transactions.clone();
+            prev_proposed_transactions_2 = Some(proposed_transactions_2);
+        }
+
+        // play with transactions propsed by proposers: at the fork_round, one chain propose while the other chain does not propose any
+        let proposed_transactions = res_msg.transactions.clone();
+        prev_proposed_transactions = Some(proposed_transactions);
+        if !fork {
+            if let MessageType::<TestTypes>::RequestMessage(ref request) = req_msg.2 {
+                let view_number = request.requested_view_number;
+                if view_number == ViewNumber::new(fork_round as u64) {
+                    prev_proposed_transactions_2 = None;
+                } else {
+                    prev_proposed_transactions_2 = prev_proposed_transactions.clone();
+                }
             } else {
-                let proposed_transactions = res_msg.transactions.clone();
-                prev_proposed_transactions = Some(proposed_transactions);
+                tracing::error!("Unable to get request from RequestMessage");
             }
-        } else {
-            tracing::error!("Unable to get request from RequestMessage");
         }
         // save transactions to history
         if prev_proposed_transactions.is_some() {
             transaction_history.extend(prev_proposed_transactions.clone().unwrap());
         }
+        if prev_proposed_transactions_2.is_some() {
+            transaction_history_2.extend(prev_proposed_transactions_2.clone().unwrap());
+        }
     }
 
     // we should've served all transactions submitted, and in correct order
     // the test will fail if the common part of two vectors of transactions don't have the same order
-    assert!(order_check(transaction_history, all_transactions));
+    assert!(order_check(transaction_history, all_transactions.clone()));
+    assert!(order_check(transaction_history_2, all_transactions));
 }

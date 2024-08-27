@@ -135,6 +135,10 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
             parent_view: bootstrapped_view_num,
         };
         spawned_builder_states.insert(bootstrap_id.clone(), bootstrap_sender.clone());
+        tracing::error!(
+            "Insert {:?} to spawned_builder_states",
+            bootstrap_id.clone()
+        );
         GlobalState {
             blocks: lru::LruCache::new(NonZeroUsize::new(256).unwrap()),
             spawned_builder_states,
@@ -153,6 +157,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
         // register the builder state
         self.spawned_builder_states
             .insert(parent_id.clone(), request_sender);
+        tracing::error!("Insert {:?} to spawned_builder_states", parent_id.clone());
 
         // keep track of the max view number
         if parent_id.parent_view > self.highest_view_num_builder_id.parent_view {
