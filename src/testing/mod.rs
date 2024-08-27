@@ -226,13 +226,11 @@ async fn get_req_msg(
     BuilderStateId<TestTypes>,
     MessageType<TestTypes>,
 ) {
-    async_sleep(Duration::from_millis(100)).await;
     let (response_sender, response_receiver) = unbounded();
     let request_message = MessageType::<TestTypes>::RequestMessage(RequestMessage {
         requested_view_number: ViewNumber::new(round),
         response_channel: response_sender,
     });
-    async_sleep(Duration::from_millis(100)).await;
 
     (response_receiver, builder_state_id, request_message)
 }
