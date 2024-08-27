@@ -229,7 +229,7 @@ async fn get_req_msg(
     async_sleep(Duration::from_millis(100)).await;
     let (response_sender, response_receiver) = unbounded();
     let request_message = MessageType::<TestTypes>::RequestMessage(RequestMessage {
-        requested_view_number: ViewNumber::new(round as u64),
+        requested_view_number: ViewNumber::new(round),
         response_channel: response_sender,
     });
     async_sleep(Duration::from_millis(100)).await;
