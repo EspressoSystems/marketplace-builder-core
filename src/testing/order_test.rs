@@ -19,7 +19,7 @@ use crate::{
 };
 use crate::{
     service::handle_received_txns,
-    testing::{calc_proposal_msg, start_builder_state},
+    testing::{calc_proposal_msg, start_builder_state, get_req_msg},
 };
 use hotshot::rand;
 use std::time::Duration;
@@ -323,14 +323,8 @@ async fn test_builder_order_chain_fork() {
             .await
             .unwrap();
 
-        let (response_sender, response_receiver) = unbounded();
-        let request_message = MessageType::<TestTypes>::RequestMessage(RequestMessage {
-            requested_view_number: ViewNumber::new(round as u64),
-            response_channel: response_sender,
-        });
-
-        let req_msg = (response_receiver, builder_state_id, request_message);
-
+        
+        let req_msg = get_req_msg(round as u64, builder_state_id).await;
         // give builder state time to fork
         async_sleep(Duration::from_millis(100)).await;
 
@@ -344,6 +338,7 @@ async fn test_builder_order_chain_fork() {
             .broadcast(req_msg.2.clone())
             .await
             .unwrap();
+        async_sleep(Duration::from_secs(1)).await;
 
         // get response
         // in the next round we will use received transactions to simulate
@@ -357,16 +352,10 @@ async fn test_builder_order_chain_fork() {
             .unwrap();
 
         if fork {
-            let (response_sender_2, response_receiver_2) = unbounded();
-            let request_message_2 = MessageType::<TestTypes>::RequestMessage(RequestMessage {
-                requested_view_number: ViewNumber::new(round as u64),
-                response_channel: response_sender_2,
-            });
-            async_sleep(Duration::from_millis(100)).await;
-            let req_msg_2 = (response_receiver_2, builder_state_id_2, request_message_2);
-
+            let req_msg_2 = get_req_msg(round as u64, builder_state_id_2).await;
             // give builder state time to fork
-            async_sleep(Duration::from_millis(100)).await;
+            async_sleep(Duration::from_secs(1)).await;
+            
 
             // get the builder state for parent view we've just simulated
             global_state
@@ -378,6 +367,7 @@ async fn test_builder_order_chain_fork() {
                 .broadcast(req_msg_2.2.clone())
                 .await
                 .unwrap();
+            async_sleep(Duration::from_secs(1)).await;
 
             // get response
             let res_msg_2 = req_msg_2

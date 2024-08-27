@@ -1,11 +1,13 @@
 use std::{hash::Hash, marker::PhantomData};
 
 use crate::{
-    builder_state::{BuilderState, DaProposalMessage, MessageType, QuorumProposalMessage},
+    builder_state::{BuilderState, DaProposalMessage, MessageType, QuorumProposalMessage, RequestMessage, ResponseMessage},
     service::BroadcastSenders,
     utils::BuilderStateId,
 };
 use async_broadcast::broadcast;
+use async_compatibility_layer::art::async_sleep;
+use async_compatibility_layer::channel::{unbounded, UnboundedReceiver};
 use hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, BlockPayload},
     types::{BLSPubKey, SignatureKey},
@@ -211,4 +213,23 @@ async fn calc_proposal_msg(
         da_proposal_msg,
         builder_state_id,
     )
+}
+
+async fn get_req_msg(
+    round: u64,
+    builder_state_id:BuilderStateId<TestTypes>,
+) -> (
+    UnboundedReceiver<ResponseMessage<TestTypes>>,
+    BuilderStateId<TestTypes>,
+    MessageType<TestTypes>,
+) {
+    async_sleep(Duration::from_millis(100)).await;
+    let (response_sender, response_receiver) = unbounded();
+    let request_message = MessageType::<TestTypes>::RequestMessage(RequestMessage {
+        requested_view_number: ViewNumber::new(round as u64),
+        response_channel: response_sender,
+    });
+    async_sleep(Duration::from_millis(100)).await;
+
+    (response_receiver, builder_state_id, request_message)
 }
