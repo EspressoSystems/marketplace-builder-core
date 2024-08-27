@@ -397,7 +397,6 @@ async fn test_builder_order_chain_fork() {
 
     // we should've served all transactions submitted, and in correct order
     // the test will fail if any transaction is skipped or re-ordered
-    async_sleep(Duration::from_millis(500)).await;
     assert_eq!(
         transaction_history,
         all_transactions
