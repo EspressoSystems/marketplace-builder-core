@@ -42,7 +42,7 @@ pub enum TransactionSource {
 }
 
 /// Decide Message to be put on the decide channel
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct DecideMessage<TYPES: NodeType> {
     pub latest_decide_view_number: TYPES::Time,
 }
