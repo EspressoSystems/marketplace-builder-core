@@ -410,6 +410,4 @@ async fn test_builder_order_chain_fork() {
         transaction_history_2,
         all_transactions.into_iter().flatten().collect::<Vec<_>>()
     );
-    // assert!(order_check(transaction_history, all_transactions.clone()));
-    // assert!(order_check(transaction_history_2, all_transactions));
 }
