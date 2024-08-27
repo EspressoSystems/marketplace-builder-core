@@ -9,7 +9,6 @@ use crate::{
     utils::BuilderStateId,
 };
 use async_broadcast::broadcast;
-use async_compatibility_layer::art::async_sleep;
 use async_compatibility_layer::channel::{unbounded, UnboundedReceiver};
 use hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, BlockPayload},
