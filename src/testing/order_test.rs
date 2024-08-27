@@ -328,7 +328,6 @@ async fn test_builder_order_chain_fork() {
             .broadcast(req_msg.2.clone())
             .await
             .unwrap();
-        async_sleep(Duration::from_millis(100)).await;
 
         // get response
         // in the next round we will use received transactions to simulate
@@ -356,7 +355,7 @@ async fn test_builder_order_chain_fork() {
                 .broadcast(req_msg_2.2.clone())
                 .await
                 .unwrap();
-            async_sleep(Duration::from_millis(100)).await;
+            async_sleep(Duration::from_secs(1)).await;
 
             // get response
             let res_msg_2 = req_msg_2
@@ -411,4 +410,6 @@ async fn test_builder_order_chain_fork() {
         transaction_history_2,
         all_transactions.into_iter().flatten().collect::<Vec<_>>()
     );
+    // assert!(order_check(transaction_history, all_transactions.clone()));
+    // assert!(order_check(transaction_history_2, all_transactions));
 }
