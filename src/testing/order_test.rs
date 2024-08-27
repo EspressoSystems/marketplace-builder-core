@@ -8,15 +8,11 @@ use crate::builder_state::MessageType;
 use std::{collections::HashSet, fmt::Debug};
 
 use async_compatibility_layer::art::async_sleep;
-use async_compatibility_layer::channel::unbounded;
 use async_std::prelude::FutureExt;
 
 use hotshot_example_types::block_types::TestTransaction;
 
-use crate::{
-    builder_state::{RequestMessage, TransactionSource},
-    testing::TestTypes,
-};
+use crate::{builder_state::TransactionSource, testing::TestTypes};
 use crate::{
     service::handle_received_txns,
     testing::{calc_proposal_msg, get_req_msg, start_builder_state},
@@ -133,12 +129,7 @@ async fn test_builder_order() {
             .await
             .unwrap();
 
-        let (response_sender, response_receiver) = unbounded();
-        let request_message = MessageType::<TestTypes>::RequestMessage(RequestMessage {
-            requested_view_number: ViewNumber::new(round as u64),
-            response_channel: response_sender,
-        });
-        let req_msg = (response_receiver, builder_state_id, request_message);
+        let req_msg = get_req_msg(round as u64, builder_state_id).await;
 
         // give builder state time to fork
         async_sleep(Duration::from_millis(100)).await;

@@ -1,23 +1,14 @@
-use hotshot_types::{
-    data::{QuorumProposal, ViewNumber},
-    traits::node_implementation::ConsensusTime,
-};
-
-use crate::builder_state::MessageType;
+use hotshot_types::data::QuorumProposal;
 
 use async_compatibility_layer::art::async_sleep;
-use async_compatibility_layer::channel::unbounded;
 use async_std::prelude::FutureExt;
 
 use hotshot_example_types::block_types::TestTransaction;
 
-use crate::{
-    builder_state::{RequestMessage, TransactionSource},
-    testing::TestTypes,
-};
+use crate::{builder_state::TransactionSource, testing::TestTypes};
 use crate::{
     service::handle_received_txns,
-    testing::{calc_proposal_msg, start_builder_state},
+    testing::{calc_proposal_msg, get_req_msg, start_builder_state},
 };
 use std::time::Duration;
 
@@ -89,13 +80,7 @@ async fn test_builder() {
             .await
             .unwrap();
 
-        let (response_sender, response_receiver) = unbounded();
-        let request_message = MessageType::<TestTypes>::RequestMessage(RequestMessage {
-            requested_view_number: ViewNumber::new(round as u64),
-            response_channel: response_sender,
-        });
-
-        let req_msg = (response_receiver, builder_state_id, request_message);
+        let req_msg = get_req_msg(round as u64, builder_state_id).await;
 
         // give builder state time to fork
         async_sleep(Duration::from_millis(100)).await;
