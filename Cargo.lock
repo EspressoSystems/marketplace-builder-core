@@ -3038,6 +3038,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-builder-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-broadcast",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
+ "async-trait",
+ "bincode",
+ "clap",
+ "committable",
+ "derivative",
+ "futures",
+ "hex",
+ "hotshot",
+ "hotshot-builder-api",
+ "hotshot-events-service",
+ "hotshot-example-types",
+ "hotshot-types",
+ "lru 0.12.4",
+ "serde",
+ "sha2 0.10.8",
+ "snafu",
+ "surf-disco",
+ "tagged-base64",
+ "tide-disco",
+ "tokio",
+ "tracing",
+ "vbs",
+]
+
+[[package]]
 name = "hotshot-events-service"
 version = "0.1.39"
 source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?tag=0.1.44#5fc678322f09179ac0042b97a5675d74a8f3b18e"
