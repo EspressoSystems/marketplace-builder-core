@@ -1,48 +1,21 @@
-[package]
-name = "marketplace-builder-core"
-version = "0.0.7"
-edition = "2021"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+resolver = "2"
+members = [
+  "crates/*"
+]
 
-[dependencies]
-anyhow = "1"
-async-broadcast = "0.7"
-async-compatibility-layer = { version = "1.2.1", default-features = false, features = [
-    "logging-utils",
-] }
-async-lock = "2.2"
-async-std = { version = "1.9.0", features = ["unstable", "attributes"] }
-async-trait = "0.1"
-clap = { version = "4.5", features = ["derive", "env"] }
-committable = "0.2"
-derivative = "2.2"
-either = "1.13"
-futures = "0.3"
-hex = "0.4.3"
+[workspace.dependencies]
 hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.72" }
 hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.72" }
 hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.44" }
 hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.72" }
 hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.72" }
-lru = "0.12.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-sha2 = "0.10"
-snafu = "0.8"
-surf-disco = "0.9"
-tagged-base64 = "0.4"
-tide-disco = "0.9"
-tokio = "1"
-toml = "0.8"
-tracing = "0.1"
-url = "2.3"
-vbs = "0.1"
-multimap = "0.10.0"
 
-[dev-dependencies]
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.72" }
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
 
-[lints.rust]
+[workspace.lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(async_executor_impl, values("async-std", "tokio"))',
 ] }
