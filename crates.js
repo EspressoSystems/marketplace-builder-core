@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["marketplace_builder_core"];
+window.ALL_CRATES = ["hotshot_builder_core","marketplace_builder_core"];
