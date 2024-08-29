@@ -227,10 +227,7 @@ async fn test_builder_order_chain_fork() {
         })
         .collect::<Vec<_>>();
 
-    // generate three different random number between (0..NUM_ROUNDS) to do some changes for output transactions
-    // let random_round = rand::random::<usize>() % (NUM_ROUNDS - 2);
-    // let random_rounds: Vec<_> = unique_rounds.into_iter().collect();
-    let fork_round = 1; //random_rounds[0]; // the round we want to skip all the transactions for the fork chain
+    let fork_round = 1; // the round we want to skip all the transactions for the fork chain
 
     // set up state to track between simulated consensus rounds
     let mut prev_proposed_transactions: Option<Vec<TestTransaction>> = None;
