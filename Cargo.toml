@@ -5,10 +5,10 @@ members = [
 ]
 
 [workspace.dependencies]
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74", features = ["dependency-tasks"] }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74" }
 hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.46" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74", features = ["dependency-tasks"] }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", branch = "jp/fifty-fifty" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74" }
 hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74" }
 hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74" }
 
