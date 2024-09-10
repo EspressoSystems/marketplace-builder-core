@@ -1714,7 +1714,7 @@ Handling Builder API responses
             <span class="kw">match </span>async_timeout(check_duration, response_receiver.recv()).<span class="kw">await </span>{
                 <span class="prelude-val">Err</span>(toe) =&gt; {
                     <span class="kw">if </span>Instant::now() &gt;= timeout_after {
-                        <span class="macro">tracing::warn!</span>(%toe, <span class="string">"Couldn't get available blocks in time for parent {state_id}"</span>);
+                        <span class="macro">tracing::debug!</span>(%toe, <span class="string">"Couldn't get available blocks in time for parent {state_id}"</span>);
                         <span class="comment">// lookup into the builder_state_to_last_built_block, if it contains the result, return that otherwise return error
                         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(last_built_block) = <span class="self">self
                             </span>.global_state
@@ -1777,7 +1777,7 @@ Handling Builder API responses
 
             <span class="comment">// We failed to get available blocks
             </span><span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">tracing::warn!</span>(<span class="string">"Failed to get available blocks for parent {state_id}"</span>,);
+                <span class="macro">tracing::debug!</span>(<span class="string">"Failed to get available blocks for parent {state_id}"</span>,);
                 <span class="prelude-val">Err</span>(e)
             }
         }
