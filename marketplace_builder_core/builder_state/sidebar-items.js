@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["MessageType","Status","TransactionSource","TriggerStatus"],"struct":["BuildBlockInfo","BuilderState","BuiltFromProposedBlock","DaProposalMessage","DecideMessage","QuorumProposalMessage","RequestMessage","ResponseMessage"],"type":["TxTimeStamp"]};
+window.SIDEBAR_ITEMS = {"enum":["MessageType","Status","TransactionSource","TriggerStatus"],"struct":["BuildBlockInfo","BuilderState","DaProposalMessage","DecideMessage","QuorumProposalMessage","RequestMessage","ResponseMessage"],"type":["TxTimeStamp"]};

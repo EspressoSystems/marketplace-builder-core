@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BlockId","BuilderStateId","EventServiceStream","RotatingSet"]};
+window.SIDEBAR_ITEMS = {"struct":["BlockId","BuilderStateId","BuiltFromProposedBlock","EventServiceStream","RotatingSet"]};

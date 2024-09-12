@@ -809,6 +809,24 @@
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
 <a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::bail;
 <span class="kw">use </span>hotshot::types::Event;
 <span class="kw">use </span>hotshot_builder_api::v0_3::{
@@ -839,7 +857,7 @@
         BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QuorumProposalMessage,
         RequestMessage, ResponseMessage, TransactionSource,
     },
-    utils::{BlockId, BuilderStateId},
+    utils::{BlockId, BuilderStateId, BuiltFromProposedBlock},
 };
 <span class="kw">pub use </span>async_broadcast::{broadcast, RecvError, TryRecvError};
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Sender <span class="kw">as </span>BroadcastSender, TrySendError};
@@ -915,7 +933,20 @@
     </span><span class="kw">pub </span>blocks: lru::LruCache&lt;BlockId&lt;TYPES&gt;, BlockInfo&lt;TYPES&gt;&gt;,
 
     <span class="comment">// registered builder states
-    </span><span class="kw">pub </span>spawned_builder_states: HashMap&lt;BuilderStateId&lt;TYPES&gt;, BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>spawned_builder_states: HashMap&lt;
+        BuilderStateId&lt;TYPES&gt;,
+        (
+            <span class="comment">// This is provided as an Option for convenience with initialization.
+            // When we build the initial state, we don't necessarily want to
+            // have to generate a valid BuiltFromProposedBlock object.  As doing
+            // such would require a bit of setup.  Additionally it would
+            // result in the call signature to `GlobalState::new` changing.
+            // However for every subsequent BuilderState, we expect this value
+            // to be populated.
+            </span><span class="prelude-ty">Option</span>&lt;BuiltFromProposedBlock&lt;TYPES&gt;&gt;,
+            BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
+        ),
+    &gt;,
 
     <span class="comment">// builder state -&gt; last built block , it is used to respond the client
     // if the req channel times out during get_available_blocks
@@ -945,7 +976,7 @@
             parent_commitment: bootstrapped_builder_state_id,
             parent_view: bootstrapped_view_num,
         };
-        spawned_builder_states.insert(bootstrap_id.clone(), bootstrap_sender.clone());
+        spawned_builder_states.insert(bootstrap_id.clone(), (<span class="prelude-val">None</span>, bootstrap_sender.clone()));
         GlobalState {
             blocks: lru::LruCache::new(NonZeroUsize::new(<span class="number">256</span>).unwrap()),
             spawned_builder_states,
@@ -959,11 +990,14 @@
     <span class="kw">pub fn </span>register_builder_state(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         parent_id: BuilderStateId&lt;TYPES&gt;,
+        built_from_proposed_block: BuiltFromProposedBlock&lt;TYPES&gt;,
         request_sender: BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
     ) {
         <span class="comment">// register the builder state
-        </span><span class="self">self</span>.spawned_builder_states
-            .insert(parent_id.clone(), request_sender);
+        </span><span class="self">self</span>.spawned_builder_states.insert(
+            parent_id.clone(),
+            (<span class="prelude-val">Some</span>(built_from_proposed_block), request_sender),
+        );
 
         <span class="comment">// keep track of the max view number
         </span><span class="kw">if </span>parent_id.parent_view &gt; <span class="self">self</span>.highest_view_num_builder_id.parent_view {
@@ -1030,9 +1064,9 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: <span class="kw-2">&amp;</span>BuilderStateId&lt;TYPES&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;, BuildError&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(channel) = <span class="self">self</span>.spawned_builder_states.get(key) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(id_and_sender) = <span class="self">self</span>.spawned_builder_states.get(key) {
             <span class="macro">tracing::info!</span>(<span class="string">"Got matching builder for parent {}"</span>, key);
-            <span class="prelude-val">Ok</span>(channel)
+            <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>id_and_sender.<span class="number">1</span>)
         } <span class="kw">else </span>{
             <span class="macro">tracing::warn!</span>(
                 <span class="string">"failed to recover builder for parent {}, using higest view num builder with {}"</span>,
@@ -1042,6 +1076,7 @@
             <span class="comment">// get the sender for the highest view number builder
             </span><span class="self">self</span>.spawned_builder_states
                 .get(<span class="kw-2">&amp;</span><span class="self">self</span>.highest_view_num_builder_id)
+                .map(|(<span class="kw">_</span>, sender)| sender)
                 .ok_or_else(|| BuildError::Error {
                     message: <span class="string">"No builder state found"</span>.to_string(),
                 })
@@ -1164,7 +1199,7 @@ Handling Builder API responses
                 <span class="kw">return </span><span class="prelude-val">Err</span>(BuildError::NotFound);
             };
 
-            <span class="kw">let </span><span class="prelude-val">Some</span>(sender) = <span class="self">self
+            <span class="kw">let </span><span class="prelude-val">Some</span>(id_and_sender) = <span class="self">self
                 </span>.global_state
                 .read_arc()
                 .<span class="kw">await
@@ -1210,8 +1245,9 @@ Handling Builder API responses
                 response_channel: response_sender,
             };
 
-            sender
-                .broadcast(MessageType::RequestMessage(request))
+            id_and_sender
+                .<span class="number">1
+                </span>.broadcast(MessageType::RequestMessage(request))
                 .<span class="kw">await
                 </span>.map_err(|err| {
                     <span class="macro">tracing::warn!</span>(%err, <span class="string">"Error requesting bundle"</span>);
