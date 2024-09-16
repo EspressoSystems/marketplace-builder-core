@@ -827,6 +827,9 @@
 <a href="#827" id="827">827</a>
 <a href="#828" id="828">828</a>
 <a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::bail;
 <span class="kw">use </span>hotshot::types::Event;
 <span class="kw">use </span>hotshot_builder_api::v0_3::{
@@ -1156,7 +1159,10 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;ProxyGlobalState&lt;TYPES, H&gt;, BuilderApiError&gt; = App::with_state(<span class="self">self</span>);
 
-        app.register_module(<span class="string">"block_info"</span>, builder_api)<span class="question-mark">?</span>;
+        app.register_module(
+            hotshot_types::constants::MARKETPLACE_BUILDER_MODULE,
+            builder_api,
+        )<span class="question-mark">?</span>;
 
         app.register_module(<span class="string">"txn_submit"</span>, private_mempool_api)<span class="question-mark">?</span>;
 
