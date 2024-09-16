@@ -1247,6 +1247,7 @@
 <a href="#1247" id="1247">1247</a>
 <a href="#1248" id="1248">1248</a>
 <a href="#1249" id="1249">1249</a>
+<a href="#1250" id="1250">1250</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
     types::{Event, SystemContextHandle},
@@ -1310,8 +1311,8 @@
 <span class="kw">use </span>tagged_base64::TaggedBase64;
 <span class="kw">use </span>tide_disco::{method::ReadState, Url};
 
-<span class="comment">// Start assuming we're fine calculatig VID for 100 kilobyte blocks
-</span><span class="kw">const </span>INITIAL_MAX_BLOCK_SIZE: u64 = <span class="number">100_000</span>;
+<span class="comment">// Start assuming we're fine calculatig VID for 5 megabyte blocks
+</span><span class="kw">const </span>INITIAL_MAX_BLOCK_SIZE: u64 = <span class="number">5_000_000</span>;
 <span class="comment">// Never go lower than 10 kilobytes
 </span><span class="kw">const </span>MAX_BLOCK_SIZE_FLOOR: u64 = <span class="number">10_000</span>;
 <span class="comment">// When adjusting max block size, we it will be decremented or incremented
@@ -2459,8 +2460,9 @@ Utility functions to handle the hotshot events
         // our limitations on computing the VID in time.
         </span><span class="kw">let </span>len = bincode::serialized_size(<span class="kw-2">&amp;</span>tx).unwrap_or_default();
         <span class="kw">if </span>len &gt; max_txn_len {
+            <span class="macro">tracing::warn!</span>(%commit, %len, %max_txn_len, <span class="string">"Transaction too big"</span>);
             results.push(<span class="prelude-val">Err</span>(BuildError::Error {
-                message: <span class="macro">format!</span>(<span class="string">"Transaction too big (estimated length {len}, currently accepting &lt;= {max_txn_len})"</span>),
+                message: <span class="macro">format!</span>(<span class="string">"Transaction {commit} too big (estimated length {len}, currently accepting &lt;= {max_txn_len})"</span>),
             }));
             <span class="kw">continue</span>;
         }
