@@ -860,7 +860,7 @@
         BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QuorumProposalMessage,
         RequestMessage, ResponseMessage, TransactionSource,
     },
-    utils::{BlockId, BuilderStateId, BuiltFromProposedBlock},
+    utils::{BlockId, BuilderStateId, ParentBlockReferences},
 };
 <span class="kw">pub use </span>async_broadcast::{broadcast, RecvError, TryRecvError};
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Sender <span class="kw">as </span>BroadcastSender, TrySendError};
@@ -941,12 +941,12 @@
         (
             <span class="comment">// This is provided as an Option for convenience with initialization.
             // When we build the initial state, we don't necessarily want to
-            // have to generate a valid BuiltFromProposedBlock object.  As doing
-            // such would require a bit of setup.  Additionally it would
+            // have to generate a valid `ParentBlockReferences` object and register its leaf
+            // commitment, as doing such would require a bit of setup.  Additionally it would
             // result in the call signature to `GlobalState::new` changing.
             // However for every subsequent BuilderState, we expect this value
             // to be populated.
-            </span><span class="prelude-ty">Option</span>&lt;BuiltFromProposedBlock&lt;TYPES&gt;&gt;,
+            </span><span class="prelude-ty">Option</span>&lt;Commitment&lt;Leaf&lt;TYPES&gt;&gt;&gt;,
             BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
         ),
     &gt;,
@@ -993,13 +993,13 @@
     <span class="kw">pub fn </span>register_builder_state(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         parent_id: BuilderStateId&lt;TYPES&gt;,
-        built_from_proposed_block: BuiltFromProposedBlock&lt;TYPES&gt;,
+        parent_block_references: ParentBlockReferences&lt;TYPES&gt;,
         request_sender: BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
     ) {
         <span class="comment">// register the builder state
         </span><span class="self">self</span>.spawned_builder_states.insert(
             parent_id.clone(),
-            (<span class="prelude-val">Some</span>(built_from_proposed_block), request_sender),
+            (<span class="prelude-val">Some</span>(parent_block_references.leaf_commit), request_sender),
         );
 
         <span class="comment">// keep track of the max view number

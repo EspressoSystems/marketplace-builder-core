@@ -935,8 +935,6 @@
 <a href="#935" id="935">935</a>
 <a href="#936" id="936">936</a>
 <a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     data::{Leaf, QuorumProposal},
     message::Proposal,
@@ -952,7 +950,7 @@
 
 <span class="kw">use crate</span>::{
     service::{BroadcastReceivers, GlobalState, ReceivedTransaction},
-    utils::{BlockId, BuilderStateId, BuiltFromProposedBlock, RotatingSet},
+    utils::{BlockId, BuilderStateId, ParentBlockReferences, RotatingSet},
 };
 <span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>async_broadcast::Receiver <span class="kw">as </span>BroadcastReceiver;
@@ -1052,8 +1050,8 @@
     </span><span class="kw">pub </span>quorum_proposal_payload_commit_to_quorum_proposal:
         HashMap&lt;(BuilderCommitment, TYPES::Time), Arc&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;&gt;,
 
-    <span class="doccomment">/// the spawned from info for a builder state
-    </span><span class="kw">pub </span>built_from_proposed_block: BuiltFromProposedBlock&lt;TYPES&gt;,
+    <span class="doccomment">/// Spawned-from references to the parent block.
+    </span><span class="kw">pub </span>parent_block_references: ParentBlockReferences&lt;TYPES&gt;,
 
     <span class="comment">// Channel Receivers for the HotShot events, Tx_receiver could also receive the external transactions
     </span><span class="doccomment">/// decide receiver
@@ -1187,15 +1185,13 @@
     <span class="kw">let </span>existing_states: HashSet&lt;<span class="kw">_</span>&gt; = global_state_read_lock
         .spawned_builder_states
         .iter()
-        .filter(
-            |(<span class="kw">_</span>, (built_from_proposed_block, <span class="kw">_</span>))| <span class="kw">match </span>built_from_proposed_block {
-                <span class="prelude-val">None </span>=&gt; <span class="bool-val">false</span>,
-                <span class="prelude-val">Some</span>(built_from_proposed_block) =&gt; {
-                    built_from_proposed_block.leaf_commit == justify_qc.data.leaf_commit
-                        &amp;&amp; built_from_proposed_block.view_number == justify_qc.view_number
-                }
-            },
-        )
+        .filter(|(builder_state_id, (leaf_commit, <span class="kw">_</span>))| <span class="kw">match </span>leaf_commit {
+            <span class="prelude-val">None </span>=&gt; <span class="bool-val">false</span>,
+            <span class="prelude-val">Some</span>(leaf_commit) =&gt; {
+                <span class="kw-2">*</span>leaf_commit == justify_qc.data.leaf_commit
+                    &amp;&amp; builder_state_id.parent_view == justify_qc.view_number
+            }
+        })
         .map(|(builder_state_id, <span class="kw">_</span>)| builder_state_id.clone())
         .collect();
 
@@ -1272,8 +1268,8 @@
 
         <span class="macro">tracing::debug!</span>(
             <span class="string">"{}@{} thinks these are the best builder states to extend from: {:?} for proposal {}@{}"</span>,
-            <span class="self">self</span>.built_from_proposed_block.vid_commitment,
-            <span class="self">self</span>.built_from_proposed_block.view_number.u64(),
+            <span class="self">self</span>.parent_block_references.vid_commitment,
+            <span class="self">self</span>.parent_block_references.view_number.u64(),
             best_builder_states_to_extend
                 .iter()
                 .map(|builder_state_id| <span class="macro">format!</span>(
@@ -1289,14 +1285,14 @@
         <span class="comment">// We are a best fit if we are contained within the returned set of
         // best [BuilderState]s to extend from.
         </span>best_builder_states_to_extend.contains(<span class="kw-2">&amp;</span>BuilderStateId {
-            parent_commitment: <span class="self">self</span>.built_from_proposed_block.vid_commitment,
-            parent_view: <span class="self">self</span>.built_from_proposed_block.view_number,
+            parent_commitment: <span class="self">self</span>.parent_block_references.vid_commitment,
+            parent_view: <span class="self">self</span>.parent_block_references.view_number,
         })
     }
 
     <span class="doccomment">/// processing the DA proposal
     </span><span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"process da proposal"</span>,
-                                    fields(builder_built_from_proposed_block = %<span class="self">self</span>.built_from_proposed_block))]
+                                    fields(builder_parent_block_references = %<span class="self">self</span>.parent_block_references))]
     </span><span class="kw">async fn </span>process_da_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, da_msg: Arc&lt;DaProposalMessage&lt;TYPES&gt;&gt;) {
         <span class="macro">tracing::debug!</span>(
             <span class="string">"Builder Received DA message for view {:?}"</span>,
@@ -1352,7 +1348,7 @@
     <span class="doccomment">/// processing the quorum proposal
     </span><span class="comment">//#[tracing::instrument(skip_all, name = "Process Quorum Proposal")]
     </span><span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"process quorum proposal"</span>,
-                                    fields(builder_built_from_proposed_block = %<span class="self">self</span>.built_from_proposed_block))]
+                                    fields(builder_parent_block_references = %<span class="self">self</span>.parent_block_references))]
     </span><span class="kw">async fn </span>process_quorum_proposal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, qc_msg: QuorumProposalMessage&lt;TYPES&gt;) {
         <span class="macro">tracing::debug!</span>(
             <span class="string">"Builder Received QC Message for view {:?}"</span>,
@@ -1427,7 +1423,7 @@
         </span>{
             <span class="macro">tracing::debug!</span>(
                 <span class="string">"{} is not the best fit for forking, {}@{}, so ignoring the QC proposal, and leaving it to another BuilderState"</span>,
-                <span class="self">self</span>.built_from_proposed_block,
+                <span class="self">self</span>.parent_block_references,
                 quorum_proposal.data.block_header.payload_commitment(),
                 quorum_proposal.data.view_number.u64(),
             );
@@ -1438,7 +1434,7 @@
 
         <span class="macro">tracing::debug!</span>(
             <span class="string">"extending BuilderState with a clone from {} with new proposal {}@{}"</span>,
-            <span class="self">self</span>.built_from_proposed_block,
+            <span class="self">self</span>.parent_block_references,
             quorum_proposal.data.block_header.payload_commitment(),
             quorum_proposal.data.view_number.u64()
         );
@@ -1451,9 +1447,9 @@
 
     <span class="doccomment">/// processing the decide event
     </span><span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"process decide event"</span>,
-                                   fields(builder_built_from_proposed_block = %<span class="self">self</span>.built_from_proposed_block))]
+                                   fields(builder_parent_block_references = %<span class="self">self</span>.parent_block_references))]
     </span><span class="kw">async fn </span>process_decide_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, decide_msg: DecideMessage&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Status&gt; {
-        <span class="comment">// Exit out all the builder states if their built_from_proposed_block.view_number is less than the latest_decide_view_number
+        <span class="comment">// Exit out all the builder states if their parent_block_references.view_number is less than the latest_decide_view_number
         // The only exception is that we want to keep the highest view number builder state active to ensure that
         // we have a builder state to handle the incoming DA and QC proposals
         </span><span class="kw">let </span>decide_view_number = decide_msg.latest_decide_view_number;
@@ -1463,11 +1459,11 @@
             .write_arc()
             .<span class="kw">await
             </span>.remove_handles(decide_view_number);
-        <span class="kw">if </span><span class="self">self</span>.built_from_proposed_block.view_number &lt; retained_view_cutoff {
+        <span class="kw">if </span><span class="self">self</span>.parent_block_references.view_number &lt; retained_view_cutoff {
             <span class="macro">tracing::info!</span>(
                 <span class="string">"Decide@{:?}; Task@{:?} exiting; views &lt; {:?} being reclaimed"</span>,
                 decide_view_number.u64(),
-                <span class="self">self</span>.built_from_proposed_block.view_number.u64(),
+                <span class="self">self</span>.parent_block_references.view_number.u64(),
                 retained_view_cutoff.u64(),
             );
             <span class="kw">return </span><span class="prelude-val">Some</span>(Status::ShouldExit);
@@ -1475,7 +1471,7 @@
         <span class="macro">tracing::info!</span>(
             <span class="string">"Decide@{:?}; Task@{:?} not exiting; views &gt;= {:?} being retained"</span>,
             decide_view_number.u64(),
-            <span class="self">self</span>.built_from_proposed_block.view_number.u64(),
+            <span class="self">self</span>.parent_block_references.view_number.u64(),
             retained_view_cutoff.u64(),
         );
 
@@ -1484,7 +1480,7 @@
 
     <span class="comment">// spawn a clone of the builder state
     </span><span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"spawn_clone"</span>,
-                                    fields(builder_built_from_proposed_block = %<span class="self">self</span>.built_from_proposed_block))]
+                                    fields(builder_parent_block_references = %<span class="self">self</span>.parent_block_references))]
     </span><span class="kw">async fn </span>spawn_clone(
         <span class="kw-2">mut </span><span class="self">self</span>,
         da_proposal_info: Arc&lt;DaProposalMessage&lt;TYPES&gt;&gt;,
@@ -1493,10 +1489,10 @@
     ) {
         <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal.data);
 
-        <span class="comment">// We replace our built_from_proposed_block with information from the
+        <span class="comment">// We replace our parent_block_references with information from the
         // quorum proposal.  This is identifying the block that this specific
         // instance of [BuilderState] is attempting to build for.
-        </span><span class="self">self</span>.built_from_proposed_block = BuiltFromProposedBlock {
+        </span><span class="self">self</span>.parent_block_references = ParentBlockReferences {
             view_number: quorum_proposal.data.view_number,
             vid_commitment: quorum_proposal.data.block_header.payload_commitment(),
             leaf_commit: leaf.commit(),
@@ -1504,8 +1500,8 @@
         };
 
         <span class="kw">let </span>builder_state_id = BuilderStateId {
-            parent_commitment: <span class="self">self</span>.built_from_proposed_block.vid_commitment,
-            parent_view: <span class="self">self</span>.built_from_proposed_block.view_number,
+            parent_commitment: <span class="self">self</span>.parent_block_references.vid_commitment,
+            parent_view: <span class="self">self</span>.parent_block_references.view_number,
         };
 
         {
@@ -1539,7 +1535,7 @@
         // that it can be looked up via the [BuilderStateId] in the future.
         </span><span class="self">self</span>.global_state.write_arc().<span class="kw">await</span>.register_builder_state(
             builder_state_id,
-            <span class="self">self</span>.built_from_proposed_block.clone(),
+            <span class="self">self</span>.parent_block_references.clone(),
             req_sender,
         );
 
@@ -1548,7 +1544,7 @@
 
     <span class="comment">// build a block
     </span><span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"build block"</span>,
-                                    fields(builder_built_from_proposed_block = %<span class="self">self</span>.built_from_proposed_block))]
+                                    fields(builder_parent_block_references = %<span class="self">self</span>.parent_block_references))]
     </span><span class="kw">async fn </span>build_block(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         state_id: BuilderStateId&lt;TYPES&gt;,
@@ -1589,14 +1585,14 @@
 
             <span class="macro">tracing::info!</span>(
                 <span class="string">"Builder view num {:?}, building block with {:?} txns, with builder hash {:?}"</span>,
-                <span class="self">self</span>.built_from_proposed_block.view_number,
+                <span class="self">self</span>.parent_block_references.view_number,
                 txn_count,
                 builder_hash
             );
 
             <span class="prelude-val">Some</span>(BuildBlockInfo {
                 id: BlockId {
-                    view: <span class="self">self</span>.built_from_proposed_block.view_number,
+                    view: <span class="self">self</span>.parent_block_references.view_number,
                     hash: builder_hash,
                 },
                 block_size,
@@ -1613,16 +1609,16 @@
     <span class="kw">async fn </span>process_block_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, req: RequestMessage&lt;TYPES&gt;) {
         <span class="kw">let </span>requested_view_number = req.requested_view_number;
         <span class="comment">// If a spawned clone is active then it will handle the request, otherwise the highest view num builder will handle
-        </span><span class="kw">if </span>requested_view_number == <span class="self">self</span>.built_from_proposed_block.view_number {
+        </span><span class="kw">if </span>requested_view_number == <span class="self">self</span>.parent_block_references.view_number {
             <span class="macro">tracing::info!</span>(
                 <span class="string">"Request handled by builder with view {}@{:?} for (view_num: {:?})"</span>,
-                <span class="self">self</span>.built_from_proposed_block.vid_commitment,
-                <span class="self">self</span>.built_from_proposed_block.view_number,
+                <span class="self">self</span>.parent_block_references.vid_commitment,
+                <span class="self">self</span>.parent_block_references.view_number,
                 requested_view_number
             );
             <span class="kw">let </span>response = <span class="self">self
                 </span>.build_block(BuilderStateId {
-                    parent_commitment: <span class="self">self</span>.built_from_proposed_block.vid_commitment,
+                    parent_commitment: <span class="self">self</span>.parent_block_references.vid_commitment,
                     parent_view: requested_view_number,
                 })
                 .<span class="kw">await</span>;
@@ -1643,7 +1639,7 @@
                     <span class="kw">let </span>builder_hash = response.id.hash.clone();
                     <span class="self">self</span>.global_state.write_arc().<span class="kw">await</span>.update_global_state(
                         BuilderStateId {
-                            parent_commitment: <span class="self">self</span>.built_from_proposed_block.vid_commitment,
+                            parent_commitment: <span class="self">self</span>.parent_block_references.vid_commitment,
                             parent_view: requested_view_number,
                         },
                         response,
@@ -1655,7 +1651,7 @@
                         <span class="prelude-val">Ok</span>(_sent) =&gt; {
                             <span class="macro">tracing::info!</span>(
                                 <span class="string">"Builder {:?} Sent response to the request{:?} with builder hash {:?}"</span>,
-                                <span class="self">self</span>.built_from_proposed_block.view_number,
+                                <span class="self">self</span>.parent_block_references.view_number,
                                 req,
                                 builder_hash
                             );
@@ -1663,7 +1659,7 @@
                         <span class="prelude-val">Err</span>(e) =&gt; {
                             <span class="macro">tracing::warn!</span>(
                                 <span class="string">"Builder {:?} failed to send response to {:?} with builder hash {:?}, Err: {:?}"</span>,
-                                <span class="self">self</span>.built_from_proposed_block.view_number,
+                                <span class="self">self</span>.parent_block_references.view_number,
                                 req,
                                 builder_hash,
                                 e
@@ -1678,27 +1674,27 @@
         } <span class="kw">else </span>{
             <span class="macro">tracing::debug!</span>(
                 <span class="string">"Builder {:?} Requested Builder commitment does not match the built_from_view, so ignoring it"</span>,
-                 <span class="self">self</span>.built_from_proposed_block.view_number);
+                 <span class="self">self</span>.parent_block_references.view_number);
         }
     }
     <span class="attr">#[tracing::instrument(skip_all, name = <span class="string">"event loop"</span>,
-                                    fields(builder_built_from_proposed_block = %<span class="self">self</span>.built_from_proposed_block))]
+                                    fields(builder_parent_block_references = %<span class="self">self</span>.parent_block_references))]
     </span><span class="kw">pub fn </span>event_loop(<span class="kw-2">mut </span><span class="self">self</span>) {
         <span class="kw">let </span>_builder_handle = async_spawn(<span class="kw">async move </span>{
             <span class="kw">loop </span>{
                 <span class="macro">tracing::debug!</span>(
                     <span class="string">"Builder {:?} event loop"</span>,
-                    <span class="self">self</span>.built_from_proposed_block.view_number
+                    <span class="self">self</span>.parent_block_references.view_number
                 );
                 <span class="macro">futures::select!</span> {
                     req = <span class="self">self</span>.req_receiver.next() =&gt; {
-                        <span class="macro">tracing::debug!</span>(<span class="string">"Received request msg in builder {:?}: {:?}"</span>, <span class="self">self</span>.built_from_proposed_block.view_number, req);
+                        <span class="macro">tracing::debug!</span>(<span class="string">"Received request msg in builder {:?}: {:?}"</span>, <span class="self">self</span>.parent_block_references.view_number, req);
                         <span class="kw">match </span>req {
                             <span class="prelude-val">Some</span>(req) =&gt; {
                                 <span class="kw">if let </span>MessageType::RequestMessage(req) = req {
                                     <span class="macro">tracing::debug!</span>(
                                         <span class="string">"Received request msg in builder {:?}: {:?}"</span>,
-                                        <span class="self">self</span>.built_from_proposed_block.view_number,
+                                        <span class="self">self</span>.parent_block_references.view_number,
                                         req
                                     );
                                     <span class="self">self</span>.process_block_request(req).<span class="kw">await</span>;
@@ -1715,7 +1711,7 @@
                         <span class="kw">match </span>da {
                             <span class="prelude-val">Some</span>(da) =&gt; {
                                 <span class="kw">if let </span>MessageType::DaProposalMessage(rda_msg) = da {
-                                    <span class="macro">tracing::debug!</span>(<span class="string">"Received da proposal msg in builder {:?}:\n {:?}"</span>, <span class="self">self</span>.built_from_proposed_block, rda_msg.view_number);
+                                    <span class="macro">tracing::debug!</span>(<span class="string">"Received da proposal msg in builder {:?}:\n {:?}"</span>, <span class="self">self</span>.parent_block_references, rda_msg.view_number);
                                     <span class="self">self</span>.process_da_proposal(rda_msg).<span class="kw">await</span>;
                                 } <span class="kw">else </span>{
                                     <span class="macro">tracing::warn!</span>(<span class="string">"Unexpected message on da proposals channel: {:?}"</span>, da);
@@ -1730,7 +1726,7 @@
                         <span class="kw">match </span>qc {
                             <span class="prelude-val">Some</span>(qc) =&gt; {
                                 <span class="kw">if let </span>MessageType::QuorumProposalMessage(rqc_msg) = qc {
-                                    <span class="macro">tracing::debug!</span>(<span class="string">"Received quorum proposal msg in builder {:?}:\n {:?} for view "</span>, <span class="self">self</span>.built_from_proposed_block, rqc_msg.proposal.data.view_number);
+                                    <span class="macro">tracing::debug!</span>(<span class="string">"Received quorum proposal msg in builder {:?}:\n {:?} for view "</span>, <span class="self">self</span>.parent_block_references, rqc_msg.proposal.data.view_number);
                                     <span class="self">self</span>.process_quorum_proposal(rqc_msg).<span class="kw">await</span>;
                                 } <span class="kw">else </span>{
                                     <span class="macro">tracing::warn!</span>(<span class="string">"Unexpected message on quorum proposals channel: {:?}"</span>, qc);
@@ -1748,23 +1744,23 @@
                                     <span class="kw">let </span>latest_decide_view_num = rdecide_msg.latest_decide_view_number;
                                     <span class="macro">tracing::debug!</span>(<span class="string">"Received decide msg view {:?} in builder {:?}"</span>,
                                         <span class="kw-2">&amp;</span>latest_decide_view_num,
-                                        <span class="self">self</span>.built_from_proposed_block);
+                                        <span class="self">self</span>.parent_block_references);
                                     <span class="kw">let </span>decide_status = <span class="self">self</span>.process_decide_event(rdecide_msg).<span class="kw">await</span>;
                                     <span class="kw">match </span>decide_status{
                                         <span class="prelude-val">Some</span>(Status::ShouldExit) =&gt; {
                                             <span class="macro">tracing::info!</span>(<span class="string">"Exiting builder {:?} with decide view {:?}"</span>,
-                                                <span class="self">self</span>.built_from_proposed_block,
+                                                <span class="self">self</span>.parent_block_references,
                                                 <span class="kw-2">&amp;</span>latest_decide_view_num);
                                             <span class="kw">return</span>;
                                         }
                                         <span class="prelude-val">Some</span>(Status::ShouldContinue) =&gt; {
                                             <span class="macro">tracing::debug!</span>(<span class="string">"Continuing builder {:?}"</span>,
-                                                <span class="self">self</span>.built_from_proposed_block);
+                                                <span class="self">self</span>.parent_block_references);
                                             <span class="kw">continue</span>;
                                         }
                                         <span class="prelude-val">None </span>=&gt; {
                                             <span class="macro">tracing::warn!</span>(<span class="string">"decide_status was None; Continuing builder {:?}"</span>,
-                                                <span class="self">self</span>.built_from_proposed_block);
+                                                <span class="self">self</span>.parent_block_references);
                                             <span class="kw">continue</span>;
                                         }
                                     }
@@ -1794,7 +1790,7 @@
 <span class="attr">#[allow(clippy::too_many_arguments)]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderState&lt;TYPES&gt; {
     <span class="kw">pub fn </span>new(
-        built_from_proposed_block: BuiltFromProposedBlock&lt;TYPES&gt;,
+        parent_block_references: ParentBlockReferences&lt;TYPES&gt;,
         receivers: <span class="kw-2">&amp;</span>BroadcastReceivers&lt;TYPES&gt;,
         req_receiver: BroadcastReceiver&lt;MessageType&lt;TYPES&gt;&gt;,
         tx_queue: Vec&lt;Arc&lt;ReceivedTransaction&lt;TYPES&gt;&gt;&gt;,
@@ -1808,7 +1804,7 @@
         <span class="kw">let </span>txns_in_queue: HashSet&lt;<span class="kw">_</span>&gt; = tx_queue.iter().map(|tx| tx.commit).collect();
         BuilderState {
             txns_in_queue,
-            built_from_proposed_block,
+            parent_block_references,
             req_receiver,
             tx_queue,
             global_state,
@@ -1833,7 +1829,7 @@
         BuilderState {
             included_txns,
             txns_in_queue: <span class="self">self</span>.txns_in_queue.clone(),
-            built_from_proposed_block: <span class="self">self</span>.built_from_proposed_block.clone(),
+            parent_block_references: <span class="self">self</span>.parent_block_references.clone(),
             decide_receiver: <span class="self">self</span>.decide_receiver.clone(),
             da_proposal_receiver: <span class="self">self</span>.da_proposal_receiver.clone(),
             qc_receiver: <span class="self">self</span>.qc_receiver.clone(),

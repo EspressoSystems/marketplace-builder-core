@@ -460,7 +460,7 @@
     };
 
     <span class="kw">use </span><span class="kw">crate</span>::builder_state::{
-        BuiltFromProposedBlock, DaProposalMessage, DecideMessage, QCMessage, RequestMessage,
+        DaProposalMessage, DecideMessage, ParentBlockReferences, QCMessage, RequestMessage,
         TransactionSource,
     };
     <span class="kw">use </span><span class="kw">crate</span>::service::{handle_received_txns, GlobalState, ReceivedTransaction};
@@ -778,14 +778,14 @@
         </span><span class="kw">let </span>arc_rwlock_global_state = Arc::new(RwLock::new(global_state));
         <span class="kw">let </span>arc_rwlock_global_state_clone = arc_rwlock_global_state.clone();
         <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
-            <span class="kw">let </span>built_from_info = BuiltFromProposedBlock {
+            <span class="kw">let </span>parent_block_references = ParentBlockReferences {
                 view_number: ViewNumber::new(<span class="number">0</span>),
                 vid_commitment: vid_commitment(<span class="kw-2">&amp;</span>[], <span class="number">8</span>),
                 leaf_commit: Commitment::&lt;Leaf&lt;TestTypes&gt;&gt;::default_commitment_no_preimage(),
                 builder_commitment: BuilderCommitment::from_bytes([]),
             };
             <span class="kw">let </span>builder_state = BuilderState::&lt;TestTypes&gt;::new(
-                built_from_info,
+                parent_block_references,
                 decide_receiver,
                 da_receiver,
                 qc_receiver,
