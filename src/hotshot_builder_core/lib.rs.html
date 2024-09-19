@@ -78,6 +78,32 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot Builder Protocol.
 //
@@ -106,20 +132,46 @@
     traits::node_implementation::NodeType, utils::BuilderCommitment, vid::VidCommitment,
 };
 
-<span class="attr">#[derive(Debug)]
+<span class="doccomment">/// WaitAndKeep is a helper enum that allows for the lazy polling of a single
+/// value from an unbound receiver.
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>WaitAndKeep&lt;T&gt; {
     Keep(T),
     Wait(UnboundedReceiver&lt;T&gt;),
 }
 
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>WaitAndKeepGetError {
+    FailedToResolvedVidCommitmentFromChannel,
+}
+
+<span class="kw">impl </span>From&lt;WaitAndKeepGetError&gt; <span class="kw">for </span>BuildError {
+    <span class="kw">fn </span>from(e: WaitAndKeepGetError) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>e {
+            WaitAndKeepGetError::FailedToResolvedVidCommitmentFromChannel =&gt; BuildError::Error {
+                message: <span class="string">"failed to resolve VidCommitment from channel"</span>.to_string(),
+            },
+        }
+    }
+}
+
 <span class="kw">impl</span>&lt;T: Clone&gt; WaitAndKeep&lt;T&gt; {
-    <span class="kw">pub async fn </span>get(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;T, BuildError&gt; {
+    <span class="doccomment">/// get will return a clone of the value that is already stored within the
+    /// value of WaitAndKeep::Keep if the value is already resolved.  Otherwise
+    /// it will poll the next value from the channel and replace the locally
+    /// stored WaitAndKeep::Wait with the resolved value as a WaitAndKeep::Keep.
+    ///
+    /// Note: This pattern seems very similar to a Future, and ultimately
+    /// returns a future. It's not clear why this needs to be implemented
+    /// in such a way and not just implemented as a boxed future.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>get(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;T, WaitAndKeepGetError&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             WaitAndKeep::Keep(t) =&gt; <span class="prelude-val">Ok</span>(t.clone()),
             WaitAndKeep::Wait(fut) =&gt; {
-                <span class="kw">let </span>got = fut.recv().<span class="kw">await</span>.map_err(|<span class="kw">_</span>| BuildError::Error {
-                    message: <span class="string">"failed to resolve VidCommitment from channel"</span>.to_string(),
-                });
+                <span class="kw">let </span>got = fut
+                    .recv()
+                    .<span class="kw">await
+                    </span>.map_err(|<span class="kw">_</span>| WaitAndKeepGetError::FailedToResolvedVidCommitmentFromChannel);
                 <span class="kw">if let </span><span class="prelude-val">Ok</span>(got) = <span class="kw-2">&amp;</span>got {
                     <span class="kw">let </span><span class="kw-2">mut </span>replace = WaitAndKeep::Keep(got.clone());
                     core::mem::swap(<span class="self">self</span>, <span class="kw-2">&amp;mut </span>replace);

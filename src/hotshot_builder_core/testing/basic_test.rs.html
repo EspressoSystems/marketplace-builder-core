@@ -816,7 +816,7 @@
             arc_rwlock_global_state
                 .read_arc()
                 .<span class="kw">await
-                </span>.get_channel_for_matching_builder_or_highest_view_buider(<span class="kw-2">&amp;</span>req_msg.<span class="number">1</span>)
+                </span>.get_channel_for_matching_builder_or_highest_view_builder(<span class="kw-2">&amp;</span>req_msg.<span class="number">1</span>)
                 .expect(<span class="string">"Failed to get channel for matching builder or highest view builder"</span>)
                 .broadcast(req_msg.<span class="number">2</span>.clone())
                 .<span class="kw">await
