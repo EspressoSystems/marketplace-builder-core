@@ -4616,6 +4616,7 @@ dependencies = [
  "hotshot-types",
  "lru 0.12.4",
  "multimap",
+ "rkyv",
  "serde",
  "serde_json",
  "sha2 0.10.8",
