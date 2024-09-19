@@ -637,6 +637,12 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
 
             async_sleep(sleep_interval).await
         }
+
+        // Don't build an empty block
+        if self.tx_queue.is_empty() {
+            return None;
+        }
+
         if let Ok((payload, metadata)) =
             <TYPES::BlockPayload as BlockPayload<TYPES>>::from_transactions(
                 self.tx_queue.iter().map(|tx| tx.tx.clone()),
