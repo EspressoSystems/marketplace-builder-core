@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["WaitAndKeep"],"mod":["builder_state","service","testing"],"struct":["BlockId","BuilderStateId"]};
+window.SIDEBAR_ITEMS = {"enum":["WaitAndKeep"],"mod":["builder_state","service"],"struct":["BlockId","BuilderStateId","ParentBlockReferences"]};
