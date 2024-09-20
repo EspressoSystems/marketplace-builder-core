@@ -3,6 +3,10 @@ name = "marketplace-builder-core"
 version = { workspace = true }
 edition = { workspace = true }
 
+[features]
+# Define the testing feature
+testing = []
+
 [dependencies]
 
 anyhow = "1"
