@@ -645,11 +645,12 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         let block_payload =
             <TYPES::BlockPayload as BlockPayload<TYPES>>::from_bytes(encoded_txns, metadata);
         let txn_commitments = block_payload.transaction_commitments(metadata);
-        self.view_txn_count_history.set_value(txn_commitments.len());
+        self.view_txn_count_history
+            .set_value(block_payload.num_transactions(metadata));
 
         self.included_txns.extend(txn_commitments);
         self.tx_queue
-            .retain(|tx| self.included_txns.contains(&tx.commit));
+            .retain(|tx| !self.included_txns.contains(&tx.commit));
 
         // register the spawned builder state to spawned_builder_states in the global state
         self.global_state.write_arc().await.register_builder_state(
