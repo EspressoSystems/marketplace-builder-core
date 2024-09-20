@@ -154,6 +154,10 @@ where
             expiring: T::default(),
         }
     }
+
+    pub fn set_value(&mut self, value: T) {
+        self.current = value;
+    }
 }
 
 impl RotatingData<usize> {

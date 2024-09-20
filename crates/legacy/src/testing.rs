@@ -3,3 +3,6 @@
 //
 
 pub mod basic_test;
+
+#[cfg(test)]
+pub mod finalization_test;
