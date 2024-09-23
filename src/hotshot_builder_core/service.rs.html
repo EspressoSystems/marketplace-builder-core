@@ -5066,6 +5066,18 @@
 <a href="#5066" id="5066">5066</a>
 <a href="#5067" id="5067">5067</a>
 <a href="#5068" id="5068">5068</a>
+<a href="#5069" id="5069">5069</a>
+<a href="#5070" id="5070">5070</a>
+<a href="#5071" id="5071">5071</a>
+<a href="#5072" id="5072">5072</a>
+<a href="#5073" id="5073">5073</a>
+<a href="#5074" id="5074">5074</a>
+<a href="#5075" id="5075">5075</a>
+<a href="#5076" id="5076">5076</a>
+<a href="#5077" id="5077">5077</a>
+<a href="#5078" id="5078">5078</a>
+<a href="#5079" id="5079">5079</a>
+<a href="#5080" id="5080">5080</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
     types::{Event, SystemContextHandle},
@@ -5097,7 +5109,7 @@
         BuildBlockInfo, DaProposalMessage, DecideMessage, QCMessage, TransactionSource,
         TriggerStatus,
     },
-    BlockId,
+    BlockId, LegacyCommit <span class="kw">as _</span>,
 };
 <span class="kw">use crate</span>::{
     builder_state::{MessageType, RequestMessage, ResponseMessage},
@@ -6206,13 +6218,7 @@ Handling Builder API responses
 /// stream, and membership information derived from the startup info.
 </span><span class="kw">async fn </span>connect_to_events_service&lt;Types: NodeType, C, S&gt;(
     client: <span class="kw-2">&amp;</span>C,
-) -&gt; <span class="prelude-ty">Result</span>&lt;
-    (
-        C::EventsStream,
-        GeneralStaticCommittee&lt;Types, &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
-    ),
-    ConnectToEventsServiceError,
-&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;(C::EventsStream, GeneralStaticCommittee&lt;Types&gt;), ConnectToEventsServiceError&gt;
 <span class="kw">where
     </span>C: HotShotEventsService&lt;
         Types,
@@ -6244,13 +6250,11 @@ Handling Builder API responses
         .<span class="kw">await
         </span>.map_err(ConnectToEventsServiceError::StartupInfo)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>membership: GeneralStaticCommittee&lt;Types, &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; =
-        GeneralStaticCommittee::&lt;Types, &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;::create_election(
-            known_node_with_stake.clone(),
-            known_node_with_stake.clone(),
-            Topic::Global,
-            <span class="number">0</span>,
-        );
+    <span class="kw">let </span>membership: GeneralStaticCommittee&lt;Types&gt; = GeneralStaticCommittee::&lt;Types&gt;::new(
+        known_node_with_stake.clone(),
+        known_node_with_stake.clone(),
+        Topic::Global,
+    );
 
     <span class="macro">tracing::info!</span>(
         <span class="string">"Startup info: Known nodes with stake: {:?}, Non-staked node count: {:?}"</span>,
@@ -6639,7 +6643,7 @@ Running Permissioned Builder Service
         <span class="kw">return </span><span class="prelude-val">Err</span>(HandleQcEventError::SenderIsNotLeader);
     }
 
-    <span class="kw">if </span>!sender.validate(<span class="kw-2">&amp;</span>qc_proposal.signature, leaf.commit().as_ref()) {
+    <span class="kw">if </span>!sender.validate(<span class="kw-2">&amp;</span>qc_proposal.signature, leaf.legacy_commit().as_ref()) {
         <span class="macro">tracing::error!</span>(<span class="string">"Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}"</span>, qc_proposal.data.view_number, leader, sender);
         <span class="kw">return </span><span class="prelude-val">Err</span>(HandleQcEventError::SignatureValidationFailed);
     }
@@ -6860,7 +6864,7 @@ Running Permissioned Builder Service
 
     <span class="kw">use </span>async_compatibility_layer::channel::unbounded;
     <span class="kw">use </span>async_lock::RwLock;
-    <span class="kw">use </span>committable::{Commitment, Committable};
+    <span class="kw">use </span>committable::Commitment;
     <span class="kw">use </span>futures::{
         channel::mpsc::{channel, Receiver},
         StreamExt,
@@ -6873,7 +6877,7 @@ Running Permissioned Builder Service
     <span class="kw">use </span>hotshot_events_service::events_source::StartupInfo;
     <span class="kw">use </span>hotshot_example_types::{
         block_types::{TestBlockPayload, TestMetadata, TestTransaction},
-        node_types::TestTypes,
+        node_types::{TestTypes, TestVersions},
         state_types::{TestInstanceState, TestValidatedState},
     };
     <span class="kw">use </span>hotshot_types::{
@@ -6899,7 +6903,7 @@ Running Permissioned Builder Service
             connect_to_events_service, ConnectToEventsServiceError, HandleReceivedTxnsError,
             INITIAL_MAX_BLOCK_SIZE,
         },
-        BlockId, BuilderStateId, ParentBlockReferences,
+        BlockId, BuilderStateId, LegacyCommit, ParentBlockReferences,
     };
 
     <span class="kw">use super</span>::{
@@ -8782,7 +8786,9 @@ Running Permissioned Builder Service
                 block_id,
                 BlockInfo {
                     block_payload: payload,
-                    metadata: TestMetadata,
+                    metadata: TestMetadata {
+                        num_transactions: <span class="number">1</span>,
+                    },
                     vid_trigger: Arc::new(async_lock::RwLock::new(<span class="prelude-val">Some</span>(vid_trigger_sender))),
                     vid_receiver: Arc::new(async_lock::RwLock::new(<span class="kw">crate</span>::WaitAndKeep::Wait(
                         vid_receiver,
@@ -8990,7 +8996,9 @@ Running Permissioned Builder Service
                 block_id,
                 BlockInfo {
                     block_payload: payload,
-                    metadata: TestMetadata,
+                    metadata: TestMetadata {
+                        num_transactions: <span class="number">1</span>,
+                    },
                     vid_trigger: Arc::new(async_lock::RwLock::new(<span class="prelude-val">Some</span>(vid_trigger_sender))),
                     vid_receiver: Arc::new(async_lock::RwLock::new(<span class="kw">crate</span>::WaitAndKeep::Wait(
                         vid_receiver,
@@ -9084,7 +9092,9 @@ Running Permissioned Builder Service
                 block_id,
                 BlockInfo {
                     block_payload: payload,
-                    metadata: TestMetadata,
+                    metadata: TestMetadata {
+                        num_transactions: <span class="number">1</span>,
+                    },
                     vid_trigger: Arc::new(async_lock::RwLock::new(<span class="prelude-val">Some</span>(vid_trigger_sender))),
                     vid_receiver: Arc::new(async_lock::RwLock::new(<span class="kw">crate</span>::WaitAndKeep::Wait(
                         vid_receiver,
@@ -9172,7 +9182,9 @@ Running Permissioned Builder Service
                 block_id,
                 BlockInfo {
                     block_payload: payload,
-                    metadata: TestMetadata,
+                    metadata: TestMetadata {
+                        num_transactions: <span class="number">1</span>,
+                    },
                     vid_trigger: Arc::new(async_lock::RwLock::new(<span class="prelude-val">Some</span>(vid_trigger_sender))),
                     vid_receiver: Arc::new(async_lock::RwLock::new(<span class="kw">crate</span>::WaitAndKeep::Wait(
                         vid_receiver,
@@ -9235,7 +9247,9 @@ Running Permissioned Builder Service
 
         <span class="kw">let </span>da_proposal = DaProposal::&lt;TestTypes&gt; {
             encoded_transactions: Arc::new([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]),
-            metadata: TestMetadata,
+            metadata: TestMetadata {
+                num_transactions: <span class="number">1</span>,
+            },
             view_number,
         };
 
@@ -9291,8 +9305,10 @@ Running Permissioned Builder Service
 
         <span class="kw">let </span>da_proposal = DaProposal::&lt;TestTypes&gt; {
             encoded_transactions: Arc::new([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]),
-            metadata: TestMetadata,
-            view_number,
+            metadata: TestMetadata {
+                num_transactions: <span class="number">1</span>,
+            }, <span class="comment">// arbitrary
+            </span>view_number,
         };
 
         <span class="kw">let </span>encoded_txns_hash = Sha256::digest(<span class="kw-2">&amp;</span>da_proposal.encoded_transactions);
@@ -9350,8 +9366,10 @@ Running Permissioned Builder Service
 
         <span class="kw">let </span>da_proposal = DaProposal::&lt;TestTypes&gt; {
             encoded_transactions: Arc::new([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]),
-            metadata: TestMetadata,
-            view_number,
+            metadata: TestMetadata {
+                num_transactions: <span class="number">1</span>,
+            }, <span class="comment">// arbitrary
+            </span>view_number,
         };
 
         <span class="kw">let </span>encoded_txns_hash = Sha256::digest(<span class="kw-2">&amp;</span>da_proposal.encoded_transactions);
@@ -9400,8 +9418,10 @@ Running Permissioned Builder Service
 
         <span class="kw">let </span>da_proposal = DaProposal::&lt;TestTypes&gt; {
             encoded_transactions: Arc::new([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]),
-            metadata: TestMetadata,
-            view_number,
+            metadata: TestMetadata {
+                num_transactions: <span class="number">1</span>,
+            }, <span class="comment">// arbitrary
+            </span>view_number,
         };
 
         <span class="kw">let </span>encoded_txns_hash = Sha256::digest(<span class="kw-2">&amp;</span>da_proposal.encoded_transactions);
@@ -9470,7 +9490,7 @@ Running Permissioned Builder Service
             QuorumProposal::&lt;TestTypes&gt; {
                 block_header: leaf.block_header().clone(),
                 view_number,
-                justify_qc: QuorumCertificate::genesis(
+                justify_qc: QuorumCertificate::genesis::&lt;TestVersions&gt;(
                     <span class="kw-2">&amp;</span>TestValidatedState::default(),
                     <span class="kw-2">&amp;</span>TestInstanceState::default(),
                 )
@@ -9483,7 +9503,8 @@ Running Permissioned Builder Service
         <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>qc_proposal);
 
         <span class="kw">let </span>signature =
-            &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>sender_private_key, leaf.commit().as_ref()).unwrap();
+            &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>sender_private_key, leaf.legacy_commit().as_ref())
+                .unwrap();
 
         <span class="kw">let </span>signed_qc_proposal = Arc::new(Proposal {
             data: qc_proposal,
@@ -9540,7 +9561,7 @@ Running Permissioned Builder Service
             QuorumProposal::&lt;TestTypes&gt; {
                 block_header: leaf.block_header().clone(),
                 view_number,
-                justify_qc: QuorumCertificate::genesis(
+                justify_qc: QuorumCertificate::genesis::&lt;TestVersions&gt;(
                     <span class="kw-2">&amp;</span>TestValidatedState::default(),
                     <span class="kw-2">&amp;</span>TestInstanceState::default(),
                 )
@@ -9553,7 +9574,8 @@ Running Permissioned Builder Service
         <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>qc_proposal);
 
         <span class="kw">let </span>signature =
-            &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>leader_private_key, leaf.commit().as_ref()).unwrap();
+            &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>leader_private_key, leaf.legacy_commit().as_ref())
+                .unwrap();
 
         <span class="kw">let </span>signed_qc_proposal = Arc::new(Proposal {
             data: qc_proposal,
@@ -9612,7 +9634,7 @@ Running Permissioned Builder Service
             QuorumProposal::&lt;TestTypes&gt; {
                 block_header: leaf.block_header().clone(),
                 view_number,
-                justify_qc: QuorumCertificate::genesis(
+                justify_qc: QuorumCertificate::genesis::&lt;TestVersions&gt;(
                     <span class="kw-2">&amp;</span>TestValidatedState::default(),
                     <span class="kw-2">&amp;</span>TestInstanceState::default(),
                 )
@@ -9625,7 +9647,8 @@ Running Permissioned Builder Service
         <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>qc_proposal);
 
         <span class="kw">let </span>signature =
-            &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>sender_private_key, leaf.commit().as_ref()).unwrap();
+            &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>sender_private_key, leaf.legacy_commit().as_ref())
+                .unwrap();
 
         <span class="kw">let </span>signed_qc_proposal = Arc::new(Proposal {
             data: qc_proposal,
@@ -9675,7 +9698,7 @@ Running Permissioned Builder Service
             QuorumProposal::&lt;TestTypes&gt; {
                 block_header: leaf.block_header().clone(),
                 view_number,
-                justify_qc: QuorumCertificate::genesis(
+                justify_qc: QuorumCertificate::genesis::&lt;TestVersions&gt;(
                     <span class="kw-2">&amp;</span>TestValidatedState::default(),
                     <span class="kw-2">&amp;</span>TestInstanceState::default(),
                 )
@@ -9688,7 +9711,8 @@ Running Permissioned Builder Service
         <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>qc_proposal);
 
         <span class="kw">let </span>signature =
-            &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>sender_private_key, leaf.commit().as_ref()).unwrap();
+            &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>sender_private_key, leaf.legacy_commit().as_ref())
+                .unwrap();
 
         <span class="kw">let </span>signed_qc_proposal = Arc::new(Proposal {
             data: qc_proposal,

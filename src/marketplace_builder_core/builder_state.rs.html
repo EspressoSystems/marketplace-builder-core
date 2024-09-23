@@ -1181,11 +1181,11 @@
     utils::BuilderCommitment,
 };
 
-<span class="kw">use </span>committable::{Commitment, Committable};
+<span class="kw">use </span>committable::Commitment;
 
 <span class="kw">use crate</span>::{
     service::{BroadcastReceivers, GlobalState, ReceivedTransaction},
-    utils::{BlockId, BuilderStateId, ParentBlockReferences, RotatingSet},
+    utils::{BlockId, BuilderStateId, LegacyCommit <span class="kw">as _</span>, ParentBlockReferences, RotatingSet},
 };
 <span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>async_broadcast::Receiver <span class="kw">as </span>BroadcastReceiver;
@@ -1736,7 +1736,7 @@
         </span><span class="self">self</span>.parent_block_references = ParentBlockReferences {
             view_number: quorum_proposal.data.view_number,
             vid_commitment: quorum_proposal.data.block_header.payload_commitment(),
-            leaf_commit: leaf.commit(),
+            leaf_commit: leaf.legacy_commit(),
             builder_commitment: quorum_proposal.data.block_header.builder_commitment(),
         };
 
