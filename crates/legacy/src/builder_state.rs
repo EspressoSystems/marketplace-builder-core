@@ -11,11 +11,11 @@ use hotshot_types::{
     vid::{VidCommitment, VidPrecomputeData},
 };
 
-use committable::{Commitment, Committable};
+use committable::Commitment;
 
 use crate::{
     service::{GlobalState, ReceivedTransaction},
-    BlockId, BuilderStateId, ParentBlockReferences,
+    BlockId, BuilderStateId, LegacyCommit, ParentBlockReferences,
 };
 use async_broadcast::broadcast;
 use async_broadcast::Receiver as BroadcastReceiver;
@@ -624,7 +624,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         self.parent_block_references = ParentBlockReferences {
             view_number: quorum_proposal.data.view_number,
             vid_commitment: quorum_proposal.data.block_header.payload_commitment(),
-            leaf_commit: leaf.commit(),
+            leaf_commit: leaf.legacy_commit(),
             builder_commitment: quorum_proposal.data.block_header.builder_commitment(),
         };
 

@@ -5,12 +5,12 @@ members = [
 ]
 
 [workspace.dependencies]
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74", features = ["dependency-tasks"] }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.46" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74", features = ["dependency-tasks"] }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74" }
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.74" }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.75", features = ["dependency-tasks"] }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.75" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.47" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.75", features = ["dependency-tasks"] }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.75" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.75" }
 
 anyhow = "1"
 async-broadcast = "0.7"
@@ -42,7 +42,7 @@ vbs = "0.1"
 rkyv = "0.7"
 
 [workspace.package]
-version = "0.1.48"
+version = "0.1.49"
 edition = "2021"
 
 [workspace.lints.rust]

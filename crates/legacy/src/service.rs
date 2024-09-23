@@ -29,7 +29,7 @@ use crate::{
         BuildBlockInfo, DaProposalMessage, DecideMessage, QCMessage, TransactionSource,
         TriggerStatus,
     },
-    BlockId,
+    BlockId, LegacyCommit as _,
 };
 use crate::{
     builder_state::{MessageType, RequestMessage, ResponseMessage},
@@ -1138,13 +1138,7 @@ impl Display for ConnectToEventsServiceError {
 /// stream, and membership information derived from the startup info.
 async fn connect_to_events_service<Types: NodeType, C, S>(
     client: &C,
-) -> Result<
-    (
-        C::EventsStream,
-        GeneralStaticCommittee<Types, <Types as NodeType>::SignatureKey>,
-    ),
-    ConnectToEventsServiceError,
->
+) -> Result<(C::EventsStream, GeneralStaticCommittee<Types>), ConnectToEventsServiceError>
 where
     C: HotShotEventsService<
         Types,
@@ -1176,13 +1170,11 @@ where
         .await
         .map_err(ConnectToEventsServiceError::StartupInfo)?;
 
-    let membership: GeneralStaticCommittee<Types, <Types as NodeType>::SignatureKey> =
-        GeneralStaticCommittee::<Types, <Types as NodeType>::SignatureKey>::create_election(
-            known_node_with_stake.clone(),
-            known_node_with_stake.clone(),
-            Topic::Global,
-            0,
-        );
+    let membership: GeneralStaticCommittee<Types> = GeneralStaticCommittee::<Types>::new(
+        known_node_with_stake.clone(),
+        known_node_with_stake.clone(),
+        Topic::Global,
+    );
 
     tracing::info!(
         "Startup info: Known nodes with stake: {:?}, Non-staked node count: {:?}",
@@ -1571,7 +1563,7 @@ async fn handle_qc_event_implementation<Types: NodeType>(
         return Err(HandleQcEventError::SenderIsNotLeader);
     }
 
-    if !sender.validate(&qc_proposal.signature, leaf.commit().as_ref()) {
+    if !sender.validate(&qc_proposal.signature, leaf.legacy_commit().as_ref()) {
         tracing::error!("Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}", qc_proposal.data.view_number, leader, sender);
         return Err(HandleQcEventError::SignatureValidationFailed);
     }
@@ -1792,7 +1784,7 @@ mod test {
 
     use async_compatibility_layer::channel::unbounded;
     use async_lock::RwLock;
-    use committable::{Commitment, Committable};
+    use committable::Commitment;
     use futures::{
         channel::mpsc::{channel, Receiver},
         StreamExt,
@@ -1805,7 +1797,7 @@ mod test {
     use hotshot_events_service::events_source::StartupInfo;
     use hotshot_example_types::{
         block_types::{TestBlockPayload, TestMetadata, TestTransaction},
-        node_types::TestTypes,
+        node_types::{TestTypes, TestVersions},
         state_types::{TestInstanceState, TestValidatedState},
     };
     use hotshot_types::{
@@ -1831,7 +1823,7 @@ mod test {
             connect_to_events_service, ConnectToEventsServiceError, HandleReceivedTxnsError,
             INITIAL_MAX_BLOCK_SIZE,
         },
-        BlockId, BuilderStateId, ParentBlockReferences,
+        BlockId, BuilderStateId, LegacyCommit, ParentBlockReferences,
     };
 
     use super::{
@@ -3714,7 +3706,9 @@ mod test {
                 block_id,
                 BlockInfo {
                     block_payload: payload,
-                    metadata: TestMetadata,
+                    metadata: TestMetadata {
+                        num_transactions: 1,
+                    },
                     vid_trigger: Arc::new(async_lock::RwLock::new(Some(vid_trigger_sender))),
                     vid_receiver: Arc::new(async_lock::RwLock::new(crate::WaitAndKeep::Wait(
                         vid_receiver,
@@ -3922,7 +3916,9 @@ mod test {
                 block_id,
                 BlockInfo {
                     block_payload: payload,
-                    metadata: TestMetadata,
+                    metadata: TestMetadata {
+                        num_transactions: 1,
+                    },
                     vid_trigger: Arc::new(async_lock::RwLock::new(Some(vid_trigger_sender))),
                     vid_receiver: Arc::new(async_lock::RwLock::new(crate::WaitAndKeep::Wait(
                         vid_receiver,
@@ -4016,7 +4012,9 @@ mod test {
                 block_id,
                 BlockInfo {
                     block_payload: payload,
-                    metadata: TestMetadata,
+                    metadata: TestMetadata {
+                        num_transactions: 1,
+                    },
                     vid_trigger: Arc::new(async_lock::RwLock::new(Some(vid_trigger_sender))),
                     vid_receiver: Arc::new(async_lock::RwLock::new(crate::WaitAndKeep::Wait(
                         vid_receiver,
@@ -4104,7 +4102,9 @@ mod test {
                 block_id,
                 BlockInfo {
                     block_payload: payload,
-                    metadata: TestMetadata,
+                    metadata: TestMetadata {
+                        num_transactions: 1,
+                    },
                     vid_trigger: Arc::new(async_lock::RwLock::new(Some(vid_trigger_sender))),
                     vid_receiver: Arc::new(async_lock::RwLock::new(crate::WaitAndKeep::Wait(
                         vid_receiver,
@@ -4167,7 +4167,9 @@ mod test {
 
         let da_proposal = DaProposal::<TestTypes> {
             encoded_transactions: Arc::new([1, 2, 3, 4, 5, 6]),
-            metadata: TestMetadata,
+            metadata: TestMetadata {
+                num_transactions: 1,
+            },
             view_number,
         };
 
@@ -4223,7 +4225,9 @@ mod test {
 
         let da_proposal = DaProposal::<TestTypes> {
             encoded_transactions: Arc::new([1, 2, 3, 4, 5, 6]),
-            metadata: TestMetadata,
+            metadata: TestMetadata {
+                num_transactions: 1,
+            }, // arbitrary
             view_number,
         };
 
@@ -4282,7 +4286,9 @@ mod test {
 
         let da_proposal = DaProposal::<TestTypes> {
             encoded_transactions: Arc::new([1, 2, 3, 4, 5, 6]),
-            metadata: TestMetadata,
+            metadata: TestMetadata {
+                num_transactions: 1,
+            }, // arbitrary
             view_number,
         };
 
@@ -4332,7 +4338,9 @@ mod test {
 
         let da_proposal = DaProposal::<TestTypes> {
             encoded_transactions: Arc::new([1, 2, 3, 4, 5, 6]),
-            metadata: TestMetadata,
+            metadata: TestMetadata {
+                num_transactions: 1,
+            }, // arbitrary
             view_number,
         };
 
@@ -4402,7 +4410,7 @@ mod test {
             QuorumProposal::<TestTypes> {
                 block_header: leaf.block_header().clone(),
                 view_number,
-                justify_qc: QuorumCertificate::genesis(
+                justify_qc: QuorumCertificate::genesis::<TestVersions>(
                     &TestValidatedState::default(),
                     &TestInstanceState::default(),
                 )
@@ -4415,7 +4423,8 @@ mod test {
         let leaf = Leaf::from_quorum_proposal(&qc_proposal);
 
         let signature =
-            <BLSPubKey as SignatureKey>::sign(&sender_private_key, leaf.commit().as_ref()).unwrap();
+            <BLSPubKey as SignatureKey>::sign(&sender_private_key, leaf.legacy_commit().as_ref())
+                .unwrap();
 
         let signed_qc_proposal = Arc::new(Proposal {
             data: qc_proposal,
@@ -4472,7 +4481,7 @@ mod test {
             QuorumProposal::<TestTypes> {
                 block_header: leaf.block_header().clone(),
                 view_number,
-                justify_qc: QuorumCertificate::genesis(
+                justify_qc: QuorumCertificate::genesis::<TestVersions>(
                     &TestValidatedState::default(),
                     &TestInstanceState::default(),
                 )
@@ -4485,7 +4494,8 @@ mod test {
         let leaf = Leaf::from_quorum_proposal(&qc_proposal);
 
         let signature =
-            <BLSPubKey as SignatureKey>::sign(&leader_private_key, leaf.commit().as_ref()).unwrap();
+            <BLSPubKey as SignatureKey>::sign(&leader_private_key, leaf.legacy_commit().as_ref())
+                .unwrap();
 
         let signed_qc_proposal = Arc::new(Proposal {
             data: qc_proposal,
@@ -4544,7 +4554,7 @@ mod test {
             QuorumProposal::<TestTypes> {
                 block_header: leaf.block_header().clone(),
                 view_number,
-                justify_qc: QuorumCertificate::genesis(
+                justify_qc: QuorumCertificate::genesis::<TestVersions>(
                     &TestValidatedState::default(),
                     &TestInstanceState::default(),
                 )
@@ -4557,7 +4567,8 @@ mod test {
         let leaf = Leaf::from_quorum_proposal(&qc_proposal);
 
         let signature =
-            <BLSPubKey as SignatureKey>::sign(&sender_private_key, leaf.commit().as_ref()).unwrap();
+            <BLSPubKey as SignatureKey>::sign(&sender_private_key, leaf.legacy_commit().as_ref())
+                .unwrap();
 
         let signed_qc_proposal = Arc::new(Proposal {
             data: qc_proposal,
@@ -4607,7 +4618,7 @@ mod test {
             QuorumProposal::<TestTypes> {
                 block_header: leaf.block_header().clone(),
                 view_number,
-                justify_qc: QuorumCertificate::genesis(
+                justify_qc: QuorumCertificate::genesis::<TestVersions>(
                     &TestValidatedState::default(),
                     &TestInstanceState::default(),
                 )
@@ -4620,7 +4631,8 @@ mod test {
         let leaf = Leaf::from_quorum_proposal(&qc_proposal);
 
         let signature =
-            <BLSPubKey as SignatureKey>::sign(&sender_private_key, leaf.commit().as_ref()).unwrap();
+            <BLSPubKey as SignatureKey>::sign(&sender_private_key, leaf.legacy_commit().as_ref())
+                .unwrap();
 
         let signed_qc_proposal = Arc::new(Proposal {
             data: qc_proposal,
