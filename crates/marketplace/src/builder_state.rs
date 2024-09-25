@@ -1340,6 +1340,7 @@ mod test {
             panic!("Not a decide_message in correct format");
         }
         // check whether spawned_builder_states have correct builder_state_id and already exit-ed builder_states older than decides
+        // Sishan TODO: also check existed BuilderStateId didn't quit
         let current_spawned_builder_states =
             global_state.read_arc().await.spawned_builder_states.clone();
         current_spawned_builder_states
@@ -1348,4 +1349,21 @@ mod test {
                 assert!(builder_state_id.parent_view >= latest_decide_view_number)
             });
     }
+
+    #[async_std::test]
+    async fn test_am_i_the_best_builder_state_to_extend() {
+        // also test best_builder_states_to_extend
+        // also test spawn_clone_that_extends_self
+        // also test am_i_the_best_builder_state_to_extend
+    }
+
+    #[async_std::test]
+    async fn test_process_block_request() {
+        // also test build_block
+        // also test process_block_request
+    }
+    
+    #[async_std::test]
+    async fn test_spawn_clone() {}
+
 }
