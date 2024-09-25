@@ -3041,7 +3041,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-builder-core"
-version = "0.1.49"
+version = "0.1.50"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4595,7 +4595,7 @@ dependencies = [
 
 [[package]]
 name = "marketplace-builder-core"
-version = "0.1.49"
+version = "0.1.50"
 dependencies = [
  "anyhow",
  "async-broadcast",

@@ -42,7 +42,7 @@ vbs = "0.1"
 rkyv = "0.7"
 
 [workspace.package]
-version = "0.1.49"
+version = "0.1.50"
 edition = "2021"
 
 [workspace.lints.rust]
