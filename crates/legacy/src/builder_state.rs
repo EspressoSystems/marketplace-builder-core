@@ -748,11 +748,11 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         // be included, because it alone goes over sequencer's block size limit.
         // We need to drop it and mark as "included" so that if we receive
         // it again we don't even bother with it.
-        if actual_txn_count == 0 && !self.tx_queue.is_empty() {
+        if actual_txn_count == 0 {
             if let Some(txn) = self.tx_queue.pop_front() {
                 self.included_txns.insert(txn.commit);
+                return None;
             };
-            return None;
         }
 
         // insert the recently built block into the builder commitments
