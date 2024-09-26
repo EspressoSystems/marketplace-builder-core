@@ -15,7 +15,7 @@ use committable::Commitment;
 
 use crate::{
     service::{GlobalState, ReceivedTransaction},
-    BlockId, BuilderStateId, LegacyCommit, ParentBlockReferences,
+    BlockId, BuilderStateId, LegacyCommit, ParentBlockReferences, RotatingData, RotatingSet,
 };
 use async_broadcast::broadcast;
 use async_broadcast::Receiver as BroadcastReceiver;
@@ -115,16 +115,11 @@ pub struct DAProposalInfo<TYPES: NodeType> {
 #[derive(Debug)]
 pub struct BuilderState<TYPES: NodeType> {
     /// Recent included txs set while building blocks
-    pub included_txns: HashSet<Commitment<TYPES::Transaction>>,
+    pub included_txns: RotatingSet<Commitment<TYPES::Transaction>>,
 
-    /// Old txs to be garbage collected
-    pub included_txns_old: HashSet<Commitment<TYPES::Transaction>>,
-
-    /// Expiring txs to be garbage collected
-    pub included_txns_expiring: HashSet<Commitment<TYPES::Transaction>>,
-
-    /// txns currently in the tx_queue
-    pub txns_in_queue: HashSet<Commitment<TYPES::Transaction>>,
+    /// [view_txn_count_history] keeps a record of how many transactions
+    /// were in each view that were proposed for the past 4 views.
+    pub view_txn_count_history: RotatingData<usize>,
 
     /// filtered queue of available transactions, taken from tx_receiver
     pub tx_queue: VecDeque<Arc<ReceivedTransaction<TYPES>>>,
@@ -179,12 +174,6 @@ pub struct BuilderState<TYPES: NodeType> {
 
     /// instance state to enfoce max_block_size
     pub instance_state: Arc<TYPES::InstanceState>,
-
-    /// txn garbage collection every duration time
-    pub txn_garbage_collect_duration: Duration,
-
-    /// time of next garbage collection for txns
-    pub next_txn_garbage_collect_time: Instant,
 }
 
 /// [best_builder_states_to_extend] is a utility function that is used to
@@ -657,13 +646,10 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             <TYPES::BlockPayload as BlockPayload<TYPES>>::from_bytes(encoded_txns, metadata);
         let txn_commitments = block_payload.transaction_commitments(metadata);
 
-        for tx in txn_commitments.iter() {
-            self.txns_in_queue.remove(tx);
-        }
-
-        self.included_txns.extend(txn_commitments.iter());
+        self.included_txns.extend(txn_commitments);
         self.tx_queue
-            .retain(|tx| self.txns_in_queue.contains(&tx.commit));
+            .retain(|tx| self.included_txns.contains(&tx.commit));
+        self.view_txn_count_history.current += block_payload.num_transactions(metadata);
 
         // register the spawned builder state to spawned_builder_states in the global state
         self.global_state.write_arc().await.register_builder_state(
@@ -700,9 +686,22 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             async_sleep(sleep_interval).await
         }
 
-        // Don't build an empty block
+        // Empty block considerations
         if self.tx_queue.is_empty() {
-            return None;
+            // We have things to consider at this point.
+            // Ideally we don't want to submit empty blocks, as it means we
+            // will be rapidly producing empty blocks and speeding up
+            // progression through consensus as a result.
+            //
+            // However, we know that currently HotShot requires 4 rounds of
+            // leafs in order to outstanding transactions to be included in a
+            // block.  We would like to help facilitate this, so what we would
+            // like to do is propose an empty block in order to speed up
+            // finalization.
+            if self.view_txn_count_history.is_zero() {
+                // We don't want to build an empty block
+                return None;
+            }
         }
 
         let max_block_size = self.global_state.read_arc().await.max_block_size;
@@ -748,9 +747,8 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         // be included, because it alone goes over sequencer's block size limit.
         // We need to drop it and mark as "included" so that if we receive
         // it again we don't even bother with it.
-        if actual_txn_count == 0 {
+        if actual_txn_count == 0 && !self.tx_queue.is_empty() {
             if let Some(txn) = self.tx_queue.pop_front() {
-                self.txns_in_queue.remove(&txn.commit);
                 self.included_txns.insert(txn.commit);
             };
             return None;
@@ -1012,11 +1010,13 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         validated_state: Arc<TYPES::ValidatedState>,
     ) -> Self {
         let txns_in_queue: HashSet<_> = tx_queue.iter().map(|tx| tx.commit).collect();
+        let mut included_txns = RotatingSet::new(txn_garbage_collect_duration);
+        let view_txn_count_history = RotatingData::with_initial_value(txns_in_queue.len());
+        included_txns.extend(txns_in_queue);
+
         BuilderState {
-            included_txns: HashSet::new(),
-            included_txns_old: HashSet::new(),
-            included_txns_expiring: HashSet::new(),
-            txns_in_queue,
+            included_txns,
+            view_txn_count_history,
             parent_block_references,
             decide_receiver,
             da_proposal_receiver,
@@ -1032,39 +1032,19 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             maximize_txn_capture_timeout,
             base_fee,
             instance_state,
-            txn_garbage_collect_duration,
-            next_txn_garbage_collect_time: Instant::now() + txn_garbage_collect_duration,
             validated_state,
         }
     }
+
     pub fn clone_with_receiver(&self, req_receiver: BroadcastReceiver<MessageType<TYPES>>) -> Self {
         // Handle the garbage collection of txns
-        let (
-            included_txns,
-            included_txns_old,
-            included_txns_expiring,
-            next_txn_garbage_collect_time,
-        ) = if Instant::now() >= self.next_txn_garbage_collect_time {
-            (
-                HashSet::new(),
-                self.included_txns.clone(),
-                self.included_txns_old.clone(),
-                Instant::now() + self.txn_garbage_collect_duration,
-            )
-        } else {
-            (
-                self.included_txns.clone(),
-                self.included_txns_old.clone(),
-                self.included_txns_expiring.clone(),
-                self.next_txn_garbage_collect_time,
-            )
-        };
+        let view_txn_count_history = self.view_txn_count_history.cycle_clone();
+        let mut included_txns = self.included_txns.clone();
+        included_txns.rotate();
 
         BuilderState {
             included_txns,
-            included_txns_old,
-            included_txns_expiring,
-            txns_in_queue: self.txns_in_queue.clone(),
+            view_txn_count_history,
             parent_block_references: self.parent_block_references.clone(),
             decide_receiver: self.decide_receiver.clone(),
             da_proposal_receiver: self.da_proposal_receiver.clone(),
@@ -1080,8 +1060,6 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             maximize_txn_capture_timeout: self.maximize_txn_capture_timeout,
             base_fee: self.base_fee,
             instance_state: self.instance_state.clone(),
-            txn_garbage_collect_duration: self.txn_garbage_collect_duration,
-            next_txn_garbage_collect_time,
             validated_state: self.validated_state.clone(),
         }
     }
@@ -1091,14 +1069,11 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         while Instant::now() <= timeout_after {
             match self.tx_receiver.try_recv() {
                 Ok(tx) => {
-                    if self.included_txns.contains(&tx.commit)
-                        || self.included_txns_old.contains(&tx.commit)
-                        || self.included_txns_expiring.contains(&tx.commit)
-                        || self.txns_in_queue.contains(&tx.commit)
-                    {
+                    if self.included_txns.contains(&tx.commit) {
                         continue;
                     }
-                    self.txns_in_queue.insert(tx.commit);
+                    self.included_txns.insert(tx.commit);
+                    self.view_txn_count_history.current += 1;
                     self.tx_queue.push_back(tx);
                 }
                 Err(async_broadcast::TryRecvError::Empty)
