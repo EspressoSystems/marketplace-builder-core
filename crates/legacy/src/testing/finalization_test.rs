@@ -18,7 +18,7 @@ use hotshot_builder_api::{
 };
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
-    node_types::TestTypes,
+    node_types::{TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
 use hotshot_types::{
@@ -239,12 +239,16 @@ async fn progress_round_with_transactions(
         )
         .expect("should sign encoded transactions hash successfully");
 
+        let metadata = TestMetadata {
+            num_transactions: transactions.len() as u64,
+        };
+
         da_proposal_sender
             .broadcast(MessageType::DaProposalMessage(DaProposalMessage {
                 proposal: Arc::new(Proposal {
                     data: DaProposal::<TestTypes> {
                         encoded_transactions: encoded_transactions.clone().into(),
-                        metadata: TestMetadata,
+                        metadata,
                         view_number: next_view,
                     },
                     signature: da_signature,
@@ -278,12 +282,14 @@ async fn progress_round_with_transactions(
             payload_commitment,
             builder_commitment,
             timestamp: round,
+            metadata,
+            random: 0,
         };
 
         let qc_proposal = QuorumProposal::<TestTypes> {
             block_header,
             view_number: next_view,
-            justify_qc: QuorumCertificate::<TestTypes>::genesis(
+            justify_qc: QuorumCertificate::<TestTypes>::genesis::<TestVersions>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
