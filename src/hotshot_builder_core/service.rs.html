@@ -5078,6 +5078,10 @@
 <a href="#5078" id="5078">5078</a>
 <a href="#5079" id="5079">5079</a>
 <a href="#5080" id="5080">5080</a>
+<a href="#5081" id="5081">5081</a>
+<a href="#5082" id="5082">5082</a>
+<a href="#5083" id="5083">5083</a>
+<a href="#5084" id="5084">5084</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
     types::{Event, SystemContextHandle},
@@ -5103,6 +5107,7 @@
     vid::{VidCommitment, VidPrecomputeData},
 };
 <span class="kw">use </span>lru::LruCache;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use crate</span>::{
     builder_state::{
@@ -6125,13 +6130,13 @@ Handling Builder API responses
     </span><span class="kw">async fn </span>startup_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::StartUpInfo, <span class="self">Self</span>::StartUpInfoError&gt;;
 }
 
-<span class="kw">struct </span>HotShotEventsServiceTideDiscoClient&lt;Types: NodeType, V: Versions&gt; {
-    client: surf_disco::Client&lt;hotshot_events_service::events::Error, V::Base&gt;,
+<span class="kw">struct </span>HotShotEventsServiceTideDiscoClient&lt;Types: NodeType, Ver: StaticVersionType&gt; {
+    client: surf_disco::Client&lt;hotshot_events_service::events::Error, Ver&gt;,
     _pd: PhantomData&lt;Types&gt;,
 }
 
-<span class="kw">impl</span>&lt;Types: NodeType, V: Versions&gt; HotShotEventsServiceTideDiscoClient&lt;Types, V&gt; {
-    <span class="kw">fn </span>new(client: surf_disco::Client&lt;hotshot_events_service::events::Error, V::Base&gt;) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;Types: NodeType, Ver: StaticVersionType&gt; HotShotEventsServiceTideDiscoClient&lt;Types, Ver&gt; {
+    <span class="kw">fn </span>new(client: surf_disco::Client&lt;hotshot_events_service::events::Error, Ver&gt;) -&gt; <span class="self">Self </span>{
         HotShotEventsServiceTideDiscoClient {
             client,
             _pd: Default::default(),
@@ -6139,20 +6144,20 @@ Handling Builder API responses
     }
 
     <span class="kw">fn </span>from_url(url: Url) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>client = surf_disco::Client::&lt;hotshot_events_service::events::Error, V::Base&gt;::new(url);
+        <span class="kw">let </span>client = surf_disco::Client::&lt;hotshot_events_service::events::Error, Ver&gt;::new(url);
         <span class="self">Self</span>::new(client)
     }
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;Types: NodeType, V: Versions&gt; HotShotEventsService&lt;Types&gt;
-    <span class="kw">for </span>HotShotEventsServiceTideDiscoClient&lt;Types, V&gt;
+</span><span class="kw">impl</span>&lt;Types: NodeType, Ver: StaticVersionType&gt; HotShotEventsService&lt;Types&gt;
+    <span class="kw">for </span>HotShotEventsServiceTideDiscoClient&lt;Types, Ver&gt;
 {
     <span class="kw">type </span>EventsStream = surf_disco::socket::Connection&lt;
         Event&lt;Types&gt;,
         surf_disco::socket::Unsupported,
         EventStreamError,
-        V::Base,
+        Ver,
     &gt;;
     <span class="kw">type </span>EventsError = hotshot_events_service::events::Error;
 
@@ -6268,7 +6273,10 @@ Handling Builder API responses
 <span class="comment">/*
 Running Non-Permissioned Builder Service
 */
-</span><span class="kw">pub async fn </span>run_non_permissioned_standalone_builder_service&lt;Types: NodeType, V: Versions&gt;(
+</span><span class="kw">pub async fn </span>run_non_permissioned_standalone_builder_service&lt;
+    Types: NodeType,
+    Ver: StaticVersionType,
+&gt;(
     <span class="comment">// sending a DA proposal from the hotshot to the builder states
     </span>da_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
 
@@ -6286,7 +6294,7 @@ Running Non-Permissioned Builder Service
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
     <span class="comment">// connection to the events stream
     </span><span class="kw">let </span>events_service_client =
-        HotShotEventsServiceTideDiscoClient::&lt;Types, V&gt;::from_url(hotshot_events_api_url.clone());
+        HotShotEventsServiceTideDiscoClient::&lt;Types, Ver&gt;::from_url(hotshot_events_api_url.clone());
 
     <span class="kw">let </span>connect_to_events_service_result = connect_to_events_service(<span class="kw-2">&amp;</span>events_service_client).<span class="kw">await</span>;
     <span class="kw">let </span>(<span class="kw-2">mut </span>subscribed_events, <span class="kw-2">mut </span>membership) = <span class="kw">match </span>connect_to_events_service_result {
