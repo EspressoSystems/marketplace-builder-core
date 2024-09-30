@@ -5082,6 +5082,10 @@
 <a href="#5082" id="5082">5082</a>
 <a href="#5083" id="5083">5083</a>
 <a href="#5084" id="5084">5084</a>
+<a href="#5085" id="5085">5085</a>
+<a href="#5086" id="5086">5086</a>
+<a href="#5087" id="5087">5087</a>
+<a href="#5088" id="5088">5088</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
     types::{Event, SystemContextHandle},
@@ -5111,7 +5115,7 @@
 
 <span class="kw">use crate</span>::{
     builder_state::{
-        BuildBlockInfo, DaProposalMessage, DecideMessage, QCMessage, TransactionSource,
+        BuildBlockInfo, DaProposalMessage, DecideMessage, QuorumProposalMessage, TransactionSource,
         TriggerStatus,
     },
     BlockId, LegacyCommit <span class="kw">as _</span>,
@@ -6280,8 +6284,8 @@ Running Non-Permissioned Builder Service
     <span class="comment">// sending a DA proposal from the hotshot to the builder states
     </span>da_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
 
-    <span class="comment">// sending a QC proposal from the hotshot to the builder states
-    </span>qc_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
+    <span class="comment">// sending a Quorum proposal from the hotshot to the builder states
+    </span>quorum_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
 
     <span class="comment">// sending a Decide event from the hotshot to the builder states
     </span>decide_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
@@ -6364,11 +6368,12 @@ Running Non-Permissioned Builder Service
                         )
                         .<span class="kw">await</span>;
                     }
-                    <span class="comment">// QC proposal event
+                    <span class="comment">// Quorum proposal event
                     </span>EventType::QuorumProposal { proposal, sender } =&gt; {
                         <span class="comment">// get the leader for current view
                         </span><span class="kw">let </span>leader = membership.leader(proposal.data.view_number);
-                        handle_qc_event(<span class="kw-2">&amp;</span>qc_sender, Arc::new(proposal), sender, leader).<span class="kw">await</span>;
+                        handle_quorum_event(<span class="kw-2">&amp;</span>quorum_sender, Arc::new(proposal), sender, leader)
+                            .<span class="kw">await</span>;
                     }
                     <span class="kw">_ </span>=&gt; {
                         <span class="macro">tracing::debug!</span>(<span class="string">"Unhandled event from Builder"</span>);
@@ -6406,8 +6411,8 @@ Running Permissioned Builder Service
     <span class="comment">// sending a DA proposal from the hotshot to the builder states
     </span>da_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
 
-    <span class="comment">// sending a QC proposal from the hotshot to the builder states
-    </span>qc_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
+    <span class="comment">// sending a Quorum proposal from the hotshot to the builder states
+    </span>quorum_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
 
     <span class="comment">// sending a Decide event from the hotshot to the builder states
     </span>decide_sender: BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
@@ -6477,11 +6482,12 @@ Running Permissioned Builder Service
                         )
                         .<span class="kw">await</span>;
                     }
-                    <span class="comment">// QC proposal event
+                    <span class="comment">// Quorum proposal event
                     </span>EventType::QuorumProposal { proposal, sender } =&gt; {
                         <span class="comment">// get the leader for current view
                         </span><span class="kw">let </span>leader = hotshot_handle.leader(proposal.data.view_number).<span class="kw">await</span>;
-                        handle_qc_event(<span class="kw-2">&amp;</span>qc_sender, Arc::new(proposal), sender, leader).<span class="kw">await</span>;
+                        handle_quorum_event(<span class="kw-2">&amp;</span>quorum_sender, Arc::new(proposal), sender, leader)
+                            .<span class="kw">await</span>;
                     }
                     <span class="kw">_ </span>=&gt; {
                         <span class="macro">tracing::error!</span>(<span class="string">"Unhandled event from Builder: {:?}"</span>, event.event);
@@ -6591,90 +6597,92 @@ Running Permissioned Builder Service
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// [HandleQcEventError] represents the internal class of errors that can
-/// occur when attempting to process an incoming qc proposal event.  More
+<span class="doccomment">/// [HandleQuorumEventError] represents the internal class of errors that can
+/// occur when attempting to process an incoming quorum proposal event.  More
 /// specifically these are the class of error that can be returned from
-/// [handle_qc_event_implementation].
+/// [handle_quorum_event_implementation].
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">enum </span>HandleQcEventError&lt;Types: NodeType&gt; {
+</span><span class="kw">enum </span>HandleQuorumEventError&lt;Types: NodeType&gt; {
     SenderIsNotLeader,
     SignatureValidationFailed,
     BroadcastFailed(async_broadcast::SendError&lt;MessageType&lt;Types&gt;&gt;),
 }
 
-<span class="doccomment">/// [handle_qc_event] is a utility function that will attempt to broadcast the
-/// given `qc_proposal` to the given `qc_channel_sender` if the given details
-/// pass validation checks, and the [BroadcastSender] `qc_channel_sender` is
+<span class="doccomment">/// [handle_quorum_event] is a utility function that will attempt to broadcast the
+/// given `quorum_proposal` to the given `quorum_channel_sender` if the given details
+/// pass validation checks, and the [BroadcastSender] `quorum_channel_sender` is
 /// still open.
-</span><span class="kw">async fn </span>handle_qc_event&lt;Types: NodeType&gt;(
-    qc_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
-    qc_proposal: Arc&lt;Proposal&lt;Types, QuorumProposal&lt;Types&gt;&gt;&gt;,
+</span><span class="kw">async fn </span>handle_quorum_event&lt;Types: NodeType&gt;(
+    quorum_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
+    quorum_proposal: Arc&lt;Proposal&lt;Types, QuorumProposal&lt;Types&gt;&gt;&gt;,
     sender: &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey,
     leader: &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey,
 ) {
     <span class="comment">// We're explicitly not inspecting this error, as this function is not
     // expected to return an error or any indication of an error.
-    </span><span class="kw">let _ </span>= handle_qc_event_implementation(qc_channel_sender, qc_proposal, sender, leader).<span class="kw">await</span>;
+    </span><span class="kw">let _ </span>=
+        handle_quorum_event_implementation(quorum_channel_sender, quorum_proposal, sender, leader)
+            .<span class="kw">await</span>;
 }
 
-<span class="doccomment">/// [handle_qc_event_implementation] is a utility function that will attempt
-/// to broadcast the given qc_proposal to the given [qc_channel_sender] if the
+<span class="doccomment">/// [handle_quorum_event_implementation] is a utility function that will attempt
+/// to broadcast the given quorum_proposal to the given [quorum_channel_sender] if the
 /// given details pass all relevant checks.
 ///
 /// There are only three conditions under which this will fail to send the
-/// message via the given `qc_channel_sender`, and they are all represented
-/// via [HandleQcEventError]. They are as follows:
-/// - [HandleQcEventError::SenderIsNotLeader]: The sender is not the leader
-/// - [HandleQcEventError::SignatureValidationFailed]: The signature validation
+/// message via the given `quorum_channel_sender`, and they are all represented
+/// via [HandleQuorumEventError]. They are as follows:
+/// - [HandleQuorumEventError::SenderIsNotLeader]: The sender is not the leader
+/// - [HandleQuorumEventError::SignatureValidationFailed]: The signature validation
 ///   failed
-/// - [HandleQcEventError::BroadcastFailed]: The broadcast failed as no receiver
+/// - [HandleQuorumEventError::BroadcastFailed]: The broadcast failed as no receiver
 ///   is in place to receive the message
 ///
-/// This function is the implementation for [handle_qc_event].
-</span><span class="kw">async fn </span>handle_qc_event_implementation&lt;Types: NodeType&gt;(
-    qc_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
-    qc_proposal: Arc&lt;Proposal&lt;Types, QuorumProposal&lt;Types&gt;&gt;&gt;,
+/// This function is the implementation for [handle_quorum_event].
+</span><span class="kw">async fn </span>handle_quorum_event_implementation&lt;Types: NodeType&gt;(
+    quorum_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;Types&gt;&gt;,
+    quorum_proposal: Arc&lt;Proposal&lt;Types, QuorumProposal&lt;Types&gt;&gt;&gt;,
     sender: &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey,
     leader: &lt;Types <span class="kw">as </span>NodeType&gt;::SignatureKey,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), HandleQcEventError&lt;Types&gt;&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), HandleQuorumEventError&lt;Types&gt;&gt; {
     <span class="macro">tracing::debug!</span>(
-        <span class="string">"QCProposal: Leader: {:?} for the view: {:?}"</span>,
+        <span class="string">"QuorumProposal: Leader: {:?} for the view: {:?}"</span>,
         leader,
-        qc_proposal.data.view_number
+        quorum_proposal.data.view_number
     );
 
-    <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>qc_proposal.data);
+    <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal.data);
 
-    <span class="comment">// check if the sender is the leader and the signature is valid; if yes, broadcast the QC proposal
+    <span class="comment">// check if the sender is the leader and the signature is valid; if yes, broadcast the Quorum proposal
     </span><span class="kw">if </span>sender != leader {
-        <span class="macro">tracing::error!</span>(<span class="string">"Sender is not Leader on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}"</span>, qc_proposal.data.view_number, leader, sender);
-        <span class="kw">return </span><span class="prelude-val">Err</span>(HandleQcEventError::SenderIsNotLeader);
+        <span class="macro">tracing::error!</span>(<span class="string">"Sender is not Leader on QuorumProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}"</span>, quorum_proposal.data.view_number, leader, sender);
+        <span class="kw">return </span><span class="prelude-val">Err</span>(HandleQuorumEventError::SenderIsNotLeader);
     }
 
-    <span class="kw">if </span>!sender.validate(<span class="kw-2">&amp;</span>qc_proposal.signature, leaf.legacy_commit().as_ref()) {
-        <span class="macro">tracing::error!</span>(<span class="string">"Validation Failure on QCProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}"</span>, qc_proposal.data.view_number, leader, sender);
-        <span class="kw">return </span><span class="prelude-val">Err</span>(HandleQcEventError::SignatureValidationFailed);
+    <span class="kw">if </span>!sender.validate(<span class="kw-2">&amp;</span>quorum_proposal.signature, leaf.legacy_commit().as_ref()) {
+        <span class="macro">tracing::error!</span>(<span class="string">"Validation Failure on QuorumProposal for view {:?}: Leader for the current view: {:?} and sender: {:?}"</span>, quorum_proposal.data.view_number, leader, sender);
+        <span class="kw">return </span><span class="prelude-val">Err</span>(HandleQuorumEventError::SignatureValidationFailed);
     }
 
-    <span class="kw">let </span>qc_msg = QCMessage::&lt;Types&gt; {
-        proposal: qc_proposal,
+    <span class="kw">let </span>quorum_msg = QuorumProposalMessage::&lt;Types&gt; {
+        proposal: quorum_proposal,
         sender: leader,
     };
-    <span class="kw">let </span>view_number = qc_msg.proposal.data.view_number;
+    <span class="kw">let </span>view_number = quorum_msg.proposal.data.view_number;
     <span class="macro">tracing::debug!</span>(
-        <span class="string">"Sending QC proposal to the builder states for view {:?}"</span>,
+        <span class="string">"Sending Quorum proposal to the builder states for view {:?}"</span>,
         view_number
     );
 
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = qc_channel_sender
-        .broadcast(MessageType::QCMessage(qc_msg))
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = quorum_channel_sender
+        .broadcast(MessageType::QuorumProposalMessage(quorum_msg))
         .<span class="kw">await
     </span>{
         <span class="macro">tracing::warn!</span>(
-            <span class="string">"Error {e}, failed to send QC proposal to builder states for view {:?}"</span>,
+            <span class="string">"Error {e}, failed to send Quorum proposal to builder states for view {:?}"</span>,
             view_number
         );
-        <span class="kw">return </span><span class="prelude-val">Err</span>(HandleQcEventError::BroadcastFailed(e));
+        <span class="kw">return </span><span class="prelude-val">Err</span>(HandleQuorumEventError::BroadcastFailed(e));
     }
 
     <span class="prelude-val">Ok</span>(())
@@ -6915,9 +6923,9 @@ Running Permissioned Builder Service
     };
 
     <span class="kw">use super</span>::{
-        handle_da_event_implementation, handle_qc_event_implementation, AvailableBlocksError,
+        handle_da_event_implementation, handle_quorum_event_implementation, AvailableBlocksError,
         BlockInfo, ClaimBlockError, ClaimBlockHeaderInputError, GlobalState, HandleDaEventError,
-        HandleQcEventError, HandleReceivedTxns, HotShotEventsService, ProxyGlobalState,
+        HandleQuorumEventError, HandleReceivedTxns, HotShotEventsService, ProxyGlobalState,
     };
 
     <span class="comment">// GlobalState Tests
@@ -9471,24 +9479,24 @@ Running Permissioned Builder Service
         }
     }
 
-    <span class="comment">// handle_qc_event Tests
+    <span class="comment">// handle_quorum_event Tests
 
-    </span><span class="doccomment">/// This test checks that the error [HandleQcEventError::SenderIsNotLeader]
+    </span><span class="doccomment">/// This test checks that the error [HandleQuorumEventError::SenderIsNotLeader]
     /// is returned under the right conditions of invoking
-    /// [handle_qc_event_implementation].
+    /// [handle_quorum_event_implementation].
     ///
     /// To trigger this error, we simply need to ensure that the public keys
     /// provided for the leader and the sender do not match.
     </span><span class="attr">#[async_std::test]
-    </span><span class="kw">async fn </span>test_handle_qc_event_error_sender_is_not_leader() {
+    </span><span class="kw">async fn </span>test_handle_quorum_event_error_sender_is_not_leader() {
         <span class="kw">let </span>(sender_public_key, sender_private_key) =
             &lt;BLSPubKey <span class="kw">as </span>BuilderSignatureKey&gt;::generated_from_seed_indexed([<span class="number">0</span>; <span class="number">32</span>], <span class="number">0</span>);
         <span class="kw">let </span>(leader_public_key, <span class="kw">_</span>) =
             &lt;BLSPubKey <span class="kw">as </span>BuilderSignatureKey&gt;::generated_from_seed_indexed([<span class="number">0</span>; <span class="number">32</span>], <span class="number">1</span>);
-        <span class="kw">let </span>(qc_channel_sender, <span class="kw">_</span>) = async_broadcast::broadcast(<span class="number">10</span>);
+        <span class="kw">let </span>(quorum_channel_sender, <span class="kw">_</span>) = async_broadcast::broadcast(<span class="number">10</span>);
         <span class="kw">let </span>view_number = ViewNumber::new(<span class="number">10</span>);
 
-        <span class="kw">let </span>qc_proposal = {
+        <span class="kw">let </span>quorum_proposal = {
             <span class="kw">let </span>leaf = Leaf::&lt;TestTypes&gt;::genesis(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
@@ -9508,28 +9516,28 @@ Running Permissioned Builder Service
             }
         };
 
-        <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>qc_proposal);
+        <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal);
 
         <span class="kw">let </span>signature =
             &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>sender_private_key, leaf.legacy_commit().as_ref())
                 .unwrap();
 
-        <span class="kw">let </span>signed_qc_proposal = Arc::new(Proposal {
-            data: qc_proposal,
+        <span class="kw">let </span>signed_quorum_proposal = Arc::new(Proposal {
+            data: quorum_proposal,
             signature,
             _pd: Default::default(),
         });
 
-        <span class="kw">let </span>result = handle_qc_event_implementation(
-            <span class="kw-2">&amp;</span>qc_channel_sender,
-            signed_qc_proposal.clone(),
+        <span class="kw">let </span>result = handle_quorum_event_implementation(
+            <span class="kw-2">&amp;</span>quorum_channel_sender,
+            signed_quorum_proposal.clone(),
             sender_public_key,
             leader_public_key,
         )
         .<span class="kw">await</span>;
 
         <span class="kw">match </span>result {
-            <span class="prelude-val">Err</span>(HandleQcEventError::SenderIsNotLeader) =&gt; {
+            <span class="prelude-val">Err</span>(HandleQuorumEventError::SenderIsNotLeader) =&gt; {
                 <span class="comment">// This is expected.
             </span>}
             <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
@@ -9541,9 +9549,9 @@ Running Permissioned Builder Service
         }
     }
 
-    <span class="doccomment">/// This test checks that the error [HandleQcEventError::SignatureValidationFailed]
+    <span class="doccomment">/// This test checks that the error [HandleQuorumEventError::SignatureValidationFailed]
     /// is returned under the right conditions of invoking
-    /// [handle_qc_event_implementation].
+    /// [handle_quorum_event_implementation].
     ///
     /// To trigger this error, we simply need to ensure that the signature
     /// provided to the [Proposal] does not match the public key of the sender.
@@ -9551,15 +9559,15 @@ Running Permissioned Builder Service
     /// Additionally, the public keys passed for both the leader and the sender
     /// need to match each other.
     </span><span class="attr">#[async_std::test]
-    </span><span class="kw">async fn </span>test_handle_qc_event_error_signature_validation_failed() {
+    </span><span class="kw">async fn </span>test_handle_quorum_event_error_signature_validation_failed() {
         <span class="kw">let </span>(sender_public_key, <span class="kw">_</span>) =
             &lt;BLSPubKey <span class="kw">as </span>BuilderSignatureKey&gt;::generated_from_seed_indexed([<span class="number">0</span>; <span class="number">32</span>], <span class="number">0</span>);
         <span class="kw">let </span>(<span class="kw">_</span>, leader_private_key) =
             &lt;BLSPubKey <span class="kw">as </span>BuilderSignatureKey&gt;::generated_from_seed_indexed([<span class="number">0</span>; <span class="number">32</span>], <span class="number">1</span>);
-        <span class="kw">let </span>(qc_channel_sender, <span class="kw">_</span>) = async_broadcast::broadcast(<span class="number">10</span>);
+        <span class="kw">let </span>(quorum_channel_sender, <span class="kw">_</span>) = async_broadcast::broadcast(<span class="number">10</span>);
         <span class="kw">let </span>view_number = ViewNumber::new(<span class="number">10</span>);
 
-        <span class="kw">let </span>qc_proposal = {
+        <span class="kw">let </span>quorum_proposal = {
             <span class="kw">let </span>leaf = Leaf::&lt;TestTypes&gt;::genesis(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
@@ -9579,28 +9587,28 @@ Running Permissioned Builder Service
             }
         };
 
-        <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>qc_proposal);
+        <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal);
 
         <span class="kw">let </span>signature =
             &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>leader_private_key, leaf.legacy_commit().as_ref())
                 .unwrap();
 
-        <span class="kw">let </span>signed_qc_proposal = Arc::new(Proposal {
-            data: qc_proposal,
+        <span class="kw">let </span>signed_quorum_proposal = Arc::new(Proposal {
+            data: quorum_proposal,
             signature,
             _pd: Default::default(),
         });
 
-        <span class="kw">let </span>result = handle_qc_event_implementation(
-            <span class="kw-2">&amp;</span>qc_channel_sender,
-            signed_qc_proposal.clone(),
+        <span class="kw">let </span>result = handle_quorum_event_implementation(
+            <span class="kw-2">&amp;</span>quorum_channel_sender,
+            signed_quorum_proposal.clone(),
             sender_public_key,
             sender_public_key,
         )
         .<span class="kw">await</span>;
 
         <span class="kw">match </span>result {
-            <span class="prelude-val">Err</span>(HandleQcEventError::SignatureValidationFailed) =&gt; {
+            <span class="prelude-val">Err</span>(HandleQuorumEventError::SignatureValidationFailed) =&gt; {
                 <span class="comment">// This is expected.
             </span>}
             <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
@@ -9612,27 +9620,27 @@ Running Permissioned Builder Service
         }
     }
 
-    <span class="doccomment">/// This test checks that the error [HandleQcEventError::BroadcastFailed]
+    <span class="doccomment">/// This test checks that the error [HandleQuorumEventError::BroadcastFailed]
     /// is returned under the right conditions of invoking
-    /// [handle_qc_event_implementation].
+    /// [handle_quorum_event_implementation].
     ///
     /// To trigger this error, we simply need to ensure that the broadcast
     /// channel receiver has been closed / dropped before the attempt to
     /// send on the broadcast sender is performed.
     </span><span class="attr">#[async_std::test]
-    </span><span class="kw">async fn </span>test_handle_qc_event_error_broadcast_failed() {
+    </span><span class="kw">async fn </span>test_handle_quorum_event_error_broadcast_failed() {
         <span class="kw">let </span>(sender_public_key, sender_private_key) =
             &lt;BLSPubKey <span class="kw">as </span>BuilderSignatureKey&gt;::generated_from_seed_indexed([<span class="number">0</span>; <span class="number">32</span>], <span class="number">0</span>);
         <span class="kw">let </span>(leader_public_key, <span class="kw">_</span>) =
             &lt;BLSPubKey <span class="kw">as </span>BuilderSignatureKey&gt;::generated_from_seed_indexed([<span class="number">0</span>; <span class="number">32</span>], <span class="number">0</span>);
-        <span class="kw">let </span>qc_channel_sender = {
-            <span class="kw">let </span>(qc_channel_sender, <span class="kw">_</span>) = async_broadcast::broadcast(<span class="number">10</span>);
-            qc_channel_sender
+        <span class="kw">let </span>quorum_channel_sender = {
+            <span class="kw">let </span>(quorum_channel_sender, <span class="kw">_</span>) = async_broadcast::broadcast(<span class="number">10</span>);
+            quorum_channel_sender
         };
 
         <span class="kw">let </span>view_number = ViewNumber::new(<span class="number">10</span>);
 
-        <span class="kw">let </span>qc_proposal = {
+        <span class="kw">let </span>quorum_proposal = {
             <span class="kw">let </span>leaf = Leaf::&lt;TestTypes&gt;::genesis(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
@@ -9652,28 +9660,28 @@ Running Permissioned Builder Service
             }
         };
 
-        <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>qc_proposal);
+        <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal);
 
         <span class="kw">let </span>signature =
             &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>sender_private_key, leaf.legacy_commit().as_ref())
                 .unwrap();
 
-        <span class="kw">let </span>signed_qc_proposal = Arc::new(Proposal {
-            data: qc_proposal,
+        <span class="kw">let </span>signed_quorum_proposal = Arc::new(Proposal {
+            data: quorum_proposal,
             signature,
             _pd: Default::default(),
         });
 
-        <span class="kw">let </span>result = handle_qc_event_implementation(
-            <span class="kw-2">&amp;</span>qc_channel_sender,
-            signed_qc_proposal.clone(),
+        <span class="kw">let </span>result = handle_quorum_event_implementation(
+            <span class="kw-2">&amp;</span>quorum_channel_sender,
+            signed_quorum_proposal.clone(),
             sender_public_key,
             leader_public_key,
         )
         .<span class="kw">await</span>;
 
         <span class="kw">match </span>result {
-            <span class="prelude-val">Err</span>(HandleQcEventError::BroadcastFailed(<span class="kw">_</span>)) =&gt; {
+            <span class="prelude-val">Err</span>(HandleQuorumEventError::BroadcastFailed(<span class="kw">_</span>)) =&gt; {
                 <span class="comment">// This is expected.
             </span>}
             <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
@@ -9685,18 +9693,18 @@ Running Permissioned Builder Service
         }
     }
 
-    <span class="doccomment">/// This test checks to ensure that [handle_qc_event_implementation]
+    <span class="doccomment">/// This test checks to ensure that [handle_quorum_event_implementation]
     /// completes successfully as expected when the correct conditions are met.
     </span><span class="attr">#[async_std::test]
-    </span><span class="kw">async fn </span>test_handle_qc_event_success() {
+    </span><span class="kw">async fn </span>test_handle_quorum_event_success() {
         <span class="kw">let </span>(sender_public_key, sender_private_key) =
             &lt;BLSPubKey <span class="kw">as </span>BuilderSignatureKey&gt;::generated_from_seed_indexed([<span class="number">0</span>; <span class="number">32</span>], <span class="number">0</span>);
         <span class="kw">let </span>(leader_public_key, <span class="kw">_</span>) =
             &lt;BLSPubKey <span class="kw">as </span>BuilderSignatureKey&gt;::generated_from_seed_indexed([<span class="number">0</span>; <span class="number">32</span>], <span class="number">0</span>);
-        <span class="kw">let </span>(qc_channel_sender, qc_channel_receiver) = async_broadcast::broadcast(<span class="number">10</span>);
+        <span class="kw">let </span>(quorum_channel_sender, quorum_channel_receiver) = async_broadcast::broadcast(<span class="number">10</span>);
         <span class="kw">let </span>view_number = ViewNumber::new(<span class="number">10</span>);
 
-        <span class="kw">let </span>qc_proposal = {
+        <span class="kw">let </span>quorum_proposal = {
             <span class="kw">let </span>leaf = Leaf::&lt;TestTypes&gt;::genesis(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
@@ -9716,21 +9724,21 @@ Running Permissioned Builder Service
             }
         };
 
-        <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>qc_proposal);
+        <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal);
 
         <span class="kw">let </span>signature =
             &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>sender_private_key, leaf.legacy_commit().as_ref())
                 .unwrap();
 
-        <span class="kw">let </span>signed_qc_proposal = Arc::new(Proposal {
-            data: qc_proposal,
+        <span class="kw">let </span>signed_quorum_proposal = Arc::new(Proposal {
+            data: quorum_proposal,
             signature,
             _pd: Default::default(),
         });
 
-        <span class="kw">let </span>result = handle_qc_event_implementation(
-            <span class="kw-2">&amp;</span>qc_channel_sender,
-            signed_qc_proposal.clone(),
+        <span class="kw">let </span>result = handle_quorum_event_implementation(
+            <span class="kw-2">&amp;</span>quorum_channel_sender,
+            signed_quorum_proposal.clone(),
             sender_public_key,
             leader_public_key,
         )
@@ -9745,13 +9753,13 @@ Running Permissioned Builder Service
             }
         }
 
-        <span class="kw">let </span><span class="kw-2">mut </span>qc_channel_receiver = qc_channel_receiver;
-        <span class="kw">match </span>qc_channel_receiver.next().<span class="kw">await </span>{
-            <span class="prelude-val">Some</span>(MessageType::QCMessage(da_proposal_message)) =&gt; {
-                <span class="macro">assert_eq!</span>(da_proposal_message.proposal, signed_qc_proposal);
+        <span class="kw">let </span><span class="kw-2">mut </span>quorum_channel_receiver = quorum_channel_receiver;
+        <span class="kw">match </span>quorum_channel_receiver.next().<span class="kw">await </span>{
+            <span class="prelude-val">Some</span>(MessageType::QuorumProposalMessage(da_proposal_message)) =&gt; {
+                <span class="macro">assert_eq!</span>(da_proposal_message.proposal, signed_quorum_proposal);
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">panic!</span>(<span class="string">"Expected a QCMessage, but got something else"</span>);
+                <span class="macro">panic!</span>(<span class="string">"Expected a QuorumProposalMessage, but got something else"</span>);
             }
         }
     }

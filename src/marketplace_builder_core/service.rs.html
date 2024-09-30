@@ -1393,20 +1393,20 @@ Handling Builder API responses
 
     <span class="macro">pair!</span>(tx_sender, tx_receiver);
     <span class="macro">pair!</span>(da_sender, da_receiver);
-    <span class="macro">pair!</span>(qc_sender, qc_receiver);
+    <span class="macro">pair!</span>(quorum_sender, quorum_proposal_receiver);
     <span class="macro">pair!</span>(decide_sender, decide_receiver);
 
     (
         BroadcastSenders {
             transactions: tx_sender,
             da_proposal: da_sender,
-            quorum_proposal: qc_sender,
+            quorum_proposal: quorum_sender,
             decide: decide_sender,
         },
         BroadcastReceivers {
             transactions: tx_receiver,
             da_proposal: da_receiver,
-            quorum_proposal: qc_receiver,
+            quorum_proposal: quorum_proposal_receiver,
             decide: decide_receiver,
         },
     )
@@ -1502,9 +1502,9 @@ Handling Builder API responses
             </span>EventType::DaProposal { proposal, sender } =&gt; {
                 handle_da_event(<span class="kw-2">&amp;</span>senders.da_proposal, proposal, sender).<span class="kw">await</span>;
             }
-            <span class="comment">// QC proposal event
+            <span class="comment">// Quorum proposal event
             </span>EventType::QuorumProposal { proposal, sender } =&gt; {
-                handle_qc_event(<span class="kw-2">&amp;</span>senders.quorum_proposal, Arc::new(proposal), sender).<span class="kw">await</span>;
+                handle_quorum_event(<span class="kw-2">&amp;</span>senders.quorum_proposal, Arc::new(proposal), sender).<span class="kw">await</span>;
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="macro">tracing::trace!</span>(<span class="string">"Unhandled event from Builder: {:?}"</span>, event.event);
@@ -1567,34 +1567,34 @@ Utility functions to handle the hotshot events
 }
 
 <span class="attr">#[instrument(skip_all, fields(sender, quorum_proposal.data.view_number))]
-</span><span class="kw">async fn </span>handle_qc_event&lt;TYPES: NodeType&gt;(
-    qc_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
+</span><span class="kw">async fn </span>handle_quorum_event&lt;TYPES: NodeType&gt;(
+    quorum_channel_sender: <span class="kw-2">&amp;</span>BroadcastSender&lt;MessageType&lt;TYPES&gt;&gt;,
     quorum_proposal: Arc&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
     sender: &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
 ) {
     <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal.data);
 
-    <span class="comment">// check if the sender is the leader and the signature is valid; if yes, broadcast the QC proposal
+    <span class="comment">// check if the sender is the leader and the signature is valid; if yes, broadcast the Quorum proposal
     </span><span class="kw">if </span>!sender.validate(<span class="kw-2">&amp;</span>quorum_proposal.signature, leaf.legacy_commit().as_ref()) {
-        <span class="macro">error!</span>(<span class="string">"Validation Failure on QCProposal"</span>);
+        <span class="macro">error!</span>(<span class="string">"Validation Failure on QuorumProposal"</span>);
         <span class="kw">return</span>;
     };
 
-    <span class="kw">let </span>qc_msg = QuorumProposalMessage::&lt;TYPES&gt; {
+    <span class="kw">let </span>quorum_msg = QuorumProposalMessage::&lt;TYPES&gt; {
         proposal: quorum_proposal,
         sender,
     };
-    <span class="kw">let </span>view_number = qc_msg.proposal.data.view_number;
+    <span class="kw">let </span>view_number = quorum_msg.proposal.data.view_number;
     <span class="macro">tracing::debug!</span>(
-        <span class="string">"Sending QC proposal to the builder states for view {:?}"</span>,
+        <span class="string">"Sending Quorum proposal to the builder states for view {:?}"</span>,
         view_number
     );
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = qc_channel_sender
-        .broadcast(MessageType::QuorumProposalMessage(qc_msg))
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = quorum_channel_sender
+        .broadcast(MessageType::QuorumProposalMessage(quorum_msg))
         .<span class="kw">await
     </span>{
         <span class="macro">tracing::warn!</span>(
-            <span class="string">"Error {e}, failed to send QC proposal to builder states for view {:?}"</span>,
+            <span class="string">"Error {e}, failed to send Quorum proposal to builder states for view {:?}"</span>,
             view_number
         );
     }
