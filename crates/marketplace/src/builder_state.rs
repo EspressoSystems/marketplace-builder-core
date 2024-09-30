@@ -54,7 +54,7 @@ pub struct DaProposalMessage<TYPES: NodeType> {
     pub builder_commitment: BuilderCommitment,
 }
 
-/// QC Message to be put on the quorum proposal channel
+/// Quorum proposal message to be put on the quorum proposal channel
 #[derive(Clone, Debug, PartialEq)]
 pub struct QuorumProposalMessage<TYPES: NodeType> {
     pub proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
@@ -137,7 +137,7 @@ pub struct BuilderState<TYPES: NodeType> {
     pub da_proposal_receiver: BroadcastReceiver<MessageType<TYPES>>,
 
     /// quorum proposal receiver
-    pub qc_receiver: BroadcastReceiver<MessageType<TYPES>>,
+    pub quorum_proposal_receiver: BroadcastReceiver<MessageType<TYPES>>,
 
     /// channel receiver for the block requests
     pub req_receiver: BroadcastReceiver<MessageType<TYPES>>,
@@ -456,16 +456,16 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     //#[tracing::instrument(skip_all, name = "Process Quorum Proposal")]
     #[tracing::instrument(skip_all, name = "process quorum proposal",
                                     fields(builder_parent_block_references = %self.parent_block_references))]
-    async fn process_quorum_proposal(&mut self, qc_msg: QuorumProposalMessage<TYPES>) {
+    async fn process_quorum_proposal(&mut self, quorum_msg: QuorumProposalMessage<TYPES>) {
         tracing::debug!(
-            "Builder Received QC Message for view {:?}",
-            qc_msg.proposal.data.view_number
+            "Builder Received Quorum proposal message for view {:?}",
+            quorum_msg.proposal.data.view_number
         );
 
         // Two cases to handle:
         // Case 1: Bootstrapping phase
         // Case 2: No intended builder state exist
-        let quorum_proposal = &qc_msg.proposal;
+        let quorum_proposal = &quorum_msg.proposal;
         let view_number = quorum_proposal.data.view_number;
         let payload_builder_commitment = quorum_proposal.data.block_header.builder_commitment();
 
@@ -475,7 +475,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         );
 
         // first check whether vid_commitment exists in the
-        // qc_payload_commit_to_qc hashmap, if yes, ignore it, otherwise
+        // quorum_proposal_payload_commit_to_quorum_proposal hashmap, if yes, ignore it, otherwise
         // validate it and later insert in
 
         let Entry::Vacant(e) = self
@@ -529,7 +529,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             .await
         {
             tracing::debug!(
-                "{} is not the best fit for forking, {}@{}, so ignoring the QC proposal, and leaving it to another BuilderState",
+                "{} is not the best fit for forking, {}@{}, so ignoring the Quorum proposal, and leaving it to another BuilderState",
                 self.parent_block_references,
                 quorum_proposal.data.block_header.payload_commitment(),
                 quorum_proposal.data.view_number.u64(),
@@ -558,7 +558,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     async fn process_decide_event(&mut self, decide_msg: DecideMessage<TYPES>) -> Option<Status> {
         // Exit out all the builder states if their parent_block_references.view_number is less than the latest_decide_view_number
         // The only exception is that we want to keep the highest view number builder state active to ensure that
-        // we have a builder state to handle the incoming DA and QC proposals
+        // we have a builder state to handle the incoming DA and Quorum proposals
         let decide_view_number = decide_msg.latest_decide_view_number;
 
         let retained_view_cutoff = self
@@ -876,27 +876,33 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         self.process_da_proposal(rda_msg).await;
     }
 
-    /// [event_loop_helper_handle_qc_proposal] is a helper function that is used
+    /// [event_loop_helper_handle_quorum_proposal] is a helper function that is used
     /// to handle incoming [MessageType]s, specifically [QuorumProposalMessage]s,
-    /// that are received by the [BuilderState::qc_receiver] channel.
-    async fn event_loop_helper_handle_qc_proposal(&mut self, qc: Option<MessageType<TYPES>>) {
-        let Some(qc) = qc else {
+    /// that are received by the [BuilderState::quorum_proposal_receiver] channel.
+    async fn event_loop_helper_handle_quorum_proposal(
+        &mut self,
+        quorum: Option<MessageType<TYPES>>,
+    ) {
+        let Some(quorum) = quorum else {
             tracing::warn!("No more quorum proposal messages to consume");
             return;
         };
 
-        let MessageType::QuorumProposalMessage(rqc_msg) = qc else {
-            tracing::warn!("Unexpected message on quorum proposals channel: {:?}", qc);
+        let MessageType::QuorumProposalMessage(quorum_proposal_message) = quorum else {
+            tracing::warn!(
+                "Unexpected message on quorum proposals channel: {:?}",
+                quorum
+            );
             return;
         };
 
         tracing::debug!(
             "Received quorum proposal msg in builder {:?}:\n {:?} for view ",
             self.parent_block_references,
-            rqc_msg.proposal.data.view_number
+            quorum_proposal_message.proposal.data.view_number
         );
 
-        self.process_quorum_proposal(rqc_msg).await;
+        self.process_quorum_proposal(quorum_proposal_message).await;
     }
 
     /// [event_loop_helper_handle_decide] is a helper function that is used to
@@ -984,7 +990,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
                 futures::select! {
                     req = self.req_receiver.next() => self.event_loop_helper_handle_request(req).await,
                     da = self.da_proposal_receiver.next() => self.event_loop_helper_handle_da_proposal(da).await,
-                    qc = self.qc_receiver.next() => self.event_loop_helper_handle_qc_proposal(qc).await,
+                    quorum = self.quorum_proposal_receiver.next() => self.event_loop_helper_handle_quorum_proposal(quorum).await,
                     decide = self.decide_receiver.next() => if let std::ops::ControlFlow::Break(_) = self.event_loop_helper_handle_decide(decide).await { return; },
                 };
             }
@@ -1031,7 +1037,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             builder_commitments: HashSet::new(),
             decide_receiver: receivers.decide.activate_cloned(),
             da_proposal_receiver: receivers.da_proposal.activate_cloned(),
-            qc_receiver: receivers.quorum_proposal.activate_cloned(),
+            quorum_proposal_receiver: receivers.quorum_proposal.activate_cloned(),
             tx_receiver: receivers.transactions.activate_cloned(),
         }
     }
@@ -1045,7 +1051,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             parent_block_references: self.parent_block_references.clone(),
             decide_receiver: self.decide_receiver.clone(),
             da_proposal_receiver: self.da_proposal_receiver.clone(),
-            qc_receiver: self.qc_receiver.clone(),
+            quorum_proposal_receiver: self.quorum_proposal_receiver.clone(),
             req_receiver,
             da_proposal_payload_commit_to_da_proposal: HashMap::new(),
             quorum_proposal_payload_commit_to_quorum_proposal: HashMap::new(),
@@ -1270,10 +1276,11 @@ mod test {
             calc_proposal_msg(NUM_STORAGE_NODES, 0, None, transactions_2).await;
 
         // process quorum proposal first, so that later when process_da_proposal we can directly call `build_block` and skip storage
-        if let MessageType::QuorumProposalMessage(practice_qc_msg_2) = quorum_proposal_msg_2.clone()
+        if let MessageType::QuorumProposalMessage(practice_quorum_msg_2) =
+            quorum_proposal_msg_2.clone()
         {
             builder_state
-                .process_quorum_proposal(practice_qc_msg_2.clone())
+                .process_quorum_proposal(practice_quorum_msg_2.clone())
                 .await;
         } else {
             panic!("Not a quorum_proposal_message in correct format");
@@ -1334,21 +1341,22 @@ mod test {
         // call process_quorum_proposal without matching da proposal message
         // quorum_proposal_payload_commit_to_quorum_proposal should insert the message
         let mut correct_quorum_proposal_payload_commit_to_quorum_proposal = HashMap::new();
-        if let MessageType::QuorumProposalMessage(practice_qc_msg) = quorum_proposal_msg.clone() {
+        if let MessageType::QuorumProposalMessage(practice_quorum_msg) = quorum_proposal_msg.clone()
+        {
             builder_state
-                .process_quorum_proposal(practice_qc_msg.clone())
+                .process_quorum_proposal(practice_quorum_msg.clone())
                 .await;
             correct_quorum_proposal_payload_commit_to_quorum_proposal.insert(
                 (
-                    practice_qc_msg
+                    practice_quorum_msg
                         .proposal
                         .data
                         .block_header
                         .builder_commitment
                         .clone(),
-                    practice_qc_msg.proposal.data.view_number,
+                    practice_quorum_msg.proposal.data.view_number,
                 ),
-                practice_qc_msg.proposal,
+                practice_quorum_msg.proposal,
             );
         } else {
             panic!("Not a quorum_proposal_message in correct format");
@@ -1388,10 +1396,11 @@ mod test {
         }
 
         // process quorum proposal, and do the check
-        if let MessageType::QuorumProposalMessage(practice_qc_msg_2) = quorum_proposal_msg_2.clone()
+        if let MessageType::QuorumProposalMessage(practice_quorum_msg_2) =
+            quorum_proposal_msg_2.clone()
         {
             builder_state
-                .process_quorum_proposal(practice_qc_msg_2.clone())
+                .process_quorum_proposal(practice_quorum_msg_2.clone())
                 .await;
         } else {
             panic!("Not a quorum_proposal_message in correct format");
