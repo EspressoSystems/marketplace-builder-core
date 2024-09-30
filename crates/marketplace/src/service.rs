@@ -1,4 +1,23 @@
+use std::{fmt::Debug, marker::PhantomData, time::Duration};
+
+use crate::{
+    builder_state::{
+        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QuorumProposalMessage,
+        RequestMessage, ResponseMessage, TransactionSource,
+    },
+    utils::LegacyCommit as _,
+};
+use marketplace_builder_shared::block::{BlockId, BuilderStateId, ParentBlockReferences};
+
 use anyhow::bail;
+pub use async_broadcast::{broadcast, RecvError, TryRecvError};
+use async_broadcast::{InactiveReceiver, Sender as BroadcastSender, TrySendError};
+use async_lock::RwLock;
+use async_trait::async_trait;
+use committable::{Commitment, Committable};
+use derivative::Derivative;
+use futures::stream::StreamExt;
+use futures::{future::BoxFuture, Stream};
 use hotshot::types::Event;
 use hotshot_builder_api::v0_3::{
     builder::{define_api, submit_api, BuildError, Error as BuilderApiError},
@@ -18,26 +37,6 @@ use hotshot_types::{
     utils::BuilderCommitment,
     vid::VidCommitment,
 };
-use tracing::{error, instrument};
-use vbs::version::StaticVersion;
-
-use std::{fmt::Debug, marker::PhantomData, time::Duration};
-
-use crate::{
-    builder_state::{
-        BuildBlockInfo, DaProposalMessage, DecideMessage, MessageType, QuorumProposalMessage,
-        RequestMessage, ResponseMessage, TransactionSource,
-    },
-    utils::{BlockId, BuilderStateId, LegacyCommit as _, ParentBlockReferences},
-};
-pub use async_broadcast::{broadcast, RecvError, TryRecvError};
-use async_broadcast::{InactiveReceiver, Sender as BroadcastSender, TrySendError};
-use async_lock::RwLock;
-use async_trait::async_trait;
-use committable::{Commitment, Committable};
-use derivative::Derivative;
-use futures::stream::StreamExt;
-use futures::{future::BoxFuture, Stream};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
@@ -45,6 +44,10 @@ use std::sync::Arc;
 use std::{fmt::Display, time::Instant};
 use tagged_base64::TaggedBase64;
 use tide_disco::{app::AppError, method::ReadState, App};
+use tracing::{error, instrument};
+use vbs::version::StaticVersion;
+
+pub use marketplace_builder_shared::utils::EventServiceStream;
 
 // It holds all the necessary information for a block
 #[derive(Debug)]
@@ -248,9 +251,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
             self.spawned_builder_states
                 .get(&self.highest_view_num_builder_id)
                 .map(|(_, sender)| sender)
-                .ok_or_else(|| BuildError::Error {
-                    message: "No builder state found".to_string(),
-                })
+                .ok_or_else(|| BuildError::Error("No builder state found".to_string()))
         }
     }
 
@@ -400,10 +401,9 @@ where
                         highest_observed_view = ?highest_observed_view,
                         "Requested a bundle for view we already GCd as decided",
                     );
-                    return Err(BuildError::Error {
-                        message: "Request for a bundle for a view that has already been decided."
-                            .to_owned(),
-                    });
+                    return Err(BuildError::Error(
+                        "Request for a bundle for a view that has already been decided.".to_owned(),
+                    ));
                 } else {
                     // If we couldn't find the state because it hasn't yet been created, try again
                     async_compatibility_layer::art::async_sleep(self.api_timeout / 10).await;
@@ -426,9 +426,7 @@ where
                 .map_err(|err| {
                     tracing::warn!(%err, "Error requesting bundle");
 
-                    BuildError::Error {
-                        message: "Error requesting bundle".to_owned(),
-                    }
+                    BuildError::Error("Error requesting bundle".to_owned())
                 })?;
 
             let response = async_compatibility_layer::art::async_timeout(
@@ -444,9 +442,7 @@ where
             .map_err(|err| {
                 tracing::warn!(%err, "Channel closed while waiting for bundle");
 
-                BuildError::Error {
-                    message: "Channel closed while waiting for bundle".to_owned(),
-                }
+                BuildError::Error("Channel closed while waiting for bundle".to_owned())
             })?;
 
             let fee_signature =
@@ -454,9 +450,9 @@ where
                     &self.builder_keys.1,
                     response.offered_fee,
                 )
-                .map_err(|e| BuildError::Error {
-                    message: e.to_string(),
-                })?;
+                .map_err(|e| BuildError::Error (
+                    e.to_string(),
+                ))?;
 
             let sequencing_fee: BuilderFee<TYPES> = BuilderFee {
                 fee_amount: response.offered_fee,
@@ -475,9 +471,7 @@ where
                     &self.builder_keys.1,
                     &commitments,
                 )
-                .map_err(|e| BuildError::Error {
-                    message: e.to_string(),
-                })?;
+                .map_err(|e| BuildError::Error(e.to_string()))?;
 
             let bundle = Bundle {
                 sequencing_fee,
@@ -608,14 +602,34 @@ pub struct BroadcastSenders<TYPES: NodeType> {
 pub trait BuilderHooks<TYPES: NodeType>: Sync + Send + 'static {
     #[inline(always)]
     async fn process_transactions(
-        self: &Arc<Self>,
+        &self,
         transactions: Vec<TYPES::Transaction>,
     ) -> Vec<TYPES::Transaction> {
         transactions
     }
 
     #[inline(always)]
-    async fn handle_hotshot_event(self: &Arc<Self>, _event: &Event<TYPES>) {}
+    async fn handle_hotshot_event(&self, _event: &Event<TYPES>) {}
+}
+
+#[async_trait]
+impl<T: ?Sized, Types> BuilderHooks<Types> for Box<T>
+where
+    Types: NodeType,
+    T: BuilderHooks<Types>,
+{
+    #[inline(always)]
+    async fn process_transactions(
+        &self,
+        transactions: Vec<Types::Transaction>,
+    ) -> Vec<Types::Transaction> {
+        (**self).process_transactions(transactions).await
+    }
+
+    #[inline(always)]
+    async fn handle_hotshot_event(&self, event: &Event<Types>) {
+        (**self).handle_hotshot_event(event).await
+    }
 }
 
 pub struct NoHooks<TYPES: NodeType>(pub PhantomData<TYPES>);
@@ -819,12 +833,10 @@ pub(crate) async fn handle_received_txns<TYPES: NodeType>(
                 tracing::warn!("Failed to broadcast txn with commit {:?}: {}", commit, err);
             })
             .map_err(|err| match err {
-                TrySendError::Full(_) => BuildError::Error {
-                    message: "Too many transactions".to_owned(),
-                },
-                e => BuildError::Error {
-                    message: format!("Internal error when submitting transaction: {}", e),
-                },
+                TrySendError::Full(_) => BuildError::Error("Too many transactions".to_owned()),
+                e => {
+                    BuildError::Error(format!("Internal error when submitting transaction: {}", e))
+                }
             });
         results.push(res);
     }
