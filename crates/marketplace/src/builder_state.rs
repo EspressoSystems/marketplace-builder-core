@@ -1559,9 +1559,19 @@ mod test {
         // case one: If we have a [BuilderState] that is already spawned for the current
         // [QuorumProposal], then we should return no states.  And there's no newly spawned builder state.
         // use saved_builder_state_pairs[0] as (da_proposal_msg, quorum_proposal_msg)
-        builder_state.clone_with_receiver(req_receiver).spawn_clone(saved_builder_state_pairs[0], req_sender).await;
-        builder_state.spawn_clone_that_extends_self(saved_builder_state_pairs[0]).await;
-
+        let (req_sender, req_receiver) = broadcast(builder_state.req_receiver.capacity());
+        let (da_proposal_msg_0, quorum_proposal_msg_0) = saved_builder_state_pairs[0].clone();
+        if let MessageType::DaProposalMessage(practice_da_proposal_msg) = da_proposal_msg_0.clone() {
+            if let MessageType::QuorumProposalMessage(practice_qc_proposal_msg) = quorum_proposal_msg_0.clone() {
+                builder_state.clone_with_receiver(req_receiver).spawn_clone(practice_da_proposal_msg.clone(), practice_qc_proposal_msg.clone().proposal, req_sender).await;
+                builder_state.spawn_clone_that_extends_self(practice_da_proposal_msg, practice_qc_proposal_msg.proposal).await;
+            } else {
+                panic!("Not a qc proposal message in correct format");
+            }
+        } else {
+            panic!("Not a da proposal message in correct format");
+        }
+        
 
         // case two: If we have one and only parent builder state, then we should spawn a new builder state.
 
