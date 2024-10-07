@@ -1492,7 +1492,6 @@ mod test {
             panic!("Not a decide_message in correct format");
         }
         // check whether spawned_builder_states have correct builder_state_id and already exit-ed builder_states older than decides
-        // Sishan TODO: also check existed BuilderStateId didn't quit
         let current_spawned_builder_states =
             global_state.read_arc().await.spawned_builder_states.clone();
         current_spawned_builder_states
@@ -1502,11 +1501,73 @@ mod test {
             });
     }
 
+    /// This test the function `spawn_clone_that_extends_self`.
+    // besides test spawn_clone_that_extends_self
+    // also test am_i_the_best_builder_state_to_extend
+    // also test best_builder_states_to_extend
+    // also test spawn_clone
     #[async_std::test]
-    async fn test_am_i_the_best_builder_state_to_extend() {
-        // also test best_builder_states_to_extend
-        // also test spawn_clone_that_extends_self
-        // also test am_i_the_best_builder_state_to_extend
+    async fn test_spawn_clone_that_extends_self() {
+
+        async_compatibility_layer::logging::setup_logging();
+        async_compatibility_layer::logging::setup_backtrace();
+        tracing::info!("Testing the function `spawn_clone_that_extends_self` in `builder_state.rs`");
+
+        // Number of views to simulate
+        const NUM_ROUNDS: usize = 5;
+        // Number of transactions to submit per round
+        const NUM_TXNS_PER_ROUND: usize = 4;
+        // Capacity of broadcast channels
+        const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
+        // Number of nodes on DA committee
+        const NUM_STORAGE_NODES: usize = 4;
+
+        // start builder_state without entering event loop
+        let (senders, global_state, mut builder_state) =
+            start_builder_state_without_event_loop(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
+
+        // randomly generate a transaction
+        let transactions = vec![TestTransaction::new(vec![1, 2, 3]); 3];
+        let (quorum_proposal, quorum_proposal_msg, da_proposal_msg, builder_state_id) =
+            calc_proposal_msg(NUM_STORAGE_NODES, 0, None, transactions.clone()).await;
+
+
+        // insert some builder states first
+        // call spawn_clone_that_extends_self
+        // check whether the spawned builder states are correct
+        let all_transactions = (0..NUM_ROUNDS)
+            .map(|round| {
+                (0..NUM_TXNS_PER_ROUND)
+                    .map(|tx_num| TestTransaction::new(vec![round as u8, tx_num as u8]))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let mut prev_quorum_proposal: Option<QuorumProposal<TestTypes>> = None;
+        // save a list of (da_proposal_msg, quorum_proposal_msg) for the tests under different cases
+        let mut saved_builder_state_pairs: Vec<(MessageType<TestTypes>, MessageType<TestTypes>)> = vec![];
+        #[allow(clippy::needless_range_loop)]
+        for round in 0..NUM_ROUNDS {
+            let transactions = all_transactions[round].clone();
+            let (quorum_proposal, _quorum_proposal_msg, _da_proposal_msg, builder_state_id) =
+                calc_proposal_msg(NUM_STORAGE_NODES, round, prev_quorum_proposal, transactions)
+                    .await;
+            prev_quorum_proposal = Some(quorum_proposal.clone());
+            saved_builder_state_pairs.push((da_proposal_msg.clone(), quorum_proposal_msg.clone()));
+        }
+
+
+        // case one: If we have a [BuilderState] that is already spawned for the current
+        // [QuorumProposal], then we should return no states.  And there's no newly spawned builder state.
+        // use saved_builder_state_pairs[0] as (da_proposal_msg, quorum_proposal_msg)
+        builder_state.clone_with_receiver(req_receiver).spawn_clone(saved_builder_state_pairs[0], req_sender).await;
+        builder_state.spawn_clone_that_extends_self(saved_builder_state_pairs[0]).await;
+
+
+        // case two: If we have one and only parent builder state, then we should spawn a new builder state.
+
+        // case three: If we have multiple parent builder states, then we should spawn at least one builder state.
+
+        // case four: If we don't have valid parent builder states, then we should return no states. And there's no newly spawned builder state.
     }
 
     #[async_std::test]
@@ -1514,8 +1575,5 @@ mod test {
         // also test build_block
         // also test process_block_request
     }
-    
-    #[async_std::test]
-    async fn test_spawn_clone() {}
 
 }
