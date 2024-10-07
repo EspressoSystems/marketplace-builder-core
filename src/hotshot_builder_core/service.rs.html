@@ -5087,7 +5087,7 @@
 <a href="#5087" id="5087">5087</a>
 <a href="#5088" id="5088">5088</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::{
-    traits::{election::static_committee::GeneralStaticCommittee, NodeImplementation},
+    traits::{election::static_committee::StaticCommittee, NodeImplementation},
     types::{Event, SystemContextHandle},
 };
 <span class="kw">use </span>hotshot_builder_api::v0_1::{
@@ -6227,7 +6227,7 @@ Handling Builder API responses
 /// stream, and membership information derived from the startup info.
 </span><span class="kw">async fn </span>connect_to_events_service&lt;Types: NodeType, C, S&gt;(
     client: <span class="kw-2">&amp;</span>C,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(C::EventsStream, GeneralStaticCommittee&lt;Types&gt;), ConnectToEventsServiceError&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;(C::EventsStream, StaticCommittee&lt;Types&gt;), ConnectToEventsServiceError&gt;
 <span class="kw">where
     </span>C: HotShotEventsService&lt;
         Types,
@@ -6259,7 +6259,7 @@ Handling Builder API responses
         .<span class="kw">await
         </span>.map_err(ConnectToEventsServiceError::StartupInfo)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>membership: GeneralStaticCommittee&lt;Types&gt; = GeneralStaticCommittee::&lt;Types&gt;::new(
+    <span class="kw">let </span>membership: StaticCommittee&lt;Types&gt; = StaticCommittee::&lt;Types&gt;::new(
         known_node_with_stake.clone(),
         known_node_with_stake.clone(),
         Topic::Global,
