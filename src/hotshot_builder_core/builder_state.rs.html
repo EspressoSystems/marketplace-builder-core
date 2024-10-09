@@ -1113,6 +1113,36 @@
 <a href="#1113" id="1113">1113</a>
 <a href="#1114" id="1114">1114</a>
 <a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
     data::{DaProposal, Leaf, QuorumProposal},
     message::Proposal,
@@ -1227,6 +1257,14 @@
     <span class="kw">pub </span>num_nodes: usize,
 }
 
+<span class="doccomment">/// [ALLOW_EMPTY_BLOCK_PERIOD] is a constant that is used to determine the
+/// number of future views that we will allow building empty blocks for.
+///
+/// This value governs the ability for the Builder to prioritize finalizing
+/// transactions by producing empty blocks rather than avoiding the creation
+/// of them, following the proposal that contains transactions.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>ALLOW_EMPTY_BLOCK_PERIOD: u64 = <span class="number">3</span>;
+
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>BuilderState&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Recent included txs set while building blocks
@@ -1300,6 +1338,12 @@
 
     <span class="doccomment">/// time of next garbage collection for txns
     </span><span class="kw">pub </span>next_txn_garbage_collect_time: Instant,
+
+    <span class="doccomment">/// allow_empty_block_until is a variable that dictates the time until which
+    /// a builder should stop producing empty blocks. This is done specifically
+    /// to allow for faster finalization of previous blocks that have had
+    /// transactions included in them.
+    </span><span class="kw">pub </span>allow_empty_block_until: <span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;,
 }
 
 <span class="doccomment">/// [best_builder_states_to_extend] is a utility function that is used to
@@ -1780,6 +1824,12 @@
         <span class="self">self</span>.tx_queue
             .retain(|tx| <span class="self">self</span>.txns_in_queue.contains(<span class="kw-2">&amp;</span>tx.commit));
 
+        <span class="kw">if </span>!txn_commitments.is_empty() {
+            <span class="self">self</span>.allow_empty_block_until = <span class="prelude-val">Some</span>(TYPES::Time::new(
+                da_proposal_info.view_number.u64() + ALLOW_EMPTY_BLOCK_PERIOD,
+            ));
+        }
+
         <span class="comment">// register the spawned builder state to spawned_builder_states in the global state
         </span><span class="self">self</span>.global_state.write_arc().<span class="kw">await</span>.register_builder_state(
             BuilderStateId {
@@ -1815,9 +1865,17 @@
             async_sleep(sleep_interval).<span class="kw">await
         </span>}
 
-        <span class="comment">// Don't build an empty block
-        </span><span class="kw">if </span><span class="self">self</span>.tx_queue.is_empty() {
-            <span class="kw">return </span><span class="prelude-val">None</span>;
+        <span class="comment">// should_prioritize_finalization is a flag that is used to determine
+        // whether we should return empty blocks or not.
+
+        </span><span class="kw">let </span>should_prioritize_finalization = <span class="self">self
+            </span>.allow_empty_block_until
+            .map(|until| state_id.view &lt; until)
+            .unwrap_or(<span class="bool-val">false</span>);
+
+        <span class="kw">if </span><span class="self">self</span>.tx_queue.is_empty() &amp;&amp; !should_prioritize_finalization {
+            <span class="comment">// Don't build an empty block
+            </span><span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
         <span class="kw">let </span>max_block_size = <span class="self">self</span>.global_state.read_arc().<span class="kw">await</span>.max_block_size;
@@ -1863,7 +1921,7 @@
         // be included, because it alone goes over sequencer's block size limit.
         // We need to drop it and mark as "included" so that if we receive
         // it again we don't even bother with it.
-        </span><span class="kw">if </span>actual_txn_count == <span class="number">0 </span>{
+        </span><span class="kw">if </span>actual_txn_count == <span class="number">0 </span>&amp;&amp; !should_prioritize_finalization {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(txn) = <span class="self">self</span>.tx_queue.pop_front() {
                 <span class="self">self</span>.txns_in_queue.remove(<span class="kw-2">&amp;</span>txn.commit);
                 <span class="self">self</span>.included_txns.insert(txn.commit);
@@ -2150,6 +2208,7 @@
             txn_garbage_collect_duration,
             next_txn_garbage_collect_time: Instant::now() + txn_garbage_collect_duration,
             validated_state,
+            allow_empty_block_until: <span class="prelude-val">None</span>,
         }
     }
     <span class="kw">pub fn </span>clone_with_receiver(<span class="kw-2">&amp;</span><span class="self">self</span>, req_receiver: BroadcastReceiver&lt;MessageType&lt;TYPES&gt;&gt;) -&gt; <span class="self">Self </span>{
@@ -2198,6 +2257,7 @@
             txn_garbage_collect_duration: <span class="self">self</span>.txn_garbage_collect_duration,
             next_txn_garbage_collect_time,
             validated_state: <span class="self">self</span>.validated_state.clone(),
+            allow_empty_block_until: <span class="self">self</span>.allow_empty_block_until,
         }
     }
 
