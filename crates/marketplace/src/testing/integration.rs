@@ -135,7 +135,7 @@ where
             global_state.clone(),
             Arc::clone(&hooks),
             builder_key_pair,
-            Duration::from_secs(60),
+            Duration::from_millis(500),
         )
         .into_app()
         .expect("Failed to create builder tide-disco app");
@@ -197,13 +197,13 @@ cross_tests!(
     Ignore: true,
     Metadata: {
         let mut metadata = TestDescription::default();
-        metadata.overall_safety_properties.transaction_threshold = 1;
-        metadata.txn_description = hotshot_testing::txn_task::TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(500));
+        metadata.validate_transactions = hotshot_testing::test_builder::nonempty_block_threshold((90,100));
+        metadata.txn_description = hotshot_testing::txn_task::TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(100));
 
         metadata.completion_task_description =
         CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_secs(60),
+                duration: Duration::from_secs(120),
             },
         );
         metadata.overall_safety_properties.num_successful_views = 45;
