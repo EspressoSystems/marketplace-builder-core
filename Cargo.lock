@@ -965,6 +965,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c4b4d0bd25bd0b74681c0ad21497610ce1b7c91b1022cd21c80c6fbdd9476b0"
 
 [[package]]
+name = "automod"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edf3ee19dbc0a46d740f6f0926bde8c50f02bdbc7b536842da28f6ac56513a8b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.77",
+]
+
+[[package]]
 name = "axum"
 version = "0.6.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2975,7 +2986,6 @@ dependencies = [
 [[package]]
 name = "hotshot"
 version = "0.5.77"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.77#e8c3e75775e2124f11a60ec4d6a6090d012dbb35"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3011,8 +3021,8 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
- "snafu",
  "surf-disco",
+ "thiserror",
  "time 0.3.36",
  "tokio",
  "tracing",
@@ -3023,7 +3033,6 @@ dependencies = [
 [[package]]
 name = "hotshot-builder-api"
 version = "0.1.7"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.77#e8c3e75775e2124f11a60ec4d6a6090d012dbb35"
 dependencies = [
  "async-trait",
  "clap",
@@ -3032,8 +3041,8 @@ dependencies = [
  "futures",
  "hotshot-types",
  "serde",
- "snafu",
  "tagged-base64",
+ "thiserror",
  "tide-disco",
  "toml",
  "vbs",
@@ -3061,6 +3070,7 @@ dependencies = [
  "hotshot-example-types",
  "hotshot-types",
  "lru 0.12.4",
+ "marketplace-builder-shared",
  "serde",
  "sha2 0.10.8",
  "snafu",
@@ -3074,8 +3084,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot-events-service"
-version = "0.1.49"
-source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?tag=0.1.49#06700117ec9a5f73f042906b6b3eec4a7b28d0de"
+version = "0.1.47"
+source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?tag=0.1.47#86029680196b9b40f1c63a6baf9cac57135c27b0"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3101,7 +3111,6 @@ dependencies = [
 [[package]]
 name = "hotshot-example-types"
 version = "0.5.77"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.77#e8c3e75775e2124f11a60ec4d6a6090d012dbb35"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3123,7 +3132,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "sha3",
- "snafu",
+ "thiserror",
  "time 0.3.36",
  "tokio",
  "tracing",
@@ -3132,9 +3141,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-fakeapi"
+version = "0.5.77"
+dependencies = [
+ "anyhow",
+ "async-lock 2.8.0",
+ "async-trait",
+ "futures",
+ "hotshot-example-types",
+ "hotshot-types",
+ "rand 0.8.5",
+ "serde",
+ "tide-disco",
+ "toml",
+ "tracing",
+ "vbs",
+]
+
+[[package]]
+name = "hotshot-macros"
+version = "0.5.77"
+dependencies = [
+ "derive_builder",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.77",
+]
+
+[[package]]
 name = "hotshot-orchestrator"
 version = "0.5.77"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.77#e8c3e75775e2124f11a60ec4d6a6090d012dbb35"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3164,7 +3200,6 @@ dependencies = [
 [[package]]
 name = "hotshot-task"
 version = "0.5.77"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.77#e8c3e75775e2124f11a60ec4d6a6090d012dbb35"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3179,7 +3214,6 @@ dependencies = [
 [[package]]
 name = "hotshot-task-impls"
 version = "0.5.77"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.77#e8c3e75775e2124f11a60ec4d6a6090d012dbb35"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3202,10 +3236,55 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
- "snafu",
  "surf-disco",
  "tagged-base64",
+ "thiserror",
  "time 0.3.36",
+ "tokio",
+ "tracing",
+ "url",
+ "vbs",
+ "vec1",
+]
+
+[[package]]
+name = "hotshot-testing"
+version = "0.5.77"
+dependencies = [
+ "anyhow",
+ "async-broadcast",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
+ "async-trait",
+ "automod",
+ "bitvec",
+ "committable",
+ "either",
+ "ethereum-types",
+ "futures",
+ "hotshot",
+ "hotshot-builder-api",
+ "hotshot-example-types",
+ "hotshot-fakeapi",
+ "hotshot-macros",
+ "hotshot-orchestrator",
+ "hotshot-task",
+ "hotshot-task-impls",
+ "hotshot-types",
+ "itertools 0.13.0",
+ "jf-signature",
+ "jf-vid",
+ "lru 0.12.4",
+ "portpicker",
+ "rand 0.8.5",
+ "reqwest",
+ "serde",
+ "sha2 0.10.8",
+ "sha3",
+ "tagged-base64",
+ "thiserror",
+ "tide-disco",
  "tokio",
  "tracing",
  "url",
@@ -3216,7 +3295,6 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.11"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.77#e8c3e75775e2124f11a60ec4d6a6090d012dbb35"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -3256,8 +3334,8 @@ dependencies = [
  "serde",
  "serde_bytes",
  "sha2 0.10.8",
- "snafu",
  "tagged-base64",
+ "thiserror",
  "time 0.3.36",
  "tokio",
  "tracing",
@@ -3720,6 +3798,15 @@ name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
 dependencies = [
  "either",
 ]
@@ -4268,7 +4355,6 @@ dependencies = [
 [[package]]
 name = "libp2p-networking"
 version = "0.5.77"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.77#e8c3e75775e2124f11a60ec4d6a6090d012dbb35"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -4293,7 +4379,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
- "snafu",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -4613,9 +4699,12 @@ dependencies = [
  "hotshot-builder-api",
  "hotshot-events-service",
  "hotshot-example-types",
+ "hotshot-macros",
  "hotshot-task-impls",
+ "hotshot-testing",
  "hotshot-types",
  "lru 0.12.4",
+ "marketplace-builder-shared",
  "multimap",
  "rkyv",
  "serde",
@@ -4627,6 +4716,29 @@ dependencies = [
  "tide-disco",
  "tokio",
  "toml",
+ "tracing",
+ "url",
+ "vbs",
+]
+
+[[package]]
+name = "marketplace-builder-shared"
+version = "0.1.51"
+dependencies = [
+ "anyhow",
+ "async-broadcast",
+ "async-trait",
+ "committable",
+ "either",
+ "futures",
+ "hex",
+ "hotshot",
+ "hotshot-builder-api",
+ "hotshot-events-service",
+ "hotshot-task-impls",
+ "hotshot-testing",
+ "hotshot-types",
+ "surf-disco",
  "tracing",
  "url",
  "vbs",
@@ -8674,3 +8786,7 @@ dependencies = [
  "quote",
  "syn 2.0.77",
 ]
+
+[[patch.unused]]
+name = "hotshot-stake-table"
+version = "0.5.77"

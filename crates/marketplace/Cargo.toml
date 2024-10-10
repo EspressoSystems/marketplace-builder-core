@@ -4,6 +4,7 @@ version = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+marketplace-builder-shared = { path = "../shared" }
 
 anyhow = "1"
 async-broadcast = "0.7"
@@ -20,6 +21,7 @@ hex = { workspace = true }
 hotshot = { workspace = true }
 hotshot-builder-api = { workspace = true }
 hotshot-events-service = { workspace = true }
+hotshot-macros = { workspace = true }
 hotshot-task-impls = { workspace = true }
 hotshot-types = { workspace = true }
 lru = { workspace = true }
@@ -40,6 +42,7 @@ vbs = { workspace = true }
 
 [dev-dependencies]
 hotshot-example-types = { workspace = true }
+hotshot-testing = { workspace = true }
 
 [lints]
 workspace = true
