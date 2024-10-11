@@ -647,10 +647,13 @@ impl<TYPES: NodeType> BuilderHooks<TYPES> for NoHooks<TYPES> {}
 
 /// Run builder service,
 /// Refer to documentation for [`ProxyGlobalState`] for more details
-pub async fn run_builder_service<TYPES: NodeType<Time = ViewNumber>>(
+pub async fn run_builder_service<
+    TYPES: NodeType<Time = ViewNumber>,
+    S: Stream<Item = Event<TYPES>> + Unpin,
+>(
     hooks: Arc<impl BuilderHooks<TYPES>>,
     senders: BroadcastSenders<TYPES>,
-    hotshot_event_stream: impl Stream<Item = Event<TYPES>>,
+    hotshot_event_stream: S,
 ) -> Result<(), anyhow::Error> {
     let mut hotshot_event_stream = std::pin::pin!(hotshot_event_stream);
     loop {

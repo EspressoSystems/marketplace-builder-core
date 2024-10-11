@@ -1011,6 +1011,7 @@ Running Non-Permissioned Builder Service
 pub async fn run_non_permissioned_standalone_builder_service<
     Types: NodeType,
     Ver: StaticVersionType,
+    S: Stream<Item = Event<Types>> + Unpin,
 >(
     // sending a DA proposal from the hotshot to the builder states
     da_sender: BroadcastSender<MessageType<Types>>,
@@ -1022,7 +1023,7 @@ pub async fn run_non_permissioned_standalone_builder_service<
     decide_sender: BroadcastSender<MessageType<Types>>,
 
     // HotShot event stream
-    hotshot_event_stream: impl Stream<Item = Event<Types>>,
+    hotshot_event_stream: S,
 
     total_nodes: NonZeroUsize,
 
