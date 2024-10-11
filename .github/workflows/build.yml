@@ -39,7 +39,7 @@ jobs:
           cargo build --workspace --release
 
       - name: Run doctests
-        run: cargo test --workspace --doc
+        run: cargo test --workspace --release --doc
 
       - name: Run tests
         run: |
