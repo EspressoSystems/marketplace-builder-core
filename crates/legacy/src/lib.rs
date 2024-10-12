@@ -25,7 +25,7 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use hotshot_builder_api::v0_1::builder::BuildError;
 use hotshot_types::traits::node_implementation::NodeType;
 
-/// WaitAndKeep is a helper enum that allows for the lazy polling of a single
+/// `WaitAndKeep` is a helper enum that allows for the lazy polling of a single
 /// value from an unbound receiver.
 #[derive(Debug)]
 pub enum WaitAndKeep<T> {
@@ -50,9 +50,9 @@ impl From<WaitAndKeepGetError> for BuildError {
 
 impl<T: Clone> WaitAndKeep<T> {
     /// get will return a clone of the value that is already stored within the
-    /// value of WaitAndKeep::Keep if the value is already resolved.  Otherwise
+    /// value of `WaitAndKeep::Keep` if the value is already resolved.  Otherwise
     /// it will poll the next value from the channel and replace the locally
-    /// stored WaitAndKeep::Wait with the resolved value as a WaitAndKeep::Keep.
+    /// stored `WaitAndKeep::Wait` with the resolved value as a `WaitAndKeep::Keep`.
     ///
     /// Note: This pattern seems very similar to a Future, and ultimately
     /// returns a future. It's not clear why this needs to be implemented

@@ -75,8 +75,8 @@ pub struct BlockInfo<Types: NodeType> {
     pub truncated: bool,
 }
 
-/// [ReceivedTransaction] represents receipt information concerning a received
-/// [NodeType::Transaction].
+/// [`ReceivedTransaction`] represents receipt information concerning a received
+/// [`NodeType::Transaction`].
 #[derive(Debug)]
 pub struct ReceivedTransaction<Types: NodeType> {
     // the transaction
@@ -91,7 +91,7 @@ pub struct ReceivedTransaction<Types: NodeType> {
     pub time_in: Instant,
 }
 
-/// [GlobalState] represents the internalized state of the Builder service as
+/// [`GlobalState`] represents the internalized state of the Builder service as
 /// represented from its public facing API.
 #[allow(clippy::type_complexity)]
 #[derive(Debug)]
@@ -133,7 +133,7 @@ pub struct GlobalState<Types: NodeType> {
     pub max_block_size: u64,
 }
 
-/// GetChannelForMatchingBuilderError is an error enum that represents the
+/// `GetChannelForMatchingBuilderError` is an error enum that represents the
 /// class of possible errors that can be returned when calling
 /// `get_channel_for_matching_builder_or_highest_view_builder` on a
 /// `GlobalState`.  These errors are used for internal representations for
@@ -153,13 +153,13 @@ impl From<GetChannelForMatchingBuilderError> for BuildError {
 }
 
 impl<Types: NodeType> GlobalState<Types> {
-    /// [new] creates a new [GlobalState] with the given parameters.
-    /// The resulting [GlobalState] will have the given
+    /// Creates a new [`GlobalState`] with the given parameters.
+    /// The resulting [`GlobalState`] will have the given
     /// `last_garbage_collected_view_num` as passed.  Additionally, the
-    /// `highest_view_num_builder_id` will be set to a [BuilderStateId]
+    /// `highest_view_num_builder_id` will be set to a [`BuilderStateId`]
     /// comprised of the given `bootstrapped_builder_state_id` and
     /// `bootstrapped_view_num`.  The `spawned_builder_states` will be created
-    /// with a single entry of the same [BuilderStateId] and the given
+    /// with a single entry of the same [`BuilderStateId`] and the given
     /// `bootstrap_sender`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -187,17 +187,17 @@ impl<Types: NodeType> GlobalState<Types> {
         }
     }
 
-    /// [register_builder_state] associates the given [BuilderStateId] with
-    /// the given [BroadcastSender] in the [GlobalState].
+    /// Associates the given [`BuilderStateId`] with
+    /// the given [`BroadcastSender`] in the [`GlobalState`].
     ///
-    /// Additionally, if the view of the [BuilderStateId] is greater than the
-    /// current highest view number, the [BuilderStateId] is set as the new
+    /// Additionally, if the view of the [`BuilderStateId`] is greater than the
+    /// current highest view number, the [`BuilderStateId`] is set as the new
     /// highest view number.
     ///
     /// There is potential here for data loss.  Since we just blindly insert
-    /// the [BuilderStateId] and [BroadcastSender] into the hashmap, we could
+    /// the [`BuilderStateId`] and [`BroadcastSender`] into the hashmap, we could
     /// potentially be overwriting an existing entry.  This would result in
-    /// the loss of access to a [BroadcastSender], and could potentially
+    /// the loss of access to a [`BroadcastSender`], and could potentially
     /// result in unexpected behavior.
     pub fn register_builder_state(
         &mut self,
@@ -230,17 +230,17 @@ impl<Types: NodeType> GlobalState<Types> {
         }
     }
 
-    /// [update_global_state] Ensures that the given [BuildBlockInfo]'d id
-    /// is within the [GlobalState]'s [blocks] LRU Cache.  The cache stores the
-    /// [BlockInfo] associated with the given [BuildBlockInfo]'s id.  However
+    /// Ensures that the given [`BuildBlockInfo`]'d id
+    /// is within the [`GlobalState`]'s [`blocks`](GlobalState::blocks) LRU Cache.  The cache stores the
+    /// [`BlockInfo`] associated with the given [`BuildBlockInfo`]'s id.  However
     /// if it already exists within the LRU cache, then the `BlockInfo` is not
     /// updated.
     ///
-    /// Additionally, the [BuilderStateId] is associated with the given
-    /// [ResponseMessage] in the [builder_state_to_last_built_block] hashmap.
+    /// Additionally, the [`BuilderStateId`] is associated with the given
+    /// [`ResponseMessage`] in the [`Self::builder_state_to_last_built_block`] hashmap.
     ///
     /// No care or consideration is given to anything that may have been
-    /// stored with the same key in the [builder_state_to_last_built_block].
+    /// stored with the same key in the [`Self::builder_state_to_last_built_block`].
     pub fn update_global_state(
         &mut self,
         state_id: BuilderStateId<Types>,
@@ -284,7 +284,7 @@ impl<Types: NodeType> GlobalState<Types> {
         }
     }
 
-    /// [remove_handles] cleans up the [GlobalState] by removing all
+    /// Cleans up the [`GlobalState`] by removing all
     /// `spawned_builder_states` that have been stored, up to a derived
     /// reference view.  This cutoff point can be up to the given
     /// `on_decide_view` so long as the provided value is less than or equal
@@ -326,10 +326,9 @@ impl<Types: NodeType> GlobalState<Types> {
         .await
     }
 
-    /// [get_channel_for_matching_builder_or_highest_view_builder] is a helper
-    /// function that attempts to retrieve the broadcast sender for the given
-    /// [BuilderStateId]. If the sender does not exist, it will return the
-    /// broadcast sender for the for the hightest view number [BuilderStateId]
+    /// Helper function that attempts to retrieve the broadcast sender for the given
+    /// [`BuilderStateId`]. If the sender does not exist, it will return the
+    /// broadcast sender for the for the hightest view number [`BuilderStateId`]
     /// instead.
     pub(crate) fn get_channel_for_matching_builder_or_highest_view_builder(
         &self,
@@ -403,7 +402,7 @@ impl<Types: NodeType> ProxyGlobalState<Types> {
     }
 }
 
-/// AvailableBlocksError is an error enum that represents the class of possible
+/// `AvailableBlocksError` is an error enum that represents the class of possible
 /// errors  that can be returned when calling `available_blocks` on a
 /// `ProxyGlobalState`.  These errors are used for internal representations
 /// for consistency and testing, and do not leak beyond the `ProxyGlobalState`
@@ -453,7 +452,7 @@ impl<Types: NodeType> From<AvailableBlocksError<Types>> for BuildError {
     }
 }
 
-/// ClaimBlockError is an error enum that represents the class of possible
+/// `ClaimBlockError` is an error enum that represents the class of possible
 /// errors that can be returned when calling `claim_block` on a
 /// `ProxyGlobalState`.  These errors are used for internal representations
 /// for consistency and testing, and do not leak beyond the `ProxyGlobalState`
@@ -1089,19 +1088,19 @@ pub async fn run_non_permissioned_standalone_builder_service<
     }
 }
 
-/// [HandleDaEventError] represents the internal class of errors that can
+/// [`HandleDaEventError`] represents the internal class of errors that can
 /// occur when attempting to process an incoming da proposal event.  More
 /// specifically these are the class of error that can be returned from
-/// [handle_da_event_implementation].
+/// [`handle_da_event_implementation`].
 #[derive(Debug)]
 enum HandleDaEventError<Types: NodeType> {
     SignatureValidationFailed,
     BroadcastFailed(async_broadcast::SendError<MessageType<Types>>),
 }
 
-/// [handle_da_event] is a utility function that will attempt to broadcast the
+/// [`handle_da_event`] is a utility function that will attempt to broadcast the
 /// given `da_proposal` to the given `da_channel_sender` if the given details
-/// pass validation checks, and the [BroadcastSender] `da_channel_sender` is
+/// pass validation checks, and the [`BroadcastSender`] `da_channel_sender` is
 /// still open.
 async fn handle_da_event<Types: NodeType>(
     da_channel_sender: &BroadcastSender<MessageType<Types>>,
@@ -1115,19 +1114,18 @@ async fn handle_da_event<Types: NodeType>(
         handle_da_event_implementation(da_channel_sender, da_proposal, sender, total_nodes).await;
 }
 
-/// [handle_da_event_implementation] is a utility function that will attempt
-/// to broadcast the given da_proposal to the given [da_channel_sender] if the
+/// [`handle_da_event_implementation`] is a utility function that will attempt
+/// to broadcast the given `da_proposal` to the given `da_channel_sender` if the
 /// given details pass all relevant checks.
 ///
 /// There are only three conditions under which this will fail to send the
 /// message via the given `da_channel_sender`, and they are all represented
-/// via [HandleDaEventError]. They are as follows:
-/// - [HandleDaEventError::SignatureValidationFailed]: The signature validation
-///    failed
-/// - [HandleDaEventError::BroadcastFailed]: The broadcast failed as no receiver
+/// via [`HandleDaEventError`]. They are as follows:
+/// - [`HandleDaEventError::SignatureValidationFailed`]: The signature validation failed
+/// - [`HandleDaEventError::BroadcastFailed`]: The broadcast failed as no receiver
 ///    is in place to receive the message
 ///
-/// This function is the implementation for [handle_da_event].
+/// This function is the implementation for [`handle_da_event`].
 async fn handle_da_event_implementation<Types: NodeType>(
     da_channel_sender: &BroadcastSender<MessageType<Types>>,
     da_proposal: Arc<Proposal<Types, DaProposal<Types>>>,
@@ -1180,19 +1178,19 @@ async fn handle_da_event_implementation<Types: NodeType>(
     Ok(())
 }
 
-/// [HandleQuorumEventError] represents the internal class of errors that can
+/// [`HandleQuorumEventError`] represents the internal class of errors that can
 /// occur when attempting to process an incoming quorum proposal event.  More
 /// specifically these are the class of error that can be returned from
-/// [handle_quorum_event_implementation].
+/// [`handle_quorum_event_implementation`].
 #[derive(Debug)]
 enum HandleQuorumEventError<Types: NodeType> {
     SignatureValidationFailed,
     BroadcastFailed(async_broadcast::SendError<MessageType<Types>>),
 }
 
-/// [handle_quorum_event] is a utility function that will attempt to broadcast the
+/// [`handle_quorum_event`] is a utility function that will attempt to broadcast the
 /// given `quorum_proposal` to the given `quorum_channel_sender` if the given details
-/// pass validation checks, and the [BroadcastSender] `quorum_channel_sender` is
+/// pass validation checks, and the [`BroadcastSender`] `quorum_channel_sender` is
 /// still open.
 async fn handle_quorum_event<Types: NodeType>(
     quorum_channel_sender: &BroadcastSender<MessageType<Types>>,
@@ -1205,19 +1203,17 @@ async fn handle_quorum_event<Types: NodeType>(
         handle_quorum_event_implementation(quorum_channel_sender, quorum_proposal, sender).await;
 }
 
-/// [handle_quorum_event_implementation] is a utility function that will attempt
-/// to broadcast the given quorum_proposal to the given [quorum_channel_sender] if the
-/// given details pass all relevant checks.
+/// Utility function that will attempt to broadcast the given `quorum_proposal`
+/// to the given `quorum_channel_sender` if the given details pass all relevant checks.
 ///
 /// There are only three conditions under which this will fail to send the
 /// message via the given `quorum_channel_sender`, and they are all represented
-/// via [HandleQuorumEventError]. They are as follows:
-/// - [HandleQuorumEventError::SignatureValidationFailed]: The signature validation
-///   failed
-/// - [HandleQuorumEventError::BroadcastFailed]: The broadcast failed as no receiver
+/// via [`HandleQuorumEventError`]. They are as follows:
+/// - [`HandleQuorumEventError::SignatureValidationFailed`]: The signature validation failed
+/// - [`HandleQuorumEventError::BroadcastFailed`]: The broadcast failed as no receiver
 ///   is in place to receive the message
 ///
-/// This function is the implementation for [handle_quorum_event].
+/// This function is the implementation for [`handle_quorum_event`].
 async fn handle_quorum_event_implementation<Types: NodeType>(
     quorum_channel_sender: &BroadcastSender<MessageType<Types>>,
     quorum_proposal: Arc<Proposal<Types, QuorumProposal<Types>>>,
@@ -1328,14 +1324,14 @@ impl<Types: NodeType> From<TrySendError<Arc<ReceivedTransaction<Types>>>>
     }
 }
 
-/// [handle_received_txns] is a utility function that will take the given list
-/// of transactions, [txns], wraps them in a [ReceivedTransaction] struct
-/// and attempt to broadcast them to the given transaction [BroadcastSender]
-/// [tx_sender]. The broadcast itself it a non-blocking operation, and any
+/// Utility function that will take the given list
+/// of transactions, `txns`, wraps them in a [`ReceivedTransaction`] struct
+/// and attempt to broadcast them to the given transaction [`BroadcastSender`]
+/// `tx_sender`. The broadcast itself it a non-blocking operation, and any
 /// failures of the broadcast are collected into the returned vector
 /// of [Result]s.
 ///
-/// There is also a [max_txn_len] parameter that is used to check to ensure
+/// There is also a `max_txn_len` parameter that is used to check to ensure
 /// that transactions that exceed this threshold will also not be broadcasted.
 pub(crate) async fn handle_received_txns<Types: NodeType>(
     tx_sender: &BroadcastSender<Arc<ReceivedTransaction<Types>>>,
@@ -1348,8 +1344,8 @@ pub(crate) async fn handle_received_txns<Types: NodeType>(
         .collect()
 }
 
-/// HandleReceivedTxns is a struct that is used to handle the processing of
-/// the function [handle_received_txns].  In order to avoid the need to
+/// `HandleReceivedTxns` is a struct that is used to handle the processing of
+/// the function [`handle_received_txns`].  In order to avoid the need to
 /// double allocate a [Vec] from processing these entries, this struct exists
 /// to be processed as an [Iterator] instead.
 struct HandleReceivedTxns<Types: NodeType> {
