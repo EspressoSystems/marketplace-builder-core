@@ -1,14 +1,16 @@
 [workspace]
 resolver = "2"
-members = [
-  "crates/*"
-]
+members = ["crates/*"]
 
 [workspace.dependencies]
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77", features = ["dependency-tasks"] }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77", features = [
+    "dependency-tasks",
+] }
 hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77" }
 hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.49" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77", features = ["dependency-tasks"] }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77", features = [
+    "dependency-tasks",
+] }
 hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77" }
 hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77" }
 
@@ -49,3 +51,16 @@ edition = "2021"
 unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(async_executor_impl, values("async-std", "tokio"))',
 ] }
+
+[workspace.lints.clippy]
+doc_markdown = "deny"
+doc_link_with_quotes = "deny"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "deny"
+private_intra_doc_links = "deny"
+invalid_html_tags = "deny"
+invalid_codeblock_attributes = "deny"
+invalid_rust_codeblocks = "deny"
+bare_urls = "deny"
+unescaped_backticks = "deny"

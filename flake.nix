@@ -1,15 +1,3 @@
-# Copyright (c) 2024 Espresso Systems (espressosys.com)
-# This file is part of the HotShot Builder library.
-#
-# This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-# General Public License as published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
-# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-# even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-# You should have received a copy of the GNU General Public License along with this program. If not,
-# see <https://www.gnu.org/licenses/>.
-
 {
   description = "Generic builder core for HotShot applications";
 
@@ -40,17 +28,14 @@
             bash
 
             curl
-            docker
 
             cargo-audit
             cargo-edit
             cargo-udeps
             cargo-sort
-            cmake
+            cargo-nextest
 
-            # `postgresql` defaults to an older version (15), so we select the latest version (16)
-            # explicitly.
-            postgresql_16
+            cmake
           ] ++ lib.optionals stdenv.isDarwin [
             darwin.apple_sdk.frameworks.Security
             darwin.apple_sdk.frameworks.CoreFoundation
@@ -58,8 +43,6 @@
 
             # https://github.com/NixOS/nixpkgs/issues/126182
             libiconv
-          ] ++ lib.optionals (!stdenv.isDarwin) [
-            cargo-watch # broken: https://github.com/NixOS/nixpkgs/issues/146349
           ];
         # nixWithFlakes allows pre v2.4 nix installations to use
         # flake commands (like `nix flake update`)
@@ -100,6 +83,7 @@
         RUST_BACKTRACE = 1;
         RUST_LOG = "info";
         RUSTFLAGS=" --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
+        RUSTDOCFLAGS=" --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
       in {
       	checks = {
           pre-commit-check = pre-commit-hooks.lib.${system}.run {
@@ -120,7 +104,13 @@
               cargo-clippy = {
                 enable = true;
                 description = "Run clippy";
-                entry = "cargo clippy --workspace --all-features --all-targets -- -D clippy::dbg-macro";
+                entry = "cargo clippy --workspace --all-features --all-targets --tests -- -D clippy::dbg-macro";
+                pass_filenames = false;
+              };
+              cargo-docs = {
+                enable = true;
+                description = "Run rustdoc";
+                entry = "cargo doc --workspace --document-private-items --no-deps";
                 pass_filenames = false;
               };
             };
@@ -137,19 +127,17 @@
               nixpkgs-fmt
               git
               mdbook # make-doc, documentation generation
-              protobuf
               rustToolchain
             ] ++ rustDeps;
 
-          inherit RUST_SRC_PATH RUST_BACKTRACE RUST_LOG RUSTFLAGS;
+          inherit RUST_SRC_PATH RUST_BACKTRACE RUST_LOG RUSTFLAGS RUSTDOCFLAGS;
         };
         devShells = {
           perfShell = pkgs.mkShell {
             shellHook = shellHook;
-            buildInputs = with pkgs;
-              [ nixWithFlakes cargo-llvm-cov rustToolchain protobuf ] ++ rustDeps;
+            buildInputs = [ nixWithFlakes cargo-llvm-cov rustToolchain ] ++ rustDeps;
 
-            inherit RUST_SRC_PATH RUST_BACKTRACE RUST_LOG RUSTFLAGS;
+            inherit RUST_SRC_PATH RUST_BACKTRACE RUST_LOG RUSTFLAGS RUSTDOCFLAGS;
           };
         };
       });
