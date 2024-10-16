@@ -61,8 +61,8 @@ use std::{fmt::Display, time::Instant};
 use tagged_base64::TaggedBase64;
 use tide_disco::{method::ReadState, Url};
 
-// Start assuming we're fine calculatig VID for 100 kilobyte blocks
-const INITIAL_MAX_BLOCK_SIZE: u64 = 100_000;
+// Start assuming we're fine calculating VID for 5 megabyte blocks
+const INITIAL_MAX_BLOCK_SIZE: u64 = 5_000_000;
 // Never go lower than 10 kilobytes
 const MAX_BLOCK_SIZE_FLOOR: u64 = 10_000;
 // When adjusting max block size, we it will be decremented or incremented
