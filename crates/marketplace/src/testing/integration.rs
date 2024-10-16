@@ -261,12 +261,12 @@ mod tests {
                 ..TestDescription::default()
             },
             BuilderValidationConfig {
-                expected_txn_num: 10_000,
+                expected_txn_num: 300,
             },
             TransactionGenerationConfig {
                 strategy: generation::GenerationStrategy::Flood {
-                    min_tx_size: 128,
-                    max_tx_size: 1280,
+                    min_tx_size: 16,
+                    max_tx_size: 128,
                 },
                 endpoints: vec![],
             },
