@@ -3,16 +3,14 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77", features = [
-    "dependency-tasks",
-] }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77" }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/test-tasks" }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/test-tasks" }
 hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.49" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77", features = [
-    "dependency-tasks",
-] }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77" }
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.77" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/test-tasks" }
+hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/test-tasks" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/test-tasks" }
+hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/test-tasks" }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "ag/test-tasks" }
 
 anyhow = "1"
 async-broadcast = "0.7"
@@ -22,6 +20,7 @@ async-std = "1.9.0"
 async-trait = "0.1"
 bincode = "1.3"
 clap = "4.5"
+chrono = { version = "0.4", features = ["serde"] }
 committable = "0.2"
 derivative = "2.2"
 either = "1.13"
@@ -29,6 +28,7 @@ futures = "0.3"
 hex = "0.4.3"
 lru = "0.12.5"
 multimap = "0.10.0"
+rand = "0.8"
 serde = "1.0"
 serde_json = "1.0"
 sha2 = "0.10"
@@ -41,6 +41,7 @@ toml = "0.8"
 tracing = "0.1"
 url = "2.3"
 vbs = "0.1"
+vec1 = "1.12"
 rkyv = "0.7"
 
 [workspace.package]

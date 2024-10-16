@@ -251,9 +251,7 @@ impl<TYPES: NodeType> GlobalState<TYPES> {
             self.spawned_builder_states
                 .get(&self.highest_view_num_builder_id)
                 .map(|(_, sender)| sender)
-                .ok_or_else(|| BuildError::Error {
-                    message: "No builder state found".to_string(),
-                })
+                .ok_or_else(|| BuildError::Error("No builder state found".to_string()))
         }
     }
 
@@ -403,10 +401,9 @@ where
                         highest_observed_view = ?highest_observed_view,
                         "Requested a bundle for view we already GCd as decided",
                     );
-                    return Err(BuildError::Error {
-                        message: "Request for a bundle for a view that has already been decided."
-                            .to_owned(),
-                    });
+                    return Err(BuildError::Error(
+                        "Request for a bundle for a view that has already been decided.".to_owned(),
+                    ));
                 } else {
                     // If we couldn't find the state because it hasn't yet been created, try again
                     async_compatibility_layer::art::async_sleep(self.api_timeout / 10).await;
@@ -429,9 +426,7 @@ where
                 .map_err(|err| {
                     tracing::warn!(%err, "Error requesting bundle");
 
-                    BuildError::Error {
-                        message: "Error requesting bundle".to_owned(),
-                    }
+                    BuildError::Error("Error requesting bundle".to_owned())
                 })?;
 
             let response = async_compatibility_layer::art::async_timeout(
@@ -447,9 +442,7 @@ where
             .map_err(|err| {
                 tracing::warn!(%err, "Channel closed while waiting for bundle");
 
-                BuildError::Error {
-                    message: "Channel closed while waiting for bundle".to_owned(),
-                }
+                BuildError::Error("Channel closed while waiting for bundle".to_owned())
             })?;
 
             let fee_signature =
@@ -457,9 +450,7 @@ where
                     &self.builder_keys.1,
                     response.offered_fee,
                 )
-                .map_err(|e| BuildError::Error {
-                    message: e.to_string(),
-                })?;
+                .map_err(|e| BuildError::Error(e.to_string()))?;
 
             let sequencing_fee: BuilderFee<TYPES> = BuilderFee {
                 fee_amount: response.offered_fee,
@@ -478,9 +469,7 @@ where
                     &self.builder_keys.1,
                     &commitments,
                 )
-                .map_err(|e| BuildError::Error {
-                    message: e.to_string(),
-                })?;
+                .map_err(|e| BuildError::Error(e.to_string()))?;
 
             let bundle = Bundle {
                 sequencing_fee,
@@ -845,12 +834,10 @@ pub(crate) async fn handle_received_txns<TYPES: NodeType>(
                 tracing::warn!("Failed to broadcast txn with commit {:?}: {}", commit, err);
             })
             .map_err(|err| match err {
-                TrySendError::Full(_) => BuildError::Error {
-                    message: "Too many transactions".to_owned(),
-                },
-                e => BuildError::Error {
-                    message: format!("Internal error when submitting transaction: {}", e),
-                },
+                TrySendError::Full(_) => BuildError::Error("Too many transactions".to_owned()),
+                e => {
+                    BuildError::Error(format!("Internal error when submitting transaction: {}", e))
+                }
             });
         results.push(res);
     }

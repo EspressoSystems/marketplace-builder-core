@@ -84,6 +84,7 @@
         RUST_LOG = "info";
         RUSTFLAGS=" --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
         RUSTDOCFLAGS=" --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
+        RUST_MIN_STACK = 64000000;
       in {
       	checks = {
           pre-commit-check = pre-commit-hooks.lib.${system}.run {
@@ -130,14 +131,14 @@
               rustToolchain
             ] ++ rustDeps;
 
-          inherit RUST_SRC_PATH RUST_BACKTRACE RUST_LOG RUSTFLAGS RUSTDOCFLAGS;
+          inherit RUST_SRC_PATH RUST_BACKTRACE RUST_LOG RUSTFLAGS RUSTDOCFLAGS RUST_MIN_STACK;
         };
         devShells = {
           perfShell = pkgs.mkShell {
             shellHook = shellHook;
             buildInputs = [ nixWithFlakes cargo-llvm-cov rustToolchain ] ++ rustDeps;
 
-            inherit RUST_SRC_PATH RUST_BACKTRACE RUST_LOG RUSTFLAGS RUSTDOCFLAGS;
+            inherit RUST_SRC_PATH RUST_BACKTRACE RUST_LOG RUSTFLAGS RUSTDOCFLAGS RUST_MIN_STACK;
           };
         };
       });
