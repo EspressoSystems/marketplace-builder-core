@@ -3078,6 +3078,7 @@ dependencies = [
  "hotshot-example-types",
  "hotshot-types",
  "lru 0.12.5",
+ "marketplace-builder-shared",
  "serde",
  "sha2 0.10.8",
  "snafu",
@@ -4633,6 +4634,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "lru 0.12.5",
+ "marketplace-builder-shared",
  "multimap",
  "rkyv",
  "serde",
@@ -4644,6 +4646,28 @@ dependencies = [
  "tide-disco",
  "tokio",
  "toml",
+ "tracing",
+ "url",
+ "vbs",
+]
+
+[[package]]
+name = "marketplace-builder-shared"
+version = "0.1.51"
+dependencies = [
+ "anyhow",
+ "async-broadcast",
+ "async-trait",
+ "committable",
+ "either",
+ "futures",
+ "hex",
+ "hotshot",
+ "hotshot-builder-api",
+ "hotshot-events-service",
+ "hotshot-task-impls",
+ "hotshot-types",
+ "surf-disco",
  "tracing",
  "url",
  "vbs",

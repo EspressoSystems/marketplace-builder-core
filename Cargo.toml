@@ -50,6 +50,7 @@ edition = "2021"
 [workspace.lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(async_executor_impl, values("async-std", "tokio"))',
+    'cfg(async_channel_impl, values("async-std", "tokio"))',
 ] }
 
 [workspace.lints.clippy]
