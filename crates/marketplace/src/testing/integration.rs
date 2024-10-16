@@ -206,6 +206,9 @@ mod tests {
     #[tracing::instrument]
     #[ignore = "slow"]
     async fn example_test() {
+        let num_successful_views = 45;
+        let min_txns_per_view = 5;
+
         run_test::<MarketplaceTestVersions, MarketplaceBuilderImpl>(
             TestDescription {
                 completion_task_description:
@@ -215,19 +218,53 @@ mod tests {
                         },
                     ),
                 overall_safety_properties: OverallSafetyPropertiesDescription {
-                    num_successful_views: 45,
+                    num_successful_views,
                     num_failed_views: 5,
                     ..Default::default()
                 },
                 ..TestDescription::default()
             },
             BuilderValidationConfig {
-                expected_txn_num: 10,
+                expected_txn_num: num_successful_views * min_txns_per_view,
             },
             TransactionGenerationConfig {
                 strategy: generation::GenerationStrategy::Random {
-                    min_per_view: 5,
+                    min_per_view: min_txns_per_view,
                     max_per_view: 10,
+                    min_tx_size: 128,
+                    max_tx_size: 1280,
+                },
+                endpoints: vec![],
+            },
+        )
+        .await
+    }
+
+    #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
+    #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+    #[tracing::instrument]
+    #[ignore = "slow"]
+    async fn stress_test() {
+        run_test::<MarketplaceTestVersions, MarketplaceBuilderImpl>(
+            TestDescription {
+                completion_task_description:
+                    CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                        TimeBasedCompletionTaskDescription {
+                            duration: Duration::from_secs(60),
+                        },
+                    ),
+                overall_safety_properties: OverallSafetyPropertiesDescription {
+                    num_successful_views: 50,
+                    num_failed_views: 5,
+                    ..Default::default()
+                },
+                ..TestDescription::default()
+            },
+            BuilderValidationConfig {
+                expected_txn_num: 10_000,
+            },
+            TransactionGenerationConfig {
+                strategy: generation::GenerationStrategy::Flood {
                     min_tx_size: 128,
                     max_tx_size: 1280,
                 },
@@ -254,7 +291,7 @@ mod tests {
                             },
                 ),
                 overall_safety_properties: OverallSafetyPropertiesDescription {
-                    num_successful_views: 45,
+                    num_successful_views: 50,
                     num_failed_views: 5,
                     ..Default::default()
                 },
