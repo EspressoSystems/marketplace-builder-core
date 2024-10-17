@@ -1,4 +1,4 @@
-name: Code Coverage Workflow
+name: Coverage
 
 on:
   push:
@@ -9,11 +9,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  code-coverage:
+  coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install Nix
