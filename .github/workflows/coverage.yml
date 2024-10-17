@@ -27,6 +27,8 @@ jobs:
           skipPush: ${{ github.actor == 'dependabot[bot]' }}
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
 
       - name: Generate coverage reports
         run: |
@@ -38,4 +40,4 @@ jobs:
 
       - uses: coverallsapp/github-action@master
         with:
-          files: lcov.info
+          path-to-lcov: lcov.info
