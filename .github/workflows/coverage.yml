@@ -5,8 +5,7 @@ on:
     branches:
       - main
       - release-*
-  schedule:
-    - cron: "0 1 * * 1"
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -14,11 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Configure Git
-        run: |
-          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
-          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -43,16 +37,12 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git
             target
-          key: hotshot-query-service-codecov-v1-${{ hashFiles('Cargo.lock') }}
+          key: hs-builder-core-codecov-v1-${{ hashFiles('Cargo.lock') }}
 
       - name: Generate coverage reports
         run: |
           git config --global --add safe.directory "$PWD"
-          nix run "github:NixOS/nix?ref=1849e6a1f64734c488c2b1469249d65ce08cef93" -- develop .#perfShell -c cargo llvm-cov --profile=release --all-features --all-targets --lcov --output-path lcov.info -- --test-threads 1
+          nix develop .#perfShell -c cargo llvm-cov --profile=release --all-features --all-targets --lcov --output-path lcov.info -- --test-threads 1
 
       - name: Coveralls upload
         uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: lcov.info
-          fail_ci_if_error: true

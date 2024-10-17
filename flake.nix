@@ -13,15 +13,30 @@
   inputs.pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
   inputs.pre-commit-hooks.inputs.nixpkgs.follows = "nixpkgs";
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay, pre-commit-hooks, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      rust-overlay,
+      pre-commit-hooks,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
         rustToolchain = pkgs.rust-bin.stable.latest.minimal.override {
-          extensions = [ "rustfmt" "clippy" "llvm-tools-preview" "rust-src" ];
+          extensions = [
+            "rustfmt"
+            "clippy"
+            "llvm-tools-preview"
+            "rust-src"
+          ];
         };
-        rustDeps = with pkgs;
+        rustDeps =
+          with pkgs;
           [
             pkg-config
             openssl
@@ -36,7 +51,8 @@
             cargo-nextest
 
             cmake
-          ] ++ lib.optionals stdenv.isDarwin [
+          ]
+          ++ lib.optionals stdenv.isDarwin [
             darwin.apple_sdk.frameworks.Security
             darwin.apple_sdk.frameworks.CoreFoundation
             darwin.apple_sdk.frameworks.SystemConfiguration
@@ -49,30 +65,8 @@
         nixWithFlakes = pkgs.writeShellScriptBin "nix" ''
           exec ${pkgs.nixFlakes}/bin/nix --experimental-features "nix-command flakes" "$@"
         '';
-        cargo-llvm-cov = pkgs.rustPlatform.buildRustPackage rec {
-          pname = "cargo-llvm-cov";
-          version = "0.5.0";
 
-          doCheck = false;
-
-          buildInputs = [ pkgs.libllvm ];
-
-          src = builtins.fetchTarball {
-            url =
-              "https://crates.io/api/v1/crates/${pname}/${version}/download";
-            sha256 =
-              "sha256:1a0grmpcjnqrz5c9jjbk07705py4573pmq0jcgr9m7l5xf4g1yc9";
-          };
-
-          cargoSha256 = "sha256-11xNgiOw0qysTWpoKAXQ5gx1uJSAsp+aDDir0zpkpeQ=";
-          meta = with pkgs.lib; {
-            description = "Cargo llvm cov generates code coverage via llvm.";
-            homepage = "https://github.com/taiki-e/cargo-llvm-cov";
-
-            license = with licenses; [ mit asl20 ];
-          };
-        };
-        shellHook  = ''
+        shellHook = ''
           # Prevent cargo aliases from using programs in `~/.cargo` to avoid conflicts with rustup
           # installations.
           export CARGO_HOME=$HOME/.cargo-nix
@@ -82,13 +76,17 @@
         RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
         RUST_BACKTRACE = 1;
         RUST_LOG = "info";
-        RUSTFLAGS=" --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
-        RUSTDOCFLAGS=" --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
-      in {
-      	checks = {
+        RUSTFLAGS = " --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
+        RUSTDOCFLAGS = " --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
+      in
+      {
+        formatter = pkgs.nixfmt-rfc-style;
+
+        checks = {
           pre-commit-check = pre-commit-hooks.lib.${system}.run {
             src = ./.;
             hooks = {
+              nixfmt-rfc-style.enable = true;
               cargo-fmt = {
                 enable = true;
                 description = "Enforce rustfmt";
@@ -116,29 +114,58 @@
             };
           };
         };
-        devShell = pkgs.mkShell {
-          shellHook = shellHook
-          	# install pre-commit hooks
-            + self.checks.${system}.pre-commit-check.shellHook;
-          buildInputs = with pkgs;
-            [
-              rust-bin.nightly.latest.rust-analyzer
+
+        devShells = {
+          default = pkgs.mkShell {
+            shellHook =
+              shellHook
+              # install pre-commit hooks
+              + self.checks.${system}.pre-commit-check.shellHook;
+            buildInputs =
+              with pkgs;
+              [
+                rust-bin.nightly.latest.rust-analyzer
+                nixWithFlakes
+                nixpkgs-fmt
+                git
+                mdbook # make-doc, documentation generation
+                rustToolchain
+              ]
+              ++ rustDeps;
+
+            inherit
+              RUST_SRC_PATH
+              RUST_BACKTRACE
+              RUST_LOG
+              RUSTFLAGS
+              RUSTDOCFLAGS
+              ;
+          };
+          perfShell = pkgs.mkShell {
+            inherit shellHook;
+            buildInputs = [
               nixWithFlakes
-              nixpkgs-fmt
-              git
-              mdbook # make-doc, documentation generation
+              (pkgs.cargo-llvm-cov.overrideAttrs (_: {
+                # The package is marked as broken on Darwin because nixpkgs'
+                # rustc comes without profiling on Darwin, but rustc fro
+                # our toolchain does have profiling enabled, so we can just
+                # set it as non-broken and disable tests, which would be run
+                # with nixpkgs' rustc
+                meta.broken = false;
+                doCheck = false;
+              }))
               rustToolchain
             ] ++ rustDeps;
 
-          inherit RUST_SRC_PATH RUST_BACKTRACE RUST_LOG RUSTFLAGS RUSTDOCFLAGS;
-        };
-        devShells = {
-          perfShell = pkgs.mkShell {
-            shellHook = shellHook;
-            buildInputs = [ nixWithFlakes cargo-llvm-cov rustToolchain ] ++ rustDeps;
-
-            inherit RUST_SRC_PATH RUST_BACKTRACE RUST_LOG RUSTFLAGS RUSTDOCFLAGS;
+            inherit
+              RUST_SRC_PATH
+              RUST_BACKTRACE
+              RUST_LOG
+              RUSTFLAGS
+              RUSTDOCFLAGS
+              ;
           };
         };
-      });
+      }
+    );
 }
