@@ -8,6 +8,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,25 +19,18 @@ jobs:
       RUSTFLAGS: '--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std"'
       RUST_LOG: info
     steps:
-      - uses: styfle/cancel-workflow-action@0.12.0
-        name: Cancel Outdated Builds
-        with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-
       - uses: actions/checkout@v4
-        name: Checkout Repository
 
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: taiki-e/install-action@nextest
 
       - uses: Swatinem/rust-cache@v2
-        name: Enable Rust Caching
+        with:
+          cache-on-failure: true
 
       - name: Build
-        run: |
-          cargo build --workspace --release
+        run: cargo build --workspace --release
 
       - name: Run doctests
         run: cargo test --workspace --release --doc
