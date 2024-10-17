@@ -34,6 +34,6 @@ jobs:
           nix develop .#perfShell -c \
             cargo llvm-cov --profile=release --all-features --all-targets \
                            --lcov --output-path lcov.info --no-cfg-coverage \
-                           -- --test-threads 1
+                           -- --test-threads 2
 
       - uses: coverallsapp/github-action@master
