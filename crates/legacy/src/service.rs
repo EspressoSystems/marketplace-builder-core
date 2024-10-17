@@ -146,9 +146,7 @@ pub(crate) enum GetChannelForMatchingBuilderError {
 
 impl From<GetChannelForMatchingBuilderError> for BuildError {
     fn from(_error: GetChannelForMatchingBuilderError) -> Self {
-        BuildError::Error {
-            message: "No builder state found".to_string(),
-        }
+        BuildError::Error("No builder state found".to_string())
     }
 }
 
@@ -428,26 +426,25 @@ impl<Types: NodeType> From<GetChannelForMatchingBuilderError> for AvailableBlock
 impl<Types: NodeType> From<AvailableBlocksError<Types>> for BuildError {
     fn from(error: AvailableBlocksError<Types>) -> Self {
         match error {
-            AvailableBlocksError::SignatureValidationFailed => BuildError::Error {
-                message: "Signature validation failed in get_available_blocks".to_string(),
-            },
-            AvailableBlocksError::RequestForAvailableViewThatHasAlreadyBeenDecided => {
-                BuildError::Error {
-                    message:
-                        "Request for available blocks for a view that has already been decided."
-                            .to_string(),
-                }
+            AvailableBlocksError::SignatureValidationFailed => {
+                BuildError::Error("Signature validation failed in get_available_blocks".to_string())
             }
-            AvailableBlocksError::SigningBlockFailed(e) => BuildError::Error {
-                message: format!("Signing over block info failed: {:?}", e),
-            },
+            AvailableBlocksError::RequestForAvailableViewThatHasAlreadyBeenDecided => {
+                BuildError::Error(
+                    "Request for available blocks for a view that has already been decided."
+                        .to_string(),
+                )
+            }
+            AvailableBlocksError::SigningBlockFailed(e) => {
+                BuildError::Error(format!("Signing over block info failed: {:?}", e))
+            }
             AvailableBlocksError::GetChannelForMatchingBuilderError(e) => e.into(),
-            AvailableBlocksError::NoBlocksAvailable => BuildError::Error {
-                message: "No blocks available".to_string(),
-            },
-            AvailableBlocksError::ChannelUnexpectedlyClosed => BuildError::Error {
-                message: "Channel unexpectedly closed".to_string(),
-            },
+            AvailableBlocksError::NoBlocksAvailable => {
+                BuildError::Error("No blocks available".to_string())
+            }
+            AvailableBlocksError::ChannelUnexpectedlyClosed => {
+                BuildError::Error("Channel unexpectedly closed".to_string())
+            }
         }
     }
 }
@@ -469,15 +466,15 @@ enum ClaimBlockError<Types: NodeType> {
 impl<Types: NodeType> From<ClaimBlockError<Types>> for BuildError {
     fn from(error: ClaimBlockError<Types>) -> Self {
         match error {
-            ClaimBlockError::SignatureValidationFailed => BuildError::Error {
-                message: "Signature validation failed in claim block".to_string(),
-            },
-            ClaimBlockError::SigningCommitmentFailed(e) => BuildError::Error {
-                message: format!("Signing over builder commitment failed: {:?}", e),
-            },
-            ClaimBlockError::BlockDataNotFound => BuildError::Error {
-                message: "Block data not found".to_string(),
-            },
+            ClaimBlockError::SignatureValidationFailed => {
+                BuildError::Error("Signature validation failed in claim block".to_string())
+            }
+            ClaimBlockError::SigningCommitmentFailed(e) => {
+                BuildError::Error(format!("Signing over builder commitment failed: {:?}", e))
+            }
+            ClaimBlockError::BlockDataNotFound => {
+                BuildError::Error("Block data not found".to_string())
+            }
         }
     }
 }
@@ -499,22 +496,22 @@ enum ClaimBlockHeaderInputError<Types: NodeType> {
 impl<Types: NodeType> From<ClaimBlockHeaderInputError<Types>> for BuildError {
     fn from(error: ClaimBlockHeaderInputError<Types>) -> Self {
         match error {
-            ClaimBlockHeaderInputError::SignatureValidationFailed => BuildError::Error {
-                message: "Signature validation failed in claim block header input".to_string(),
-            },
-            ClaimBlockHeaderInputError::BlockHeaderNotFound => BuildError::Error {
-                message: "Block header not found".to_string(),
-            },
-            ClaimBlockHeaderInputError::CouldNotGetVidInTime => BuildError::Error {
-                message: "Couldn't get vid in time".to_string(),
-            },
+            ClaimBlockHeaderInputError::SignatureValidationFailed => BuildError::Error(
+                "Signature validation failed in claim block header input".to_string(),
+            ),
+            ClaimBlockHeaderInputError::BlockHeaderNotFound => {
+                BuildError::Error("Block header not found".to_string())
+            }
+            ClaimBlockHeaderInputError::CouldNotGetVidInTime => {
+                BuildError::Error("Couldn't get vid in time".to_string())
+            }
             ClaimBlockHeaderInputError::WaitAndKeepGetError(e) => e.into(),
-            ClaimBlockHeaderInputError::FailedToSignVidCommitment(e) => BuildError::Error {
-                message: format!("Failed to sign VID commitment: {:?}", e),
-            },
-            ClaimBlockHeaderInputError::FailedToSignFeeInfo(e) => BuildError::Error {
-                message: format!("Failed to sign fee info: {:?}", e),
-            },
+            ClaimBlockHeaderInputError::FailedToSignVidCommitment(e) => {
+                BuildError::Error(format!("Failed to sign VID commitment: {:?}", e))
+            }
+            ClaimBlockHeaderInputError::FailedToSignFeeInfo(e) => {
+                BuildError::Error(format!("Failed to sign fee info: {:?}", e))
+            }
         }
     }
 }
@@ -1300,15 +1297,9 @@ impl<Types: NodeType> From<HandleReceivedTxnsError<Types>> for BuildError {
             HandleReceivedTxnsError::TransactionTooBig {
                 estimated_length,
                 max_txn_len,
-            } => BuildError::Error {
-                message: format!("Transaction too big (estimated length {estimated_length}, currently accepting <= {max_txn_len})"),
-            },
-            HandleReceivedTxnsError::TooManyTransactions => BuildError::Error {
-                message: "Too many transactions".to_owned(),
-            },
-            HandleReceivedTxnsError::Internal(err) => BuildError::Error {
-                message: format!("Internal error when submitting transaction: {}", err),
-            },
+            } => BuildError::Error(format!("Transaction too big (estimated length {estimated_length}, currently accepting <= {max_txn_len})")),
+            HandleReceivedTxnsError::TooManyTransactions => BuildError::Error("Too many transactions".to_owned()),
+            HandleReceivedTxnsError::Internal(err) => BuildError::Error(format!("Internal error when submitting transaction: {}", err)),
         }
     }
 }
