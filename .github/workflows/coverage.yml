@@ -37,3 +37,5 @@ jobs:
                            -- --test-threads 2
 
       - uses: coverallsapp/github-action@master
+        with:
+          files: lcov.info
