@@ -77,6 +77,13 @@
             darwin.apple_sdk.frameworks.SystemConfiguration
           ];
 
+        shellHook = ''
+          # Prevent cargo aliases from using programs in `~/.cargo` to avoid conflicts with rustup
+          # installations.
+          export CARGO_HOME=$HOME/.cargo-nix
+          export PATH="$PWD/$CARGO_TARGET_DIR/release:$PATH"
+        '';
+
         RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
         RUST_BACKTRACE = 1;
         RUST_LOG = "info";
@@ -121,7 +128,10 @@
 
         devShells = {
           default = pkgs.mkShell {
-            shellHook = self.checks.${system}.pre-commit-check.shellHook;
+            shellHook =
+              shellHook
+              # install pre-commit hooks
+              + self.checks.${system}.pre-commit-check.shellHook;
             buildInputs =
               with pkgs;
               [
@@ -142,6 +152,7 @@
               ;
           };
           perfShell = pkgs.mkShell {
+            inherit shellHook;
             buildInputs = [
               rustToolchain
               cargo-llvm-cov
