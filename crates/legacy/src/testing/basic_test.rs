@@ -91,6 +91,7 @@ mod tests {
         let num_test_messages = 5;
         let multiplication_factor = 5;
         const TEST_NUM_NODES_IN_VID_COMPUTATION: usize = 4;
+        const TEST_PROTOCOL_MAX_BLOCK_SIZE: u64 = 1_000_000;
 
         // settingup the broadcast channels i.e [From hostshot: (tx, decide, da, quorum, )], [From api:(req - broadcast, res - mpsc channel) ]
         let (decide_sender, decide_receiver) =
@@ -118,6 +119,7 @@ mod tests {
             ViewNumber::new(0),
             ViewNumber::new(0),
             10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         )));
 
         let bootstrap_builder_state = BuilderState::new(

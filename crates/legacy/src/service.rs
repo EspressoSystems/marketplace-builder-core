@@ -51,8 +51,6 @@ use std::{fmt::Display, time::Instant};
 use tagged_base64::TaggedBase64;
 use tide_disco::method::ReadState;
 
-// Start assuming we're fine calculatig VID for 5 megabyte blocks
-const INITIAL_MAX_BLOCK_SIZE: u64 = 5_000_000;
 // Never go lower than 10 kilobytes
 const MAX_BLOCK_SIZE_FLOOR: u64 = 10_000;
 // When adjusting max block size, we it will be decremented or incremented
@@ -129,6 +127,9 @@ pub struct GlobalState<Types: NodeType> {
     // highest view running builder task
     pub highest_view_num_builder_id: BuilderStateId<Types>,
 
+    // maximum block size allowed by the protocol
+    pub protocol_max_block_size: u64,
+
     // estimated maximum block size we can build in time
     pub max_block_size: u64,
 }
@@ -169,6 +170,7 @@ impl<Types: NodeType> GlobalState<Types> {
         bootstrapped_view_num: Types::Time,
         last_garbage_collected_view_num: Types::Time,
         _buffer_view_num_count: u64,
+        protocol_max_block_size: u64,
     ) -> Self {
         let mut spawned_builder_states = HashMap::new();
         let bootstrap_id = BuilderStateId {
@@ -183,7 +185,8 @@ impl<Types: NodeType> GlobalState<Types> {
             last_garbage_collected_view_num,
             builder_state_to_last_built_block: Default::default(),
             highest_view_num_builder_id: bootstrap_id,
-            max_block_size: INITIAL_MAX_BLOCK_SIZE,
+            protocol_max_block_size,
+            max_block_size: protocol_max_block_size,
         }
     }
 
@@ -1483,7 +1486,7 @@ mod test {
             BuildBlockInfo, MessageType, RequestMessage, ResponseMessage, TransactionSource,
             TriggerStatus,
         },
-        service::{HandleReceivedTxnsError, INITIAL_MAX_BLOCK_SIZE},
+        service::HandleReceivedTxnsError,
         LegacyCommit,
     };
 
@@ -1492,6 +1495,8 @@ mod test {
         BlockInfo, ClaimBlockError, ClaimBlockHeaderInputError, GlobalState, HandleDaEventError,
         HandleQuorumEventError, HandleReceivedTxns, ProxyGlobalState,
     };
+
+    const TEST_PROTOCOL_MAX_BLOCK_SIZE: u64 = 1_000_000;
 
     // GlobalState Tests
 
@@ -1511,6 +1516,7 @@ mod test {
             ViewNumber::new(1),
             ViewNumber::new(2),
             10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         assert_eq!(state.blocks.len(), 0, "The blocks LRU should be empty");
@@ -1552,8 +1558,13 @@ mod test {
         );
 
         assert_eq!(
-            state.max_block_size, INITIAL_MAX_BLOCK_SIZE,
-            "The max block size should be the expected default value"
+            state.protocol_max_block_size, TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            "The protocol max block size should be the one passed into new"
+        );
+
+        assert_eq!(
+            state.max_block_size, state.protocol_max_block_size,
+            "The max block size should be initialized to protocol max block size"
         );
     }
 
@@ -1576,6 +1587,7 @@ mod test {
             ViewNumber::new(0),
             ViewNumber::new(0),
             10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         {
@@ -1663,6 +1675,7 @@ mod test {
             ViewNumber::new(0),
             ViewNumber::new(0),
             10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         let mut req_receiver_1 = {
@@ -1777,6 +1790,7 @@ mod test {
             ViewNumber::new(0),
             ViewNumber::new(0),
             10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         {
@@ -1870,6 +1884,7 @@ mod test {
             ViewNumber::new(0),
             ViewNumber::new(0),
             10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         let new_parent_commit = vid_commitment(&[], 9);
@@ -2069,6 +2084,7 @@ mod test {
             ViewNumber::new(0),
             ViewNumber::new(0),
             10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         let new_parent_commit = vid_commitment(&[], 9);
@@ -2341,6 +2357,7 @@ mod test {
             ViewNumber::new(0),
             ViewNumber::new(0),
             10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         // We register a few builder states.
@@ -2433,6 +2450,7 @@ mod test {
             ViewNumber::new(0),
             ViewNumber::new(0),
             10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         // We register a few builder states.
@@ -2510,6 +2528,7 @@ mod test {
             ViewNumber::new(0),
             ViewNumber::new(0),
             10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         // We register a few builder states.
@@ -2607,6 +2626,7 @@ mod test {
             ViewNumber::new(0),
             ViewNumber::new(0),
             10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         // We register a few builder states.
@@ -2718,6 +2738,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key),
             Duration::from_millis(100),
@@ -2776,6 +2797,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_millis(100),
@@ -2834,6 +2856,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(2),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key),
             Duration::from_millis(100),
@@ -2893,6 +2916,7 @@ mod test {
                 ViewNumber::new(4),
                 ViewNumber::new(4),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -2961,6 +2985,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3097,6 +3122,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3240,6 +3266,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3293,6 +3320,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3339,6 +3367,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3440,6 +3469,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3494,6 +3524,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3550,6 +3581,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3646,6 +3678,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3736,6 +3769,7 @@ mod test {
                 ViewNumber::new(0),
                 ViewNumber::new(0),
                 10,
+                TEST_PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),

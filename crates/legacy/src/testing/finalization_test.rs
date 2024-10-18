@@ -58,6 +58,10 @@ const TEST_NUM_CONSENSUS_RETRIES: usize = 4;
 /// capacity isn't specifically bounded, so it is set to an arbitrary value.
 const TEST_CHANNEL_BUFFER_SIZE: usize = 32;
 
+/// [`TEST_PROTOCOL_MAX_BLOCK_SIZE`] controls the maximum block size
+/// of this protocol instance. This is an arbitrary default value.
+const TEST_PROTOCOL_MAX_BLOCK_SIZE: u64 = 1_000_000;
+
 /// [`setup_builder_for_test`] sets up a test environment for the builder state.
 /// It returns a tuple containing the proxy global state, the sender for decide
 /// messages, the sender for data availability proposals,
@@ -76,7 +80,8 @@ fn setup_builder_for_test() -> TestSetup {
         bootstrap_builder_state_id.parent_commitment,
         bootstrap_builder_state_id.parent_view,
         bootstrap_builder_state_id.parent_view,
-        0,
+        10,
+        TEST_PROTOCOL_MAX_BLOCK_SIZE,
     )));
 
     let max_api_duration = Duration::from_millis(100);
