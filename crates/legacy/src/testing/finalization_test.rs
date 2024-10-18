@@ -31,13 +31,13 @@ use hotshot_types::{
     utils::BuilderCommitment,
 };
 use marketplace_builder_shared::testing::constants::{
-    CHANNEL_BUFFER_SIZE, NUM_CONSENSUS_RETRIES, NUM_NODES_IN_VID_COMPUTATION,
+    TEST_CHANNEL_BUFFER_SIZE, TEST_NUM_CONSENSUS_RETRIES, TEST_NUM_NODES_IN_VID_COMPUTATION,
 };
 use marketplace_builder_shared::{
-    block::BuilderStateId, testing::constants::MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+    block::BuilderStateId, testing::constants::TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
 };
 use marketplace_builder_shared::{
-    block::ParentBlockReferences, testing::constants::PROTOCOL_MAX_BLOCK_SIZE,
+    block::ParentBlockReferences, testing::constants::TEST_PROTOCOL_MAX_BLOCK_SIZE,
 };
 use sha2::{Digest, Sha256};
 
@@ -55,11 +55,11 @@ type TestSetup = (
 /// It returns a tuple containing the proxy global state, the sender for decide
 /// messages, the sender for data availability proposals,
 fn setup_builder_for_test() -> TestSetup {
-    let (req_sender, req_receiver) = broadcast(CHANNEL_BUFFER_SIZE);
-    let (tx_sender, tx_receiver) = broadcast(CHANNEL_BUFFER_SIZE);
+    let (req_sender, req_receiver) = broadcast(TEST_CHANNEL_BUFFER_SIZE);
+    let (tx_sender, tx_receiver) = broadcast(TEST_CHANNEL_BUFFER_SIZE);
 
     let bootstrap_builder_state_id = BuilderStateId::<TestTypes> {
-        parent_commitment: vid_commitment(&[], NUM_NODES_IN_VID_COMPUTATION),
+        parent_commitment: vid_commitment(&[], TEST_NUM_NODES_IN_VID_COMPUTATION),
         parent_view: ViewNumber::genesis(),
     };
 
@@ -69,8 +69,8 @@ fn setup_builder_for_test() -> TestSetup {
         bootstrap_builder_state_id.parent_commitment,
         bootstrap_builder_state_id.parent_view,
         bootstrap_builder_state_id.parent_view,
-        MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-        PROTOCOL_MAX_BLOCK_SIZE,
+        TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+        TEST_PROTOCOL_MAX_BLOCK_SIZE,
     )));
 
     let max_api_duration = Duration::from_millis(100);
@@ -81,12 +81,12 @@ fn setup_builder_for_test() -> TestSetup {
         max_api_duration,
     );
 
-    let (decide_sender, decide_receiver) = broadcast(CHANNEL_BUFFER_SIZE);
-    let (da_proposal_sender, da_proposal_receiver) = broadcast(CHANNEL_BUFFER_SIZE);
-    let (quorum_proposal_sender, quorum_proposal_receiver) = broadcast(CHANNEL_BUFFER_SIZE);
+    let (decide_sender, decide_receiver) = broadcast(TEST_CHANNEL_BUFFER_SIZE);
+    let (da_proposal_sender, da_proposal_receiver) = broadcast(TEST_CHANNEL_BUFFER_SIZE);
+    let (quorum_proposal_sender, quorum_proposal_receiver) = broadcast(TEST_CHANNEL_BUFFER_SIZE);
     let bootstrap_builder_state = BuilderState::<TestTypes>::new(
         ParentBlockReferences {
-            vid_commitment: vid_commitment(&[], NUM_NODES_IN_VID_COMPUTATION),
+            vid_commitment: vid_commitment(&[], TEST_NUM_NODES_IN_VID_COMPUTATION),
             view_number: ViewNumber::genesis(),
             leaf_commit: Commitment::from_raw([0; 32]),
             builder_commitment: BuilderCommitment::from_bytes([0; 32]),
@@ -98,7 +98,7 @@ fn setup_builder_for_test() -> TestSetup {
         tx_receiver,
         Default::default(),
         global_state.clone(),
-        NonZeroUsize::new(NUM_NODES_IN_VID_COMPUTATION).unwrap(),
+        NonZeroUsize::new(TEST_NUM_NODES_IN_VID_COMPUTATION).unwrap(),
         Duration::from_millis(40),
         1,
         Default::default(),
@@ -158,7 +158,7 @@ async fn process_available_blocks_round(
             return (attempt, available_blocks_result);
         }
 
-        if attempt >= NUM_CONSENSUS_RETRIES {
+        if attempt >= TEST_NUM_CONSENSUS_RETRIES {
             return (attempt, available_blocks_result);
         }
     }
@@ -281,13 +281,13 @@ async fn progress_round_with_transactions(
                     _pd: Default::default(),
                 }),
                 sender: leader_pub,
-                total_nodes: NUM_NODES_IN_VID_COMPUTATION,
+                total_nodes: TEST_NUM_NODES_IN_VID_COMPUTATION,
             }))
             .await
             .expect("should broadcast DA Proposal successfully");
 
         let payload_commitment =
-            vid_commitment(&encoded_transactions, NUM_NODES_IN_VID_COMPUTATION);
+            vid_commitment(&encoded_transactions, TEST_NUM_NODES_IN_VID_COMPUTATION);
 
         let (block_payload, metadata) =
             <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
@@ -369,7 +369,7 @@ async fn test_empty_block_rate() {
         setup_builder_for_test();
 
     let mut current_builder_state_id = BuilderStateId::<TestTypes> {
-        parent_commitment: vid_commitment(&[], NUM_NODES_IN_VID_COMPUTATION),
+        parent_commitment: vid_commitment(&[], TEST_NUM_NODES_IN_VID_COMPUTATION),
         parent_view: ViewNumber::genesis(),
     };
 
@@ -382,8 +382,8 @@ async fn test_empty_block_rate() {
         .await;
 
         assert_eq!(
-            attempts, NUM_CONSENSUS_RETRIES,
-            "Consensus should retry {NUM_CONSENSUS_RETRIES} times to get available blocks"
+            attempts, TEST_NUM_CONSENSUS_RETRIES,
+            "Consensus should retry {TEST_NUM_CONSENSUS_RETRIES} times to get available blocks"
         );
         assert!(available_available_blocks_result.is_err());
 
@@ -420,7 +420,7 @@ async fn test_eager_block_rate() {
         setup_builder_for_test();
 
     let mut current_builder_state_id = BuilderStateId::<TestTypes> {
-        parent_commitment: vid_commitment(&[], NUM_NODES_IN_VID_COMPUTATION),
+        parent_commitment: vid_commitment(&[], TEST_NUM_NODES_IN_VID_COMPUTATION),
         parent_view: ViewNumber::genesis(),
     };
 
@@ -435,8 +435,8 @@ async fn test_eager_block_rate() {
         .await;
 
         assert_eq!(
-            attempts, NUM_CONSENSUS_RETRIES,
-            "Consensus should retry {NUM_CONSENSUS_RETRIES} times to get available blocks for round {round}"
+            attempts, TEST_NUM_CONSENSUS_RETRIES,
+            "Consensus should retry {TEST_NUM_CONSENSUS_RETRIES} times to get available blocks for round {round}"
         );
 
         assert!(
@@ -538,8 +538,8 @@ async fn test_eager_block_rate() {
         .await;
 
         assert_eq!(
-            attempts, NUM_CONSENSUS_RETRIES,
-            "Consensus should have retries {NUM_CONSENSUS_RETRIES} times for round {round}"
+            attempts, TEST_NUM_CONSENSUS_RETRIES,
+            "Consensus should have retries {TEST_NUM_CONSENSUS_RETRIES} times for round {round}"
         );
         assert!(available_blocks_result.is_err());
 

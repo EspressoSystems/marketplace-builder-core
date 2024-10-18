@@ -38,7 +38,7 @@ mod tests {
     };
     use marketplace_builder_shared::block::ParentBlockReferences;
     use marketplace_builder_shared::testing::constants::{
-        MAX_BLOCK_SIZE_INCREMENT_PERIOD, PROTOCOL_MAX_BLOCK_SIZE,
+        TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD, TEST_PROTOCOL_MAX_BLOCK_SIZE,
     };
 
     use crate::builder_state::{
@@ -118,8 +118,8 @@ mod tests {
             vid_commitment(&[], 8),
             ViewNumber::new(0),
             ViewNumber::new(0),
-            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            PROTOCOL_MAX_BLOCK_SIZE,
+            TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
         )));
 
         let bootstrap_builder_state = BuilderState::new(

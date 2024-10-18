@@ -34,7 +34,7 @@ use async_lock::RwLock;
 use committable::{Commitment, CommitmentBoundsArkless, Committable};
 use marketplace_builder_shared::{
     block::{BuilderStateId, ParentBlockReferences},
-    testing::constants::{MAX_BLOCK_SIZE_INCREMENT_PERIOD, PROTOCOL_MAX_BLOCK_SIZE},
+    testing::constants::{TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD, TEST_PROTOCOL_MAX_BLOCK_SIZE},
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -71,8 +71,8 @@ pub async fn create_builder_state(
         genesis_vid_commitment,
         ViewNumber::genesis(),
         ViewNumber::genesis(),
-        MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-        PROTOCOL_MAX_BLOCK_SIZE,
+        TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+        TEST_PROTOCOL_MAX_BLOCK_SIZE,
     )));
 
     // instantiate the bootstrap builder state
