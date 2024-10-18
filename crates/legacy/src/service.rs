@@ -1528,7 +1528,10 @@ mod test {
         },
         utils::BuilderCommitment,
     };
-    use marketplace_builder_shared::block::{BlockId, BuilderStateId, ParentBlockReferences};
+    use marketplace_builder_shared::{
+        block::{BlockId, BuilderStateId, ParentBlockReferences},
+        testing::constants::{MAX_BLOCK_SIZE_INCREMENT_PERIOD, PROTOCOL_MAX_BLOCK_SIZE},
+    };
     use sha2::{Digest, Sha256};
 
     use crate::{
@@ -1545,9 +1548,6 @@ mod test {
         BlockInfo, ClaimBlockError, ClaimBlockHeaderInputError, GlobalState, HandleDaEventError,
         HandleQuorumEventError, HandleReceivedTxns, ProxyGlobalState,
     };
-
-    const TEST_PROTOCOL_MAX_BLOCK_SIZE: u64 = 1_000_000;
-    const TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD: Duration = Duration::from_secs(60);
 
     // GlobalState Tests
 
@@ -1566,8 +1566,8 @@ mod test {
             parent_commit,
             ViewNumber::new(1),
             ViewNumber::new(2),
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         assert_eq!(state.blocks.len(), 0, "The blocks LRU should be empty");
@@ -1609,7 +1609,7 @@ mod test {
         );
 
         assert_eq!(
-            state.block_size_limits.protocol_max_block_size, TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            state.block_size_limits.protocol_max_block_size, PROTOCOL_MAX_BLOCK_SIZE,
             "The protocol max block size should be the one passed into new"
         );
 
@@ -1637,8 +1637,8 @@ mod test {
             parent_commit,
             ViewNumber::new(0),
             ViewNumber::new(0),
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         {
@@ -1725,8 +1725,8 @@ mod test {
             parent_commit,
             ViewNumber::new(0),
             ViewNumber::new(0),
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         let mut req_receiver_1 = {
@@ -1840,8 +1840,8 @@ mod test {
             parent_commit,
             ViewNumber::new(0),
             ViewNumber::new(0),
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         {
@@ -1934,8 +1934,8 @@ mod test {
             parent_commit,
             ViewNumber::new(0),
             ViewNumber::new(0),
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         let new_parent_commit = vid_commitment(&[], 9);
@@ -2134,8 +2134,8 @@ mod test {
             parent_commit,
             ViewNumber::new(0),
             ViewNumber::new(0),
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         let new_parent_commit = vid_commitment(&[], 9);
@@ -2407,8 +2407,8 @@ mod test {
             parent_commit,
             ViewNumber::new(0),
             ViewNumber::new(0),
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         // We register a few builder states.
@@ -2500,8 +2500,8 @@ mod test {
             parent_commit,
             ViewNumber::new(0),
             ViewNumber::new(0),
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         // We register a few builder states.
@@ -2578,8 +2578,8 @@ mod test {
             parent_commit,
             ViewNumber::new(0),
             ViewNumber::new(0),
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         // We register a few builder states.
@@ -2676,8 +2676,8 @@ mod test {
             parent_commit,
             ViewNumber::new(0),
             ViewNumber::new(0),
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            PROTOCOL_MAX_BLOCK_SIZE,
         );
 
         // We register a few builder states.
@@ -2788,8 +2788,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key),
             Duration::from_millis(100),
@@ -2847,8 +2847,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_millis(100),
@@ -2906,8 +2906,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(2),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key),
             Duration::from_millis(100),
@@ -2966,8 +2966,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(4),
                 ViewNumber::new(4),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3035,8 +3035,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3172,8 +3172,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3316,8 +3316,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3370,8 +3370,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3417,8 +3417,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3519,8 +3519,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3574,8 +3574,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3631,8 +3631,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3728,8 +3728,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -3819,8 +3819,8 @@ mod test {
                 parent_commit,
                 ViewNumber::new(0),
                 ViewNumber::new(0),
-                TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-                TEST_PROTOCOL_MAX_BLOCK_SIZE,
+                MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+                PROTOCOL_MAX_BLOCK_SIZE,
             ))),
             (builder_public_key, builder_private_key.clone()),
             Duration::from_secs(1),
@@ -4480,17 +4480,17 @@ mod test {
     #[test]
     fn test_increment_block_size() {
         let mut block_size_limits =
-            BlockSizeLimits::new(TEST_PROTOCOL_MAX_BLOCK_SIZE, Duration::from_millis(25));
+            BlockSizeLimits::new(PROTOCOL_MAX_BLOCK_SIZE, Duration::from_millis(25));
         // Simulate decreased limits
-        block_size_limits.max_block_size = TEST_PROTOCOL_MAX_BLOCK_SIZE / 2;
+        block_size_limits.max_block_size = PROTOCOL_MAX_BLOCK_SIZE / 2;
 
         // Shouldn't increment, increment period hasn't passed yet
         block_size_limits.try_increment_block_size(false);
-        assert!(block_size_limits.max_block_size == TEST_PROTOCOL_MAX_BLOCK_SIZE / 2);
+        assert!(block_size_limits.max_block_size == PROTOCOL_MAX_BLOCK_SIZE / 2);
 
         // Should increment, increment period hasn't passed yet, but force flag is set
         block_size_limits.try_increment_block_size(true);
-        assert!(block_size_limits.max_block_size > TEST_PROTOCOL_MAX_BLOCK_SIZE / 2);
+        assert!(block_size_limits.max_block_size > PROTOCOL_MAX_BLOCK_SIZE / 2);
         let new_size = block_size_limits.max_block_size;
 
         std::thread::sleep(Duration::from_millis(30));
@@ -4502,19 +4502,17 @@ mod test {
 
     #[test]
     fn test_decrement_block_size() {
-        let mut block_size_limits = BlockSizeLimits::new(
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-        );
+        let mut block_size_limits =
+            BlockSizeLimits::new(PROTOCOL_MAX_BLOCK_SIZE, MAX_BLOCK_SIZE_INCREMENT_PERIOD);
         block_size_limits.decrement_block_size();
-        assert!(block_size_limits.max_block_size < TEST_PROTOCOL_MAX_BLOCK_SIZE);
+        assert!(block_size_limits.max_block_size < PROTOCOL_MAX_BLOCK_SIZE);
     }
 
     #[test]
     fn test_max_block_size_floor() {
         let mut block_size_limits = BlockSizeLimits::new(
             BlockSizeLimits::MAX_BLOCK_SIZE_FLOOR + 1,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            MAX_BLOCK_SIZE_INCREMENT_PERIOD,
         );
         block_size_limits.decrement_block_size();
         assert_eq!(
