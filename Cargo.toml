@@ -41,7 +41,6 @@ toml = "0.8"
 tracing = "0.1"
 url = "2.3"
 vbs = "0.1"
-rkyv = "0.7"
 
 [workspace.package]
 version = "0.1.51"
