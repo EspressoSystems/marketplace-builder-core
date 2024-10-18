@@ -89,6 +89,7 @@
         RUST_LOG = "info";
         RUSTFLAGS = " --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
         RUSTDOCFLAGS = " --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
+        RUST_MIN_STACK = 64000000;
       in
       {
         formatter = pkgs.nixfmt-rfc-style;
@@ -159,11 +160,12 @@
             ] ++ rustDeps;
 
             inherit
-              RUST_SRC_PATH
+              RUSTDOCFLAGS
+              RUSTFLAGS
               RUST_BACKTRACE
               RUST_LOG
-              RUSTFLAGS
-              RUSTDOCFLAGS
+              RUST_MIN_STACK
+              RUST_SRC_PATH
               ;
           };
         };

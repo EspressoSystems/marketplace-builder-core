@@ -86,34 +86,35 @@ where
     }
 }
 
-type EventServiceConnection<TYPES, V> = surf_disco::socket::Connection<
-    Event<TYPES>,
+type EventServiceConnection<Types, ApiVer> = surf_disco::socket::Connection<
+    Event<Types>,
     surf_disco::socket::Unsupported,
     EventStreamError,
-    V,
+    ApiVer,
 >;
 
-type EventServiceReconnect<TYPES, V> =
-    Pin<Box<dyn Future<Output = anyhow::Result<EventServiceConnection<TYPES, V>>> + Send + Sync>>;
+type EventServiceReconnect<Types, ApiVer> = Pin<
+    Box<dyn Future<Output = anyhow::Result<EventServiceConnection<Types, ApiVer>>> + Send + Sync>,
+>;
 
 /// A wrapper around event streaming API that provides auto-reconnection capability
-pub struct EventServiceStream<TYPES: NodeType, V: StaticVersionType> {
+pub struct EventServiceStream<Types: NodeType, V: StaticVersionType> {
     api_url: Url,
-    connection: Either<EventServiceConnection<TYPES, V>, EventServiceReconnect<TYPES, V>>,
+    connection: Either<EventServiceConnection<Types, V>, EventServiceReconnect<Types, V>>,
 }
 
-impl<TYPES: NodeType, V: StaticVersionType> EventServiceStream<TYPES, V> {
+impl<Types: NodeType, ApiVer: StaticVersionType> EventServiceStream<Types, ApiVer> {
     async fn connect_inner(
         url: Url,
     ) -> anyhow::Result<
         surf_disco::socket::Connection<
-            Event<TYPES>,
+            Event<Types>,
             surf_disco::socket::Unsupported,
             EventStreamError,
-            V,
+            ApiVer,
         >,
     > {
-        let client = Client::<hotshot_events_service::events::Error, V>::new(url.clone());
+        let client = Client::<hotshot_events_service::events::Error, ApiVer>::new(url.clone());
 
         if !(client.connect(None).await) {
             anyhow::bail!("Couldn't connect to API url");
@@ -123,7 +124,7 @@ impl<TYPES: NodeType, V: StaticVersionType> EventServiceStream<TYPES, V> {
 
         Ok(client
             .socket("hotshot-events/events")
-            .subscribe::<Event<TYPES>>()
+            .subscribe::<Event<Types>>()
             .await?)
     }
 
