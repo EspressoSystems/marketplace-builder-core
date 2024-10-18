@@ -139,8 +139,8 @@ impl<Types: NodeType, ApiVer: StaticVersionType> EventServiceStream<Types, ApiVe
     }
 }
 
-impl<TYPES: NodeType, V: StaticVersionType + 'static> Stream for EventServiceStream<TYPES, V> {
-    type Item = Event<TYPES>;
+impl<Types: NodeType, V: StaticVersionType + 'static> Stream for EventServiceStream<Types, V> {
+    type Item = Event<Types>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
