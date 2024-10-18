@@ -10,6 +10,7 @@ use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use validation::BuilderValidationConfig;
 
+pub mod constants;
 pub mod generation;
 pub mod validation;
 
