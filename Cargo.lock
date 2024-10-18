@@ -4636,7 +4636,6 @@ dependencies = [
  "lru 0.12.5",
  "marketplace-builder-shared",
  "multimap",
- "rkyv",
  "serde",
  "serde_json",
  "sha2 0.10.8",
