@@ -92,6 +92,7 @@ mod tests {
         let multiplication_factor = 5;
         const TEST_NUM_NODES_IN_VID_COMPUTATION: usize = 4;
         const TEST_PROTOCOL_MAX_BLOCK_SIZE: u64 = 1_000_000;
+        const TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD: Duration = Duration::from_secs(60);
 
         // settingup the broadcast channels i.e [From hostshot: (tx, decide, da, quorum, )], [From api:(req - broadcast, res - mpsc channel) ]
         let (decide_sender, decide_receiver) =
@@ -118,7 +119,7 @@ mod tests {
             vid_commitment(&[], 8),
             ViewNumber::new(0),
             ViewNumber::new(0),
-            10,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
             TEST_PROTOCOL_MAX_BLOCK_SIZE,
         )));
 
