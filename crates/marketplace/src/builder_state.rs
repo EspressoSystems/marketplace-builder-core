@@ -1112,66 +1112,16 @@ mod test {
     use async_broadcast::broadcast;
     use committable::RawCommitmentBuilder;
     use hotshot_example_types::block_types::TestTransaction;
+    use hotshot_example_types::node_types::TestTypes;
     use hotshot_types::data::ViewNumber;
     use hotshot_types::data::{Leaf, QuorumProposal};
-    use hotshot_types::message::Proposal;
     use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
     use hotshot_types::utils::BuilderCommitment;
 
     use super::DaProposalMessage;
     use super::MessageType;
     use super::ParentBlockReferences;
-    use crate::testing::{calc_proposal_msg, start_builder_state_without_event_loop, TestTypes};
-
-    /// check whether the `da_proposal_payload_commit_to_da_proposal` has correct (key, value) pair after processing da proposal messages
-    /// used for testing only
-    fn check_equal_da_proposal_hashmap<TYPES: NodeType>(
-        da_proposal_payload_commit_to_da_proposal: HashMap<
-            (BuilderCommitment, <TYPES>::Time),
-            Arc<DaProposalMessage<TYPES>>,
-        >,
-        correct_da_proposal_payload_commit_to_da_proposal: HashMap<
-            (BuilderCommitment, <TYPES>::Time),
-            Arc<DaProposalMessage<TYPES>>,
-        >,
-    ) {
-        let deserialized_map: HashMap<_, _> = da_proposal_payload_commit_to_da_proposal.clone();
-        for (key, value) in deserialized_map.iter() {
-            let correct_value = correct_da_proposal_payload_commit_to_da_proposal.get(key);
-            assert_eq!(
-                value.as_ref().clone(),
-                rkyv::option::ArchivedOption::Some(correct_value)
-                    .unwrap()
-                    .unwrap()
-                    .as_ref()
-                    .clone()
-            );
-        }
-    }
-
-    /// check whether the `quorum_proposal_payload_commit_to_da_proposal` has correct (key, value) pair after processing quorum proposal messages
-    /// used for testing only
-    type QuorumProposalMap<TYPES> = HashMap<
-        (BuilderCommitment, <TYPES as NodeType>::Time),
-        Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
-    >;
-    fn check_equal_quorum_proposal_hashmap<TYPES: NodeType>(
-        quorum_proposal_payload_commit_to_da_proposal: QuorumProposalMap<TYPES>,
-        correct_quorum_proposal_payload_commit_to_da_proposal: QuorumProposalMap<TYPES>,
-    ) {
-        let deserialized_map: HashMap<_, _> = quorum_proposal_payload_commit_to_da_proposal.clone();
-        for (key, value) in deserialized_map.iter() {
-            let correct_value = correct_quorum_proposal_payload_commit_to_da_proposal.get(key);
-            assert_eq!(
-                value.as_ref().clone(),
-                rkyv::option::ArchivedOption::Some(correct_value)
-                    .unwrap()
-                    .unwrap()
-                    .as_ref()
-                    .clone()
-            );
-        }
-    }
+    use crate::testing::{calc_proposal_msg, create_builder_state};
 
     /// This test the function `process_da_propsal`.
     /// It checkes da_proposal_payload_commit_to_da_proposal change appropriately
@@ -1190,9 +1140,9 @@ mod test {
         // Number of nodes on DA committee
         const NUM_STORAGE_NODES: usize = 4;
 
-        // start builder_state without entering event loop
+        // create builder_state without entering event loop
         let (_senders, global_state, mut builder_state) =
-            start_builder_state_without_event_loop(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
+            create_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
 
         // randomly generate a transaction
         let transactions = vec![TestTransaction::new(vec![1, 2, 3]); 3];
@@ -1206,32 +1156,29 @@ mod test {
             (BuilderCommitment, <TestTypes as NodeType>::Time),
             Arc<DaProposalMessage<TestTypes>>,
         > = HashMap::new();
-        if let MessageType::DaProposalMessage(practice_da_msg) = da_proposal_msg.clone() {
-            builder_state
-                .process_da_proposal(practice_da_msg.clone())
-                .await;
-            correct_da_proposal_payload_commit_to_da_proposal.insert(
-                (
-                    practice_da_msg.builder_commitment.clone(),
-                    practice_da_msg.view_number,
-                ),
-                practice_da_msg,
-            );
-        } else {
-            panic!("Not a da_proposal_message in correct format");
-        }
-        check_equal_da_proposal_hashmap(
+
+        builder_state
+            .process_da_proposal(da_proposal_msg.clone())
+            .await;
+        correct_da_proposal_payload_commit_to_da_proposal.insert(
+            (
+                da_proposal_msg.builder_commitment.clone(),
+                da_proposal_msg.view_number,
+            ),
+            da_proposal_msg,
+        );
+        assert_eq!(
             builder_state
                 .da_proposal_payload_commit_to_da_proposal
                 .clone(),
             correct_da_proposal_payload_commit_to_da_proposal.clone(),
         );
         // check global_state didn't change
-        if let Some(_x) = global_state
+        if global_state
             .read_arc()
             .await
             .spawned_builder_states
-            .get(&builder_state_id)
+            .contains_key(&builder_state_id)
         {
             panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
         }
@@ -1242,25 +1189,21 @@ mod test {
         let transactions_1 = transactions.clone();
         let (_quorum_proposal_1, _quorum_proposal_msg_1, da_proposal_msg_1, builder_state_id_1) =
             calc_proposal_msg(NUM_STORAGE_NODES, 0, None, transactions_1).await;
-        if let MessageType::DaProposalMessage(practice_da_msg_1) = da_proposal_msg_1.clone() {
-            builder_state
-                .process_da_proposal(practice_da_msg_1.clone())
-                .await;
-        } else {
-            panic!("Not a da_proposal_message in correct format");
-        }
-        check_equal_da_proposal_hashmap(
+        builder_state
+            .process_da_proposal(da_proposal_msg_1.clone())
+            .await;
+        assert_eq!(
             builder_state
                 .da_proposal_payload_commit_to_da_proposal
                 .clone(),
             correct_da_proposal_payload_commit_to_da_proposal.clone(),
         );
         // check global_state didn't change
-        if let Some(_x) = global_state
+        if global_state
             .read_arc()
             .await
             .spawned_builder_states
-            .get(&builder_state_id_1)
+            .contains_key(&builder_state_id_1)
         {
             panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
         }
@@ -1275,38 +1218,30 @@ mod test {
             calc_proposal_msg(NUM_STORAGE_NODES, 0, None, transactions_2).await;
 
         // process quorum proposal first, so that later when process_da_proposal we can directly call `build_block` and skip storage
-        if let MessageType::QuorumProposalMessage(practice_quorum_msg_2) =
-            quorum_proposal_msg_2.clone()
-        {
-            builder_state
-                .process_quorum_proposal(practice_quorum_msg_2.clone())
-                .await;
-        } else {
-            panic!("Not a quorum_proposal_message in correct format");
-        }
+        builder_state
+            .process_quorum_proposal(quorum_proposal_msg_2.clone())
+            .await;
 
         // process da proposal message and do the check
-        if let MessageType::DaProposalMessage(practice_da_msg_2) = da_proposal_msg_2.clone() {
+        builder_state
+            .process_da_proposal(da_proposal_msg_2.clone())
+            .await;
+        assert_eq!(
             builder_state
-                .process_da_proposal(practice_da_msg_2.clone())
-                .await;
-        } else {
-            panic!("Not a da_proposal_message in correct format");
-        }
-        check_equal_da_proposal_hashmap(
-            builder_state.da_proposal_payload_commit_to_da_proposal,
-            correct_da_proposal_payload_commit_to_da_proposal,
+                .da_proposal_payload_commit_to_da_proposal
+                .clone(),
+            correct_da_proposal_payload_commit_to_da_proposal.clone(),
         );
         // check global_state has this new builder_state_id
-        if let Some(_x) = global_state
+        if global_state
             .read_arc()
             .await
             .spawned_builder_states
-            .get(&builder_state_id_2)
+            .contains_key(&builder_state_id_2)
         {
             tracing::debug!("global_state updated successfully");
         } else {
-            panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
+            panic!("global_state should have cooresponding builder_state_id as now we have matching quorum proposal.");
         }
     }
 
@@ -1327,9 +1262,9 @@ mod test {
         // Number of nodes on DA committee
         const NUM_STORAGE_NODES: usize = 4;
 
-        // start builder_state without entering event loop
+        // create builder_state without entering event loop
         let (_senders, global_state, mut builder_state) =
-            start_builder_state_without_event_loop(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
+            create_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
 
         // randomly generate a transaction
         let transactions = vec![TestTransaction::new(vec![1, 2, 3]); 3];
@@ -1340,38 +1275,33 @@ mod test {
         // call process_quorum_proposal without matching da proposal message
         // quorum_proposal_payload_commit_to_quorum_proposal should insert the message
         let mut correct_quorum_proposal_payload_commit_to_quorum_proposal = HashMap::new();
-        if let MessageType::QuorumProposalMessage(practice_quorum_msg) = quorum_proposal_msg.clone()
-        {
-            builder_state
-                .process_quorum_proposal(practice_quorum_msg.clone())
-                .await;
-            correct_quorum_proposal_payload_commit_to_quorum_proposal.insert(
-                (
-                    practice_quorum_msg
-                        .proposal
-                        .data
-                        .block_header
-                        .builder_commitment
-                        .clone(),
-                    practice_quorum_msg.proposal.data.view_number,
-                ),
-                practice_quorum_msg.proposal,
-            );
-        } else {
-            panic!("Not a quorum_proposal_message in correct format");
-        }
-        check_equal_quorum_proposal_hashmap(
+        builder_state
+            .process_quorum_proposal(quorum_proposal_msg.clone())
+            .await;
+        correct_quorum_proposal_payload_commit_to_quorum_proposal.insert(
+            (
+                quorum_proposal_msg
+                    .proposal
+                    .data
+                    .block_header
+                    .builder_commitment
+                    .clone(),
+                quorum_proposal_msg.proposal.data.view_number,
+            ),
+            quorum_proposal_msg.proposal,
+        );
+        assert_eq!(
             builder_state
                 .quorum_proposal_payload_commit_to_quorum_proposal
                 .clone(),
-            correct_quorum_proposal_payload_commit_to_quorum_proposal.clone(),
+            correct_quorum_proposal_payload_commit_to_quorum_proposal.clone()
         );
         // check global_state didn't change
-        if let Some(_x) = global_state
+        if global_state
             .read_arc()
             .await
             .spawned_builder_states
-            .get(&builder_state_id)
+            .contains_key(&builder_state_id)
         {
             panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
         }
@@ -1386,39 +1316,30 @@ mod test {
             calc_proposal_msg(NUM_STORAGE_NODES, 0, None, transactions_2).await;
 
         // process da proposal message first, so that later when process_da_proposal we can directly call `build_block` and skip storage
-        if let MessageType::DaProposalMessage(practice_da_msg_2) = da_proposal_msg_2.clone() {
-            builder_state
-                .process_da_proposal(practice_da_msg_2.clone())
-                .await;
-        } else {
-            panic!("Not a da_proposal_message in correct format");
-        }
+        builder_state
+            .process_da_proposal(da_proposal_msg_2.clone())
+            .await;
 
         // process quorum proposal, and do the check
-        if let MessageType::QuorumProposalMessage(practice_quorum_msg_2) =
-            quorum_proposal_msg_2.clone()
-        {
+        builder_state
+            .process_quorum_proposal(quorum_proposal_msg_2.clone())
+            .await;
+        assert_eq!(
             builder_state
-                .process_quorum_proposal(practice_quorum_msg_2.clone())
-                .await;
-        } else {
-            panic!("Not a quorum_proposal_message in correct format");
-        }
-
-        check_equal_quorum_proposal_hashmap(
-            builder_state.quorum_proposal_payload_commit_to_quorum_proposal,
-            correct_quorum_proposal_payload_commit_to_quorum_proposal,
+                .quorum_proposal_payload_commit_to_quorum_proposal
+                .clone(),
+            correct_quorum_proposal_payload_commit_to_quorum_proposal.clone()
         );
         // check global_state has this new builder_state_id
-        if let Some(_x) = global_state
+        if global_state
             .read_arc()
             .await
             .spawned_builder_states
-            .get(&builder_state_id_2)
+            .contains_key(&builder_state_id_2)
         {
             tracing::debug!("global_state updated successfully");
         } else {
-            panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
+            panic!("global_state should have cooresponding builder_state_id as now we have matching da proposal.");
         }
     }
 
@@ -1440,11 +1361,9 @@ mod test {
         // Number of nodes on DA committee
         const NUM_STORAGE_NODES: usize = 4;
 
-        // start builder_state without entering event loop
+        // create builder_state without entering event loop
         let (_senders, global_state, mut builder_state) =
-            start_builder_state_without_event_loop(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
-
-        // insert some builder states
+            create_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
 
         // Transactions to send
         let all_transactions = (0..NUM_ROUNDS)
@@ -1455,6 +1374,7 @@ mod test {
             })
             .collect::<Vec<_>>();
         let mut prev_quorum_proposal: Option<QuorumProposal<TestTypes>> = None;
+        // register some builder states for later decide event
         #[allow(clippy::needless_range_loop)]
         for round in 0..NUM_ROUNDS {
             let transactions = all_transactions[round].clone();
@@ -1485,8 +1405,7 @@ mod test {
             );
         }
 
-        // send out a decide event
-        // randomly choose a latest_decide_view_number between [0, NUM_ROUNDS]
+        // send out a decide event in a middle round
         let latest_decide_view_number = ViewNumber::new(3);
 
         let decide_message = MessageType::DecideMessage(crate::builder_state::DecideMessage {
