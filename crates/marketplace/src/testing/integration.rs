@@ -56,7 +56,7 @@ struct MarketplaceBuilderImpl {}
 #[async_trait]
 impl<Types> TestBuilderImplementation<Types> for MarketplaceBuilderImpl
 where
-    Types: NodeType<Time = ViewNumber>,
+    Types: NodeType<View = ViewNumber>,
     Types::InstanceState: Default,
     for<'a> <<Types::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
         &'a TaggedBase64,
@@ -98,7 +98,7 @@ where
             req_sender,
             senders.transactions.clone(),
             vid_commitment,
-            Types::Time::genesis(),
+            Types::View::genesis(),
         );
 
         let global_state = Arc::new(RwLock::new(global_state));
@@ -107,7 +107,7 @@ where
 
         let builder_state = BuilderState::<Types>::new(
             ParentBlockReferences {
-                view_number: Types::Time::genesis(),
+                view_number: Types::View::genesis(),
                 vid_commitment,
                 leaf_commit: leaf
                     .commit(&UpgradeLock::<Types, TestVersions>::new())
@@ -166,7 +166,7 @@ where
 
 impl<Types> BuilderTask<Types> for MarketplaceBuilderTask<Types>
 where
-    Types: NodeType<Time = ViewNumber>,
+    Types: NodeType<View = ViewNumber>,
 {
     fn start(
         self: Box<Self>,

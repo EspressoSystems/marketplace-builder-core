@@ -3,14 +3,14 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "1d48deec38979e2a7fd6b625c9d62554d4caae56" }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "1d48deec38979e2a7fd6b625c9d62554d4caae56" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.49" }
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "1d48deec38979e2a7fd6b625c9d62554d4caae56" }
-hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "1d48deec38979e2a7fd6b625c9d62554d4caae56" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "1d48deec38979e2a7fd6b625c9d62554d4caae56" }
-hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "1d48deec38979e2a7fd6b625c9d62554d4caae56" }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "1d48deec38979e2a7fd6b625c9d62554d4caae56" }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.50" }
+hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
+hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
 
 anyhow = "1"
 async-broadcast = "0.7"
