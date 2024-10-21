@@ -44,29 +44,29 @@ pub enum TransactionSource {
 
 /// Decide Message to be put on the decide channel
 #[derive(Clone, Debug)]
-pub struct DecideMessage<TYPES: NodeType> {
-    pub latest_decide_view_number: TYPES::Time,
+pub struct DecideMessage<Types: NodeType> {
+    pub latest_decide_view_number: Types::Time,
 }
 /// DA Proposal Message to be put on the da proposal channel
 #[derive(Debug, Clone, PartialEq)]
-pub struct DaProposalMessage<TYPES: NodeType> {
-    pub view_number: TYPES::Time,
-    pub txn_commitments: Vec<Commitment<TYPES::Transaction>>,
-    pub sender: <TYPES as NodeType>::SignatureKey,
+pub struct DaProposalMessage<Types: NodeType> {
+    pub view_number: Types::Time,
+    pub txn_commitments: Vec<Commitment<Types::Transaction>>,
+    pub sender: <Types as NodeType>::SignatureKey,
     pub builder_commitment: BuilderCommitment,
 }
 
 /// Quorum proposal message to be put on the quorum proposal channel
 #[derive(Clone, Debug, PartialEq)]
-pub struct QuorumProposalMessage<TYPES: NodeType> {
-    pub proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
-    pub sender: TYPES::SignatureKey,
+pub struct QuorumProposalMessage<Types: NodeType> {
+    pub proposal: Arc<Proposal<Types, QuorumProposal<Types>>>,
+    pub sender: Types::SignatureKey,
 }
 /// Request Message to be put on the request channel
 #[derive(Clone, Debug)]
-pub struct RequestMessage<TYPES: NodeType> {
-    pub requested_view_number: TYPES::Time,
-    pub response_channel: UnboundedSender<ResponseMessage<TYPES>>,
+pub struct RequestMessage<Types: NodeType> {
+    pub requested_view_number: Types::Time,
+    pub response_channel: UnboundedSender<ResponseMessage<Types>>,
 }
 pub enum TriggerStatus {
     Start,
@@ -75,19 +75,19 @@ pub enum TriggerStatus {
 
 /// Response Message to be put on the response channel
 #[derive(Debug)]
-pub struct BuildBlockInfo<TYPES: NodeType> {
-    pub id: BlockId<TYPES>,
+pub struct BuildBlockInfo<Types: NodeType> {
+    pub id: BlockId<Types>,
     pub block_size: u64,
     pub offered_fee: u64,
-    pub block_payload: TYPES::BlockPayload,
-    pub metadata: <<TYPES as NodeType>::BlockPayload as BlockPayload<TYPES>>::Metadata,
+    pub block_payload: Types::BlockPayload,
+    pub metadata: <<Types as NodeType>::BlockPayload as BlockPayload<Types>>::Metadata,
 }
 
 /// Response Message to be put on the response channel
 #[derive(Debug, Clone)]
-pub struct ResponseMessage<TYPES: NodeType> {
+pub struct ResponseMessage<Types: NodeType> {
     pub builder_hash: BuilderCommitment,
-    pub transactions: Vec<TYPES::Transaction>,
+    pub transactions: Vec<Types::Transaction>,
     pub block_size: u64,
     pub offered_fee: u64,
 }
@@ -100,12 +100,12 @@ pub enum Status {
 
 /// Builder State to hold the state of the builder
 #[derive(Debug)]
-pub struct BuilderState<TYPES: NodeType> {
+pub struct BuilderState<Types: NodeType> {
     /// txns that have been included in recent blocks that have
     /// been built.  This is used to try and guarantee that a transaction
     /// isn't duplicated.
     /// Keeps a history of the last 3 proposals.
-    pub included_txns: RotatingSet<Commitment<TYPES::Transaction>>,
+    pub included_txns: RotatingSet<Commitment<Types::Transaction>>,
 
     /// txn commits currently in the `tx_queue`.  This is used as a quick
     /// check for whether a transaction is already in the `tx_queue` or
@@ -113,45 +113,45 @@ pub struct BuilderState<TYPES: NodeType> {
     ///
     /// This should be kept up-to-date with the `tx_queue` as it acts as an
     /// accessory to the `tx_queue`.
-    pub txn_commits_in_queue: HashSet<Commitment<TYPES::Transaction>>,
+    pub txn_commits_in_queue: HashSet<Commitment<Types::Transaction>>,
 
     /// filtered queue of available transactions, taken from `tx_receiver`
-    pub tx_queue: Vec<Arc<ReceivedTransaction<TYPES>>>,
+    pub tx_queue: Vec<Arc<ReceivedTransaction<Types>>>,
 
     /// `da_proposal_payload_commit` to (`da_proposal`, `node_count`)
     #[allow(clippy::type_complexity)]
     pub da_proposal_payload_commit_to_da_proposal:
-        HashMap<(BuilderCommitment, TYPES::Time), Arc<DaProposalMessage<TYPES>>>,
+        HashMap<(BuilderCommitment, Types::Time), Arc<DaProposalMessage<Types>>>,
 
     /// `quorum_proposal_payload_commit` to `quorum_proposal`
     #[allow(clippy::type_complexity)]
     pub quorum_proposal_payload_commit_to_quorum_proposal:
-        HashMap<(BuilderCommitment, TYPES::Time), Arc<Proposal<TYPES, QuorumProposal<TYPES>>>>,
+        HashMap<(BuilderCommitment, Types::Time), Arc<Proposal<Types, QuorumProposal<Types>>>>,
 
     /// Spawned-from references to the parent block.
-    pub parent_block_references: ParentBlockReferences<TYPES>,
+    pub parent_block_references: ParentBlockReferences<Types>,
 
     // Channel Receivers for the HotShot events, Tx_receiver could also receive the external transactions
     /// decide receiver
-    pub decide_receiver: BroadcastReceiver<MessageType<TYPES>>,
+    pub decide_receiver: BroadcastReceiver<MessageType<Types>>,
 
     /// da proposal receiver
-    pub da_proposal_receiver: BroadcastReceiver<MessageType<TYPES>>,
+    pub da_proposal_receiver: BroadcastReceiver<MessageType<Types>>,
 
     /// quorum proposal receiver
-    pub quorum_proposal_receiver: BroadcastReceiver<MessageType<TYPES>>,
+    pub quorum_proposal_receiver: BroadcastReceiver<MessageType<Types>>,
 
     /// channel receiver for the block requests
-    pub req_receiver: BroadcastReceiver<MessageType<TYPES>>,
+    pub req_receiver: BroadcastReceiver<MessageType<Types>>,
 
     /// incoming stream of transactions
-    pub tx_receiver: BroadcastReceiver<Arc<ReceivedTransaction<TYPES>>>,
+    pub tx_receiver: BroadcastReceiver<Arc<ReceivedTransaction<Types>>>,
 
     /// global state handle, defined in the service.rs
-    pub global_state: Arc<RwLock<GlobalState<TYPES>>>,
+    pub global_state: Arc<RwLock<GlobalState<Types>>>,
 
     /// locally spawned builder Commitements
-    pub builder_commitments: HashSet<(BuilderStateId<TYPES>, BuilderCommitment)>,
+    pub builder_commitments: HashSet<(BuilderStateId<Types>, BuilderCommitment)>,
 
     /// timeout for maximising the txns in the block
     pub maximize_txn_capture_timeout: Duration,
@@ -161,10 +161,10 @@ pub struct BuilderState<TYPES: NodeType> {
 
     /// validated state that is required for a proposal to be considered valid. Needed for the
     /// purposes of building a valid block payload within the sequencer.
-    pub validated_state: Arc<TYPES::ValidatedState>,
+    pub validated_state: Arc<Types::ValidatedState>,
 
     /// instance state to enfoce `max_block_size`
-    pub instance_state: Arc<TYPES::InstanceState>,
+    pub instance_state: Arc<Types::InstanceState>,
 }
 
 /// [`best_builder_states_to_extend`] is a utility function that is used to
@@ -199,7 +199,7 @@ pub struct BuilderState<TYPES: NodeType> {
 ///
 /// This is where the `justify_qc` comes in to consideration.  The `justify_qc`
 /// contains the previous [`ViewNumber`](hotshot_types::data::ViewNumber) that is being
-/// extended from, and in addition it also contains the previous [`Commitment<Leaf<TYPES>>`]
+/// extended from, and in addition it also contains the previous [`Commitment<Leaf<Types>>`]
 /// that is being built on top of.  Since our [`BuilderState`]s store identifying
 /// information that contains this same `leaf_commit` we can compare these
 /// directly to ensure that we are extending from the correct [`BuilderState`].
@@ -227,13 +227,13 @@ pub struct BuilderState<TYPES: NodeType> {
 /// > extend from.  This race could be avoided by just picking one of the
 /// > entries in the resulting [HashSet], but this is not done here in order
 /// > to allow us to highlight the possibility of the race.
-async fn best_builder_states_to_extend<TYPES: NodeType>(
-    quorum_proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
-    global_state: Arc<RwLock<GlobalState<TYPES>>>,
-) -> HashSet<BuilderStateId<TYPES>> {
+async fn best_builder_states_to_extend<Types: NodeType>(
+    quorum_proposal: Arc<Proposal<Types, QuorumProposal<Types>>>,
+    global_state: Arc<RwLock<GlobalState<Types>>>,
+) -> HashSet<BuilderStateId<Types>> {
     let current_view_number = quorum_proposal.data.view_number;
     let current_commitment = quorum_proposal.data.block_header.payload_commitment();
-    let current_builder_state_id = BuilderStateId::<TYPES> {
+    let current_builder_state_id = BuilderStateId::<Types> {
         parent_commitment: current_commitment,
         parent_view: current_view_number,
     };
@@ -332,12 +332,12 @@ async fn best_builder_states_to_extend<TYPES: NodeType>(
     HashSet::new()
 }
 
-impl<TYPES: NodeType> BuilderState<TYPES> {
+impl<Types: NodeType> BuilderState<Types> {
     /// Utility method that attempts to determine whether we are among
     /// the best [`BuilderState`]s to extend from.
     async fn am_i_the_best_builder_state_to_extend(
         &self,
-        quorum_proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
+        quorum_proposal: Arc<Proposal<Types, QuorumProposal<Types>>>,
     ) -> bool {
         let best_builder_states_to_extend =
             best_builder_states_to_extend(quorum_proposal.clone(), self.global_state.clone()).await;
@@ -389,7 +389,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     /// > exit knowing we have fulfilled the DA proposal portion.
     #[tracing::instrument(skip_all, name = "process da proposal",
                                     fields(builder_parent_block_references = %self.parent_block_references))]
-    async fn process_da_proposal(&mut self, da_msg: Arc<DaProposalMessage<TYPES>>) {
+    async fn process_da_proposal(&mut self, da_msg: Arc<DaProposalMessage<Types>>) {
         tracing::debug!(
             "Builder Received DA message for view {:?}",
             da_msg.view_number
@@ -459,7 +459,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     //#[tracing::instrument(skip_all, name = "Process Quorum Proposal")]
     #[tracing::instrument(skip_all, name = "process quorum proposal",
                                     fields(builder_parent_block_references = %self.parent_block_references))]
-    async fn process_quorum_proposal(&mut self, quorum_msg: QuorumProposalMessage<TYPES>) {
+    async fn process_quorum_proposal(&mut self, quorum_msg: QuorumProposalMessage<Types>) {
         tracing::debug!(
             "Builder Received Quorum proposal message for view {:?}",
             quorum_msg.proposal.data.view_number
@@ -524,8 +524,8 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     /// [`QuorumProposal`] that is being extended from.
     async fn spawn_clone_that_extends_self(
         &mut self,
-        da_proposal_info: Arc<DaProposalMessage<TYPES>>,
-        quorum_proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
+        da_proposal_info: Arc<DaProposalMessage<Types>>,
+        quorum_proposal: Arc<Proposal<Types, QuorumProposal<Types>>>,
     ) {
         if !self
             .am_i_the_best_builder_state_to_extend(quorum_proposal.clone())
@@ -558,7 +558,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     /// processing the decide event
     #[tracing::instrument(skip_all, name = "process decide event",
                                    fields(builder_parent_block_references = %self.parent_block_references))]
-    async fn process_decide_event(&mut self, decide_msg: DecideMessage<TYPES>) -> Option<Status> {
+    async fn process_decide_event(&mut self, decide_msg: DecideMessage<Types>) -> Option<Status> {
         // Exit out all the builder states if their parent_block_references.view_number is less than the latest_decide_view_number
         // The only exception is that we want to keep the highest view number builder state active to ensure that
         // we have a builder state to handle the incoming DA and Quorum proposals
@@ -594,9 +594,9 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
                                     fields(builder_parent_block_references = %self.parent_block_references))]
     async fn spawn_clone(
         mut self,
-        da_proposal_info: Arc<DaProposalMessage<TYPES>>,
-        quorum_proposal: Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
-        req_sender: BroadcastSender<MessageType<TYPES>>,
+        da_proposal_info: Arc<DaProposalMessage<Types>>,
+        quorum_proposal: Arc<Proposal<Types, QuorumProposal<Types>>>,
+        req_sender: BroadcastSender<MessageType<Types>>,
     ) {
         let leaf = Leaf::from_quorum_proposal(&quorum_proposal.data);
 
@@ -676,8 +676,8 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
                                     fields(builder_parent_block_references = %self.parent_block_references))]
     async fn build_block(
         &mut self,
-        state_id: BuilderStateId<TYPES>,
-    ) -> Option<BuildBlockInfo<TYPES>> {
+        state_id: BuilderStateId<Types>,
+    ) -> Option<BuildBlockInfo<Types>> {
         // collect all the transactions from the near future
         let timeout_after = Instant::now() + self.maximize_txn_capture_timeout;
         let sleep_interval = self.maximize_txn_capture_timeout / 10;
@@ -695,7 +695,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
         }
 
         let Ok((payload, metadata)) =
-            <TYPES::BlockPayload as BlockPayload<TYPES>>::from_transactions(
+            <Types::BlockPayload as BlockPayload<Types>>::from_transactions(
                 self.tx_queue.iter().map(|tx| tx.tx.clone()),
                 &self.validated_state,
                 &self.instance_state,
@@ -752,7 +752,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     /// the `Builder` wants to include in the next block in addition to the
     /// expected block size, offered fee, and the
     /// Builder's commit block of the data being returned.
-    async fn process_block_request(&mut self, req: RequestMessage<TYPES>) {
+    async fn process_block_request(&mut self, req: RequestMessage<Types>) {
         let requested_view_number = req.requested_view_number;
         // If a spawned clone is active then it will handle the request, otherwise the highest view num builder will handle
         if requested_view_number != self.parent_block_references.view_number {
@@ -830,7 +830,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     /// [`BuilderState::req_receiver`] channel.
     ///
     /// This method is used to process block requests.
-    async fn event_loop_helper_handle_request(&mut self, req: Option<MessageType<TYPES>>) {
+    async fn event_loop_helper_handle_request(&mut self, req: Option<MessageType<Types>>) {
         tracing::debug!(
             "Received request msg in builder {:?}: {:?}",
             self.parent_block_references.view_number,
@@ -858,7 +858,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
 
     /// Helper function that is used to handle incoming [`MessageType`]s,
     /// specifically [`DaProposalMessage`]s,that are received by the [`BuilderState::da_proposal_receiver`] channel.
-    async fn event_loop_helper_handle_da_proposal(&mut self, da: Option<MessageType<TYPES>>) {
+    async fn event_loop_helper_handle_da_proposal(&mut self, da: Option<MessageType<Types>>) {
         let Some(da) = da else {
             tracing::warn!("No more da proposal messages to consume");
             return;
@@ -882,7 +882,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     /// specifically [`QuorumProposalMessage`]s, that are received by the [`BuilderState::quorum_proposal_receiver`] channel.
     async fn event_loop_helper_handle_quorum_proposal(
         &mut self,
-        quorum: Option<MessageType<TYPES>>,
+        quorum: Option<MessageType<Types>>,
     ) {
         let Some(quorum) = quorum else {
             tracing::warn!("No more quorum proposal messages to consume");
@@ -916,7 +916,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
     /// async task should exit.
     async fn event_loop_helper_handle_decide(
         &mut self,
-        decide: Option<MessageType<TYPES>>,
+        decide: Option<MessageType<Types>>,
     ) -> std::ops::ControlFlow<()> {
         let Some(decide) = decide else {
             tracing::warn!("No more decide messages to consume");
@@ -998,26 +998,26 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
 }
 /// Unifies the possible messages that can be received by the builder
 #[derive(Debug, Clone)]
-pub enum MessageType<TYPES: NodeType> {
-    DecideMessage(DecideMessage<TYPES>),
-    DaProposalMessage(Arc<DaProposalMessage<TYPES>>),
-    QuorumProposalMessage(QuorumProposalMessage<TYPES>),
-    RequestMessage(RequestMessage<TYPES>),
+pub enum MessageType<Types: NodeType> {
+    DecideMessage(DecideMessage<Types>),
+    DaProposalMessage(Arc<DaProposalMessage<Types>>),
+    QuorumProposalMessage(QuorumProposalMessage<Types>),
+    RequestMessage(RequestMessage<Types>),
 }
 
 #[allow(clippy::too_many_arguments)]
-impl<TYPES: NodeType> BuilderState<TYPES> {
+impl<Types: NodeType> BuilderState<Types> {
     pub fn new(
-        parent_block_references: ParentBlockReferences<TYPES>,
-        receivers: &BroadcastReceivers<TYPES>,
-        req_receiver: BroadcastReceiver<MessageType<TYPES>>,
-        tx_queue: Vec<Arc<ReceivedTransaction<TYPES>>>,
-        global_state: Arc<RwLock<GlobalState<TYPES>>>,
+        parent_block_references: ParentBlockReferences<Types>,
+        receivers: &BroadcastReceivers<Types>,
+        req_receiver: BroadcastReceiver<MessageType<Types>>,
+        tx_queue: Vec<Arc<ReceivedTransaction<Types>>>,
+        global_state: Arc<RwLock<GlobalState<Types>>>,
         maximize_txn_capture_timeout: Duration,
         base_fee: u64,
-        instance_state: Arc<TYPES::InstanceState>,
+        instance_state: Arc<Types::InstanceState>,
         txn_garbage_collect_duration: Duration,
-        validated_state: Arc<TYPES::ValidatedState>,
+        validated_state: Arc<Types::ValidatedState>,
     ) -> Self {
         let txns_in_queue: HashSet<_> = tx_queue.iter().map(|tx| tx.commit).collect();
         BuilderState {
@@ -1040,7 +1040,7 @@ impl<TYPES: NodeType> BuilderState<TYPES> {
             tx_receiver: receivers.transactions.activate_cloned(),
         }
     }
-    pub fn clone_with_receiver(&self, req_receiver: BroadcastReceiver<MessageType<TYPES>>) -> Self {
+    pub fn clone_with_receiver(&self, req_receiver: BroadcastReceiver<MessageType<Types>>) -> Self {
         let mut included_txns = self.included_txns.clone();
         included_txns.rotate();
 
@@ -1112,66 +1112,16 @@ mod test {
     use async_broadcast::broadcast;
     use committable::RawCommitmentBuilder;
     use hotshot_example_types::block_types::TestTransaction;
+    use hotshot_example_types::node_types::TestTypes;
     use hotshot_types::data::ViewNumber;
     use hotshot_types::data::{Leaf, QuorumProposal};
-    use hotshot_types::message::Proposal;
     use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
     use hotshot_types::utils::BuilderCommitment;
 
     use super::DaProposalMessage;
     use super::MessageType;
     use super::ParentBlockReferences;
-    use crate::testing::{calc_proposal_msg, start_builder_state_without_event_loop, TestTypes};
-
-    /// check whether the `da_proposal_payload_commit_to_da_proposal` has correct (key, value) pair after processing da proposal messages
-    /// used for testing only
-    fn check_equal_da_proposal_hashmap<TYPES: NodeType>(
-        da_proposal_payload_commit_to_da_proposal: HashMap<
-            (BuilderCommitment, <TYPES>::Time),
-            Arc<DaProposalMessage<TYPES>>,
-        >,
-        correct_da_proposal_payload_commit_to_da_proposal: HashMap<
-            (BuilderCommitment, <TYPES>::Time),
-            Arc<DaProposalMessage<TYPES>>,
-        >,
-    ) {
-        let deserialized_map: HashMap<_, _> = da_proposal_payload_commit_to_da_proposal.clone();
-        for (key, value) in deserialized_map.iter() {
-            let correct_value = correct_da_proposal_payload_commit_to_da_proposal.get(key);
-            assert_eq!(
-                value.as_ref().clone(),
-                rkyv::option::ArchivedOption::Some(correct_value)
-                    .unwrap()
-                    .unwrap()
-                    .as_ref()
-                    .clone()
-            );
-        }
-    }
-
-    /// check whether the `quorum_proposal_payload_commit_to_da_proposal` has correct (key, value) pair after processing quorum proposal messages
-    /// used for testing only
-    type QuorumProposalMap<TYPES> = HashMap<
-        (BuilderCommitment, <TYPES as NodeType>::Time),
-        Arc<Proposal<TYPES, QuorumProposal<TYPES>>>,
-    >;
-    fn check_equal_quorum_proposal_hashmap<TYPES: NodeType>(
-        quorum_proposal_payload_commit_to_da_proposal: QuorumProposalMap<TYPES>,
-        correct_quorum_proposal_payload_commit_to_da_proposal: QuorumProposalMap<TYPES>,
-    ) {
-        let deserialized_map: HashMap<_, _> = quorum_proposal_payload_commit_to_da_proposal.clone();
-        for (key, value) in deserialized_map.iter() {
-            let correct_value = correct_quorum_proposal_payload_commit_to_da_proposal.get(key);
-            assert_eq!(
-                value.as_ref().clone(),
-                rkyv::option::ArchivedOption::Some(correct_value)
-                    .unwrap()
-                    .unwrap()
-                    .as_ref()
-                    .clone()
-            );
-        }
-    }
+    use crate::testing::{calc_proposal_msg, create_builder_state};
 
     /// This test the function `process_da_propsal`.
     /// It checkes da_proposal_payload_commit_to_da_proposal change appropriately
@@ -1190,9 +1140,9 @@ mod test {
         // Number of nodes on DA committee
         const NUM_STORAGE_NODES: usize = 4;
 
-        // start builder_state without entering event loop
+        // create builder_state without entering event loop
         let (_senders, global_state, mut builder_state) =
-            start_builder_state_without_event_loop(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
+            create_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
 
         // randomly generate a transaction
         let transactions = vec![TestTransaction::new(vec![1, 2, 3]); 3];
@@ -1206,32 +1156,29 @@ mod test {
             (BuilderCommitment, <TestTypes as NodeType>::Time),
             Arc<DaProposalMessage<TestTypes>>,
         > = HashMap::new();
-        if let MessageType::DaProposalMessage(practice_da_msg) = da_proposal_msg.clone() {
-            builder_state
-                .process_da_proposal(practice_da_msg.clone())
-                .await;
-            correct_da_proposal_payload_commit_to_da_proposal.insert(
-                (
-                    practice_da_msg.builder_commitment.clone(),
-                    practice_da_msg.view_number,
-                ),
-                practice_da_msg,
-            );
-        } else {
-            panic!("Not a da_proposal_message in correct format");
-        }
-        check_equal_da_proposal_hashmap(
+
+        builder_state
+            .process_da_proposal(da_proposal_msg.clone())
+            .await;
+        correct_da_proposal_payload_commit_to_da_proposal.insert(
+            (
+                da_proposal_msg.builder_commitment.clone(),
+                da_proposal_msg.view_number,
+            ),
+            da_proposal_msg,
+        );
+        assert_eq!(
             builder_state
                 .da_proposal_payload_commit_to_da_proposal
                 .clone(),
             correct_da_proposal_payload_commit_to_da_proposal.clone(),
         );
         // check global_state didn't change
-        if let Some(_x) = global_state
+        if global_state
             .read_arc()
             .await
             .spawned_builder_states
-            .get(&builder_state_id)
+            .contains_key(&builder_state_id)
         {
             panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
         }
@@ -1242,25 +1189,21 @@ mod test {
         let transactions_1 = transactions.clone();
         let (_quorum_proposal_1, _quorum_proposal_msg_1, da_proposal_msg_1, builder_state_id_1) =
             calc_proposal_msg(NUM_STORAGE_NODES, 0, None, transactions_1).await;
-        if let MessageType::DaProposalMessage(practice_da_msg_1) = da_proposal_msg_1.clone() {
-            builder_state
-                .process_da_proposal(practice_da_msg_1.clone())
-                .await;
-        } else {
-            panic!("Not a da_proposal_message in correct format");
-        }
-        check_equal_da_proposal_hashmap(
+        builder_state
+            .process_da_proposal(da_proposal_msg_1.clone())
+            .await;
+        assert_eq!(
             builder_state
                 .da_proposal_payload_commit_to_da_proposal
                 .clone(),
             correct_da_proposal_payload_commit_to_da_proposal.clone(),
         );
         // check global_state didn't change
-        if let Some(_x) = global_state
+        if global_state
             .read_arc()
             .await
             .spawned_builder_states
-            .get(&builder_state_id_1)
+            .contains_key(&builder_state_id_1)
         {
             panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
         }
@@ -1275,38 +1218,30 @@ mod test {
             calc_proposal_msg(NUM_STORAGE_NODES, 0, None, transactions_2).await;
 
         // process quorum proposal first, so that later when process_da_proposal we can directly call `build_block` and skip storage
-        if let MessageType::QuorumProposalMessage(practice_quorum_msg_2) =
-            quorum_proposal_msg_2.clone()
-        {
-            builder_state
-                .process_quorum_proposal(practice_quorum_msg_2.clone())
-                .await;
-        } else {
-            panic!("Not a quorum_proposal_message in correct format");
-        }
+        builder_state
+            .process_quorum_proposal(quorum_proposal_msg_2.clone())
+            .await;
 
         // process da proposal message and do the check
-        if let MessageType::DaProposalMessage(practice_da_msg_2) = da_proposal_msg_2.clone() {
+        builder_state
+            .process_da_proposal(da_proposal_msg_2.clone())
+            .await;
+        assert_eq!(
             builder_state
-                .process_da_proposal(practice_da_msg_2.clone())
-                .await;
-        } else {
-            panic!("Not a da_proposal_message in correct format");
-        }
-        check_equal_da_proposal_hashmap(
-            builder_state.da_proposal_payload_commit_to_da_proposal,
-            correct_da_proposal_payload_commit_to_da_proposal,
+                .da_proposal_payload_commit_to_da_proposal
+                .clone(),
+            correct_da_proposal_payload_commit_to_da_proposal.clone(),
         );
         // check global_state has this new builder_state_id
-        if let Some(_x) = global_state
+        if global_state
             .read_arc()
             .await
             .spawned_builder_states
-            .get(&builder_state_id_2)
+            .contains_key(&builder_state_id_2)
         {
             tracing::debug!("global_state updated successfully");
         } else {
-            panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
+            panic!("global_state should have cooresponding builder_state_id as now we have matching quorum proposal.");
         }
     }
 
@@ -1327,9 +1262,9 @@ mod test {
         // Number of nodes on DA committee
         const NUM_STORAGE_NODES: usize = 4;
 
-        // start builder_state without entering event loop
+        // create builder_state without entering event loop
         let (_senders, global_state, mut builder_state) =
-            start_builder_state_without_event_loop(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
+            create_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
 
         // randomly generate a transaction
         let transactions = vec![TestTransaction::new(vec![1, 2, 3]); 3];
@@ -1340,38 +1275,33 @@ mod test {
         // call process_quorum_proposal without matching da proposal message
         // quorum_proposal_payload_commit_to_quorum_proposal should insert the message
         let mut correct_quorum_proposal_payload_commit_to_quorum_proposal = HashMap::new();
-        if let MessageType::QuorumProposalMessage(practice_quorum_msg) = quorum_proposal_msg.clone()
-        {
-            builder_state
-                .process_quorum_proposal(practice_quorum_msg.clone())
-                .await;
-            correct_quorum_proposal_payload_commit_to_quorum_proposal.insert(
-                (
-                    practice_quorum_msg
-                        .proposal
-                        .data
-                        .block_header
-                        .builder_commitment
-                        .clone(),
-                    practice_quorum_msg.proposal.data.view_number,
-                ),
-                practice_quorum_msg.proposal,
-            );
-        } else {
-            panic!("Not a quorum_proposal_message in correct format");
-        }
-        check_equal_quorum_proposal_hashmap(
+        builder_state
+            .process_quorum_proposal(quorum_proposal_msg.clone())
+            .await;
+        correct_quorum_proposal_payload_commit_to_quorum_proposal.insert(
+            (
+                quorum_proposal_msg
+                    .proposal
+                    .data
+                    .block_header
+                    .builder_commitment
+                    .clone(),
+                quorum_proposal_msg.proposal.data.view_number,
+            ),
+            quorum_proposal_msg.proposal,
+        );
+        assert_eq!(
             builder_state
                 .quorum_proposal_payload_commit_to_quorum_proposal
                 .clone(),
-            correct_quorum_proposal_payload_commit_to_quorum_proposal.clone(),
+            correct_quorum_proposal_payload_commit_to_quorum_proposal.clone()
         );
         // check global_state didn't change
-        if let Some(_x) = global_state
+        if global_state
             .read_arc()
             .await
             .spawned_builder_states
-            .get(&builder_state_id)
+            .contains_key(&builder_state_id)
         {
             panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
         }
@@ -1386,39 +1316,30 @@ mod test {
             calc_proposal_msg(NUM_STORAGE_NODES, 0, None, transactions_2).await;
 
         // process da proposal message first, so that later when process_da_proposal we can directly call `build_block` and skip storage
-        if let MessageType::DaProposalMessage(practice_da_msg_2) = da_proposal_msg_2.clone() {
-            builder_state
-                .process_da_proposal(practice_da_msg_2.clone())
-                .await;
-        } else {
-            panic!("Not a da_proposal_message in correct format");
-        }
+        builder_state
+            .process_da_proposal(da_proposal_msg_2.clone())
+            .await;
 
         // process quorum proposal, and do the check
-        if let MessageType::QuorumProposalMessage(practice_quorum_msg_2) =
-            quorum_proposal_msg_2.clone()
-        {
+        builder_state
+            .process_quorum_proposal(quorum_proposal_msg_2.clone())
+            .await;
+        assert_eq!(
             builder_state
-                .process_quorum_proposal(practice_quorum_msg_2.clone())
-                .await;
-        } else {
-            panic!("Not a quorum_proposal_message in correct format");
-        }
-
-        check_equal_quorum_proposal_hashmap(
-            builder_state.quorum_proposal_payload_commit_to_quorum_proposal,
-            correct_quorum_proposal_payload_commit_to_quorum_proposal,
+                .quorum_proposal_payload_commit_to_quorum_proposal
+                .clone(),
+            correct_quorum_proposal_payload_commit_to_quorum_proposal.clone()
         );
         // check global_state has this new builder_state_id
-        if let Some(_x) = global_state
+        if global_state
             .read_arc()
             .await
             .spawned_builder_states
-            .get(&builder_state_id_2)
+            .contains_key(&builder_state_id_2)
         {
             tracing::debug!("global_state updated successfully");
         } else {
-            panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
+            panic!("global_state should have cooresponding builder_state_id as now we have matching da proposal.");
         }
     }
 
@@ -1440,11 +1361,9 @@ mod test {
         // Number of nodes on DA committee
         const NUM_STORAGE_NODES: usize = 4;
 
-        // start builder_state without entering event loop
+        // create builder_state without entering event loop
         let (_senders, global_state, mut builder_state) =
-            start_builder_state_without_event_loop(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
-
-        // insert some builder states
+            create_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
 
         // Transactions to send
         let all_transactions = (0..NUM_ROUNDS)
@@ -1455,6 +1374,7 @@ mod test {
             })
             .collect::<Vec<_>>();
         let mut prev_quorum_proposal: Option<QuorumProposal<TestTypes>> = None;
+        // register some builder states for later decide event
         #[allow(clippy::needless_range_loop)]
         for round in 0..NUM_ROUNDS {
             let transactions = all_transactions[round].clone();
@@ -1485,8 +1405,7 @@ mod test {
             );
         }
 
-        // send out a decide event
-        // randomly choose a latest_decide_view_number between [0, NUM_ROUNDS]
+        // send out a decide event in a middle round
         let latest_decide_view_number = ViewNumber::new(3);
 
         let decide_message = MessageType::DecideMessage(crate::builder_state::DecideMessage {
