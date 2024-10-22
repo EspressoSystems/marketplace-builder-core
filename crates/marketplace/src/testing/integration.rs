@@ -1,3 +1,6 @@
+//! This module implements interfaces necessary to run marketplace builder
+//! in HotShot testing harness.
+
 use std::{collections::HashMap, fmt::Display, marker::PhantomData, sync::Arc, time::Duration};
 
 use async_compatibility_layer::art::async_spawn;
@@ -33,6 +36,9 @@ use crate::{
 
 const BUILDER_CHANNEL_CAPACITY: usize = 1024;
 
+/// Testing configuration for marketplace builder
+/// Stores hooks that will be used in the builder in a type-erased manner,
+/// allowing for runtime configuration of hooks to use in tests.
 struct TestMarketplaceBuilderConfig<Types>
 where
     Types: NodeType,
@@ -51,6 +57,9 @@ where
     }
 }
 
+/// [`TestBuilderImplementation`] for marketplace builder.
+/// Passed as a generic parameter to [`TestRunner::run_test`], it is be used
+/// to instantiate builder API and builder task.
 struct MarketplaceBuilderImpl {}
 
 #[async_trait]
@@ -65,6 +74,9 @@ where
 {
     type Config = TestMarketplaceBuilderConfig<Types>;
 
+    /// This is mostly boilerplate to instantiate and start [`ProxyGlobalState`] APIs and initial [`BuilderState`]'s event loop.
+    /// [`BuilderTask`] it returns will be injected into consensus runtime by HotShot testing harness and
+    /// will forward transactions from hotshot event stream to the builder.
     async fn start(
         n_nodes: usize,
         url: Url,
@@ -156,6 +168,7 @@ where
     }
 }
 
+/// Marketplace builder task. Stores all the necessary information to run builder service
 struct MarketplaceBuilderTask<Types>
 where
     Types: NodeType,

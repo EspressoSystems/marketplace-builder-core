@@ -50,6 +50,8 @@ impl TryFrom<&TransactionPayload> for TestTransaction {
     }
 }
 
+/// Run a builder test. Thin wrapper around `TestRunner::run_test`, injecting transaction generation
+/// and validation tasks based on `validation_config` and `transaction_generation_config` respectively.
 pub async fn run_test<V: Versions, BuilderImpl: TestBuilderImplementation<TestTypes>>(
     description: TestDescription<TestTypes, MemoryImpl, V>,
     validation_config: BuilderValidationConfig,

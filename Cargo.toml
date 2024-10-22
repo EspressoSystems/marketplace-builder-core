@@ -54,6 +54,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 ] }
 
 [workspace.lints.clippy]
+disallowed-names = "deny"
 doc_markdown = "deny"
 doc_link_with_quotes = "deny"
 
