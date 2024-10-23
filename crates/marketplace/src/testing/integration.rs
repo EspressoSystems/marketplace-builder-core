@@ -274,7 +274,7 @@ mod tests {
                 ..TestDescription::default()
             },
             BuilderValidationConfig {
-                expected_txn_num: 300,
+                expected_txn_num: num_cpus::get() * 50,
             },
             TransactionGenerationConfig {
                 strategy: generation::GenerationStrategy::Flood {

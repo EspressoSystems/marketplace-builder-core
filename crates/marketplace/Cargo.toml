@@ -27,6 +27,7 @@ hotshot-testing = { workspace = true }
 hotshot-types = { workspace = true }
 lru = { workspace = true }
 multimap = { workspace = true }
+num_cpus = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

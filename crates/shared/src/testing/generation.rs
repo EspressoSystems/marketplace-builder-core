@@ -201,9 +201,9 @@ where
 {
     type Event = Event<Types>;
 
-    async fn handle_event(&mut self, (event, id): (Self::Event, usize)) -> anyhow::Result<()> {
+    async fn handle_event(&mut self, (event, node_id): (Self::Event, usize)) -> anyhow::Result<()> {
         // We only need to handle events from one node
-        if id != 0 {
+        if node_id != 0 {
             return Ok(());
         }
 
