@@ -8090,15 +8090,14 @@ dependencies = [
 
 [[package]]
 name = "vbs"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a9d83afb293d109ae418271619046cd9d87d63ba83e473e25a5e36101edc453"
+checksum = "9cf4ed425fa4976d51e35f5882764612c5f735457118d6ef7b6c684b7d34a74d"
 dependencies = [
  "anyhow",
  "bincode",
  "derive_more 0.99.18",
  "serde",
- "serde_with",
 ]
 
 [[package]]
