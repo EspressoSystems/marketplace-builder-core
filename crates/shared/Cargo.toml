@@ -3,16 +3,15 @@ name = "marketplace-builder-shared"
 version = { workspace = true }
 edition = { workspace = true }
 
+[features]
+testing = []
+
 [dependencies]
 anyhow = { workspace = true }
-async-broadcast = { workspace = true }
 hotshot = { workspace = true }
-hotshot-builder-api = { workspace = true }
 hotshot-events-service = { workspace = true }
-hotshot-task-impls = { workspace = true }
 hotshot-types = { workspace = true }
 
-async-trait = { workspace = true }
 committable = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
