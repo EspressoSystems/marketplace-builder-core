@@ -153,7 +153,7 @@ where
                     let mut data = vec![0; txn_size];
                     rng.fill(data.as_mut_slice());
                     let transaction = TransactionPayload {
-                        number: self.txn_nonce,
+                        index: self.txn_nonce,
                         created: now,
                         data,
                     };
@@ -177,7 +177,7 @@ where
                     rng.fill(data.as_mut_slice());
 
                     let transaction = TransactionPayload {
-                        number: self.txn_nonce,
+                        index: self.txn_nonce,
                         created: now,
                         data,
                     };
@@ -202,6 +202,7 @@ where
     type Event = Event<Types>;
 
     async fn handle_event(&mut self, (event, id): (Self::Event, usize)) -> anyhow::Result<()> {
+        // We only need to handle events from one node
         if id != 0 {
             return Ok(());
         }
@@ -246,7 +247,8 @@ where
                                 builder::Error::Request(request_error) => {
                                     panic!("Builder API not available: {request_error}")
                                 }
-                                // If the builder returns an error, we will re-try on the next view
+                                // If the builder returns an error, we will re-submit this transaction
+                                // on the next view, so we return it to the queue and break
                                 error => {
                                     tracing::warn!(?error, "Builder API error");
                                     self.txn_queue.push_front(txn);

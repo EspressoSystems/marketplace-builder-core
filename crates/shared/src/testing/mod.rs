@@ -20,7 +20,7 @@ pub mod validation;
 pub struct TransactionPayload {
     /// Monotonically increasing transaction number, to uniquely
     /// identify the transaction and track transaction ordering
-    number: usize,
+    index: usize,
     /// Time of transaction creation
     created: DateTime<Local>,
     /// Arbitrary data to pad transaction length with
@@ -35,7 +35,7 @@ impl TransactionPayload {
         let mut data = Vec::with_capacity(data_bytes);
         thread_rng().fill(data.as_mut_slice());
         Self {
-            number,
+            index: number,
             created: Local::now(),
             data,
         }

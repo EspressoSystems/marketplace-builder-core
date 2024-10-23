@@ -75,6 +75,7 @@ where
     type Event = Event<Types>;
 
     async fn handle_event(&mut self, (event, id): (Self::Event, usize)) -> anyhow::Result<()> {
+        // We only need to handle events from one node
         if id != 0 {
             return Ok(());
         }
@@ -112,7 +113,7 @@ where
         if let Err(e) = self
             .txn_history
             .iter()
-            .map(|txn| txn.payload.number as i64)
+            .map(|txn| txn.payload.index as i64)
             .try_fold(-1, |prev, next| {
                 if prev + 1 == next {
                     Ok(next)
