@@ -1,4 +1,4 @@
-name: Build
+name: Test
 
 on:
   push:
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: '--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std"'
@@ -40,4 +40,34 @@ jobs:
           cargo nextest run --workspace --release  -j 2 \
             --lib --bins --tests --benches --all-features \
             --verbose --no-fail-fast
+        timeout-minutes: 60
+
+  test-ignored:
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: '--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std"'
+      RUST_MIN_STACK: 64000000
+      RUST_LOG: info
+    steps:
+      - uses: styfle/cancel-workflow-action@0.12.0
+        name: Cancel Outdated Builds
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@nextest
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+
+      - name: Run slow tests
+        run: |
+          cargo nextest run --workspace --release  -j 1 \
+            --lib --bins --tests --benches --all-features \
+            --verbose --no-fail-fast --run-ignored only
         timeout-minutes: 60
