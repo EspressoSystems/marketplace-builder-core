@@ -972,7 +972,7 @@ checksum = "edf3ee19dbc0a46d740f6f0926bde8c50f02bdbc7b536842da28f6ac56513a8b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -3005,7 +3005,7 @@ dependencies = [
 [[package]]
 name = "hotshot"
 version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3046,13 +3046,14 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "utils",
  "vbs",
 ]
 
 [[package]]
 name = "hotshot-builder-api"
 version = "0.1.7"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
 dependencies = [
  "async-trait",
  "clap",
@@ -3105,7 +3106,7 @@ dependencies = [
 [[package]]
 name = "hotshot-events-service"
 version = "0.1.49"
-source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?tag=0.1.50#8cbc0e0787ebcfef750c0b4f2f9f7f16d8ea21a8"
+source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?branch=sishan/trait_builder_transaction#cb283e53bca1a0c26aea255f6158ed2fba503fa2"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3131,7 +3132,7 @@ dependencies = [
 [[package]]
 name = "hotshot-example-types"
 version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3164,7 +3165,7 @@ dependencies = [
 [[package]]
 name = "hotshot-fakeapi"
 version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3184,18 +3185,18 @@ dependencies = [
 [[package]]
 name = "hotshot-macros"
 version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
 dependencies = [
  "derive_builder",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
 name = "hotshot-orchestrator"
 version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3224,7 +3225,7 @@ dependencies = [
 [[package]]
 name = "hotshot-task"
 version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3234,12 +3235,13 @@ dependencies = [
  "futures",
  "tokio",
  "tracing",
+ "utils",
 ]
 
 [[package]]
 name = "hotshot-task-impls"
 version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3269,6 +3271,7 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "utils",
  "vbs",
  "vec1",
 ]
@@ -3276,7 +3279,7 @@ dependencies = [
 [[package]]
 name = "hotshot-testing"
 version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3322,7 +3325,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.11"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -3374,6 +3377,7 @@ dependencies = [
  "tracing",
  "typenum",
  "url",
+ "utils",
  "vbs",
  "vec1",
 ]
@@ -3503,7 +3507,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.14",
- "socket2 0.4.10",
+ "socket2 0.5.7",
  "tokio",
  "tower-service",
  "tracing",
@@ -4388,7 +4392,7 @@ dependencies = [
 [[package]]
 name = "libp2p-networking"
 version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -8201,6 +8205,14 @@ name = "utf8parse"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
+
+[[package]]
+name = "utils"
+version = "0.5.78"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/trait_builder_transaction#d5ba8512fe52b871fa7ad4a45a9d699ab6caba30"
+dependencies = [
+ "tracing",
+]
 
 [[package]]
 name = "uuid"

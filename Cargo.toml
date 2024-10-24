@@ -3,14 +3,14 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.50" }
-hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
-hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/trait_builder_transaction" }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/trait_builder_transaction" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", branch = "sishan/trait_builder_transaction" }
+hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/trait_builder_transaction" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/trait_builder_transaction" }
+hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/trait_builder_transaction" }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/trait_builder_transaction" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/trait_builder_transaction" }
 
 anyhow = "1"
 async-broadcast = "0.7"
