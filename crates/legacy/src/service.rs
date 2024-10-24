@@ -9,7 +9,7 @@ use hotshot_types::{
     event::EventType,
     message::Proposal,
     traits::{
-        block_contents::BlockPayload,
+        block_contents::{BlockPayload, BuilderTransaction},
         node_implementation::{ConsensusTime, NodeType},
         signature_key::{BuilderSignatureKey, SignatureKey},
     },
@@ -1446,7 +1446,19 @@ impl<Types: NodeType> Iterator for HandleReceivedTxns<Types> {
         // encoded transaction length. Luckily, this being roughly proportional
         // to encoded length is enough, because we only use this value to estimate
         // our limitations on computing the VID in time.
-        let len = bincode::serialized_size(&tx).unwrap_or_default();
+        // In sequencer we account for block byte length limit with:
+        // let len = tx.payload().len() + NsTableBuilder::entry_byte_len() + NsPayloadBuilder::tx_table_header_byte_len() + NsPayloadBuilder::tx_table_entry_byte_len();
+        // where
+        // pub const fn entry_byte_len() -> usize {NS_ID_BYTE_LEN (4) + NS_OFFSET_BYTE_LEN (4)}
+        // pub const fn tx_table_header_byte_len() -> usize {NUM_TXS_BYTE_LEN (4)}
+        // pub const fn tx_table_entry_byte_len() -> usize {TX_OFFSET_BYTE_LEN (4)}
+        const NS_ID_BYTE_LEN: usize = 4;
+        const NS_OFFSET_BYTE_LEN: usize = 4;
+        const NUM_TXS_BYTE_LEN: usize = 4;
+        const TX_OFFSET_BYTE_LEN: usize = 4;
+        let len = tx.minimum_block_size(
+            ((NS_ID_BYTE_LEN + NS_OFFSET_BYTE_LEN) + NUM_TXS_BYTE_LEN + TX_OFFSET_BYTE_LEN) as u64,
+        );
         let max_txn_len = self.max_txn_len;
         if len > max_txn_len {
             tracing::warn!(%commit, %len, %max_txn_len, "Transaction too big");
@@ -1539,6 +1551,9 @@ mod test {
         BlockInfo, ClaimBlockError, ClaimBlockHeaderInputError, GlobalState, HandleDaEventError,
         HandleQuorumEventError, HandleReceivedTxns, ProxyGlobalState,
     };
+
+    /// A const number on `max_tx_len` to be used consistently spanning all the tests
+    const TEST_MAX_TX_LEN: u64 = 20;
 
     // GlobalState Tests
 
@@ -4290,7 +4305,7 @@ mod test {
                 tx_sender,
                 txns.clone(),
                 TransactionSource::HotShot,
-                10,
+                TEST_MAX_TX_LEN,
             );
 
             assert!(handle_received_txns_iter.next().is_some());
@@ -4338,7 +4353,7 @@ mod test {
                 tx_sender,
                 txns.clone(),
                 TransactionSource::HotShot,
-                10,
+                TEST_MAX_TX_LEN,
             );
 
             assert!(handle_received_txns_iter.next().is_some());
@@ -4350,7 +4365,7 @@ mod test {
                 })) => {
                     // This is expected,
                     assert!(estimated_length >= 256);
-                    assert_eq!(max_txn_len, 10);
+                    assert_eq!(max_txn_len, TEST_MAX_TX_LEN);
                 }
                 Some(Err(err)) => {
                     panic!("Unexpected error: {:?}", err);
@@ -4396,7 +4411,7 @@ mod test {
                 tx_sender,
                 txns.clone(),
                 TransactionSource::HotShot,
-                10,
+                TEST_MAX_TX_LEN,
             );
 
             match handle_received_txns_iter.next() {
@@ -4441,7 +4456,7 @@ mod test {
             tx_sender,
             txns.clone(),
             TransactionSource::HotShot,
-            10,
+            TEST_MAX_TX_LEN,
         );
 
         for iteration in handle_received_txns_iter {
