@@ -10,7 +10,7 @@ hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", tag =
 hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78-patch4" }
 hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78-patch4" }
 hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78-patch4" }
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78-patch4" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
 
 anyhow = "1"
 async-broadcast = "0.7"
