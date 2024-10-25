@@ -9,7 +9,7 @@ hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-eve
 hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78-patch4" }
 hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78-patch4" }
 hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78-patch4" }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78-patch4" }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78" }
 hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.78-patch4" }
 
 anyhow = "1"
