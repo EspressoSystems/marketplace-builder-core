@@ -3184,6 +3184,17 @@ dependencies = [
 [[package]]
 name = "hotshot-macros"
 version = "0.5.78"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+dependencies = [
+ "derive_builder",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.82",
+]
+
+[[package]]
+name = "hotshot-macros"
+version = "0.5.78"
 source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78-patch4#e8abb17d990560d6c92489522d218b99d2089db3"
 dependencies = [
  "derive_builder",
@@ -3294,7 +3305,7 @@ dependencies = [
  "hotshot-builder-api",
  "hotshot-example-types",
  "hotshot-fakeapi",
- "hotshot-macros",
+ "hotshot-macros 0.5.78 (git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78-patch4)",
  "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
@@ -3503,7 +3514,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.14",
- "socket2 0.4.10",
+ "socket2 0.5.7",
  "tokio",
  "tower-service",
  "tracing",
@@ -4733,7 +4744,7 @@ dependencies = [
  "hotshot-builder-api",
  "hotshot-events-service",
  "hotshot-example-types",
- "hotshot-macros",
+ "hotshot-macros 0.5.78 (git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78)",
  "hotshot-task-impls",
  "hotshot-testing",
  "hotshot-types",
