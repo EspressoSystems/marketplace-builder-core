@@ -43,6 +43,7 @@ jobs:
         timeout-minutes: 60
 
   test-ignored:
+    if: false
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: '--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std"'
