@@ -5,13 +5,12 @@ members = ["crates/*"]
 [workspace.dependencies]
 hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
 hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.51" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.52" }
 hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
 hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
 hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
 hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
 hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
-
 anyhow = "1"
 async-broadcast = "0.7"
 async-compatibility-layer = { version = "1.2.1", default-features = false }
