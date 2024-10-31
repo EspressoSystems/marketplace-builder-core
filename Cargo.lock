@@ -3071,7 +3071,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-builder-core"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4720,7 +4720,7 @@ dependencies = [
 
 [[package]]
 name = "marketplace-builder-core"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4762,7 +4762,7 @@ dependencies = [
 
 [[package]]
 name = "marketplace-builder-shared"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4782,9 +4782,11 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-testing",
  "hotshot-types",
+ "portpicker",
  "rand 0.8.5",
  "serde",
  "surf-disco",
+ "tide-disco",
  "tokio",
  "tracing",
  "url",
