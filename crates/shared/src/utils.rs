@@ -1,4 +1,4 @@
-use std::{future::Future, pin::Pin, task::Poll};
+use std::{future::Future, pin::Pin};
 
 use std::{
     collections::HashSet,
@@ -9,7 +9,8 @@ use std::{
 
 use async_compatibility_layer::art::async_sleep;
 use either::Either::{self, Left, Right};
-use futures::{ready, FutureExt, Stream, StreamExt};
+use futures::stream::unfold;
+use futures::{Stream, StreamExt};
 use hotshot::types::Event;
 use hotshot_events_service::events::Error as EventStreamError;
 use hotshot_types::traits::node_implementation::NodeType;
@@ -105,7 +106,7 @@ pub struct EventServiceStream<Types: NodeType, V: StaticVersionType> {
     connection: Either<EventServiceConnection<Types, V>, EventServiceReconnect<Types, V>>,
 }
 
-impl<Types: NodeType, ApiVer: StaticVersionType> EventServiceStream<Types, ApiVer> {
+impl<Types: NodeType, ApiVer: StaticVersionType + 'static> EventServiceStream<Types, ApiVer> {
     async fn connect_inner(
         url: Url,
     ) -> anyhow::Result<
@@ -119,8 +120,11 @@ impl<Types: NodeType, ApiVer: StaticVersionType> EventServiceStream<Types, ApiVe
         let client = Client::<hotshot_events_service::events::Error, ApiVer>::new(url.clone());
 
         loop {
-            if client.healthcheck::<HealthStatus>().await.is_ok() {
-                break;
+            match client.healthcheck::<HealthStatus>().await {
+                Ok(_) => break,
+                Err(err) => {
+                    tracing::debug!(?err, "Couldn't connect, retrying");
+                }
             }
             async_sleep(Duration::from_secs(1)).await;
         }
@@ -134,56 +138,47 @@ impl<Types: NodeType, ApiVer: StaticVersionType> EventServiceStream<Types, ApiVe
     }
 
     /// Establish initial connection to the events service at `api_url`
-    pub async fn connect(api_url: Url) -> anyhow::Result<Self> {
+    pub async fn connect(api_url: Url) -> anyhow::Result<impl Stream<Item = Event<Types>> + Unpin> {
         let connection = Self::connect_inner(api_url.clone()).await?;
 
-        Ok(Self {
+        let this = Self {
             api_url,
             connection: Left(connection),
-        })
-    }
-}
+        };
 
-impl<Types: NodeType, V: StaticVersionType + 'static> Stream for EventServiceStream<Types, V> {
-    type Item = Event<Types>;
-
-    fn poll_next(
-        mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
-        match &mut self.connection {
-            Left(connection) => {
-                let next = ready!(connection.poll_next_unpin(cx));
-                match next {
-                    Some(Ok(event)) => Poll::Ready(Some(event)),
-                    Some(Err(err)) => {
-                        warn!(?err, "Error in event stream");
-                        Poll::Pending
-                    }
-                    None => {
-                        warn!("Event stream ended, attempting reconnection");
-                        let fut = Self::connect_inner(self.api_url.clone());
-                        let _ = std::mem::replace(&mut self.connection, Right(Box::pin(fut)));
-                        cx.waker().wake_by_ref();
-                        Poll::Pending
-                    }
+        let stream = unfold(this, |mut this| async move {
+            loop {
+                match &mut this.connection {
+                    Left(connection) => match connection.next().await {
+                        Some(Ok(event)) => {
+                            return Some((event, this));
+                        }
+                        Some(Err(err)) => {
+                            warn!(?err, "Error in event stream");
+                            continue;
+                        }
+                        None => {
+                            warn!("Event stream ended, attempting reconnection");
+                            let fut = Self::connect_inner(this.api_url.clone());
+                            let _ = std::mem::replace(&mut this.connection, Right(Box::pin(fut)));
+                            continue;
+                        }
+                    },
+                    Right(reconnection) => match reconnection.await {
+                        Ok(connection) => {
+                            let _ = std::mem::replace(&mut this.connection, Left(connection));
+                            continue;
+                        }
+                        Err(err) => {
+                            error!(?err, "Error while reconnecting, giving up");
+                            return None;
+                        }
+                    },
                 }
             }
-            Right(reconnect_future) => {
-                let next = ready!(reconnect_future.poll_unpin(cx));
-                match next {
-                    Err(err) => {
-                        error!(?err, "Error while reconnecting, giving up");
-                        Poll::Ready(None)
-                    }
-                    Ok(connection) => {
-                        let _ = std::mem::replace(&mut self.connection, Left(connection));
-                        cx.waker().wake_by_ref();
-                        Poll::Pending
-                    }
-                }
-            }
-        }
+        });
+
+        Ok(Box::pin(stream))
     }
 }
 
@@ -300,7 +295,8 @@ mod tests {
             .next()
             .timeout(TIMEOUT)
             .await
-            .expect("When mock event server is spawned, stream should work");
+            .expect("When mock event server is spawned, stream should work")
+            .unwrap();
 
         #[cfg(async_executor_impl = "tokio")]
         app_handle.abort();
@@ -319,7 +315,8 @@ mod tests {
             .next()
             .timeout(TIMEOUT)
             .await
-            .expect("When mock event server is restarted, stream should work again");
+            .expect("When mock event server is restarted, stream should work again")
+            .unwrap();
 
         #[cfg(async_executor_impl = "tokio")]
         app_handle.abort();
@@ -335,7 +332,7 @@ mod tests {
                 .await
                 .expect("API is reachable")
                 .is_none(),
-            "Stream should've ended, because while url is reachable, it doesn't conform to expeted API"
+            "Stream should've ended, because while url is reachable, it doesn't conform to expected API"
         )
     }
 }
