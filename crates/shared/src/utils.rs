@@ -7,7 +7,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+use anyhow::Context;
 use async_compatibility_layer::art::async_sleep;
+use async_std::prelude::FutureExt;
 use either::Either::{self, Left, Right};
 use futures::stream::unfold;
 use futures::{Stream, StreamExt};
@@ -107,6 +109,9 @@ pub struct EventServiceStream<Types: NodeType, V: StaticVersionType> {
 }
 
 impl<Types: NodeType, ApiVer: StaticVersionType + 'static> EventServiceStream<Types, ApiVer> {
+    const RETRY_PERIOD: Duration = Duration::from_secs(1);
+    const CONNECTION_TIMEOUT: Duration = Duration::from_secs(60);
+
     async fn connect_inner(
         url: Url,
     ) -> anyhow::Result<
@@ -119,17 +124,22 @@ impl<Types: NodeType, ApiVer: StaticVersionType + 'static> EventServiceStream<Ty
     > {
         let client = Client::<hotshot_events_service::events::Error, ApiVer>::new(url.clone());
 
-        loop {
-            match client.healthcheck::<HealthStatus>().await {
-                Ok(_) => break,
-                Err(err) => {
-                    tracing::debug!(?err, "Couldn't connect, retrying");
+        async {
+            loop {
+                match client.healthcheck::<HealthStatus>().await {
+                    Ok(_) => break,
+                    Err(err) => {
+                        tracing::debug!(?err, "Healthcheck failed, retrying");
+                    }
                 }
+                async_sleep(Self::RETRY_PERIOD).await;
             }
-            async_sleep(Duration::from_secs(1)).await;
         }
+        .timeout(Self::CONNECTION_TIMEOUT)
+        .await
+        .context("Couldn't connect to hotshot events API")?;
 
-        tracing::info!("Builder client connected to the hotshot events api");
+        tracing::info!("Builder client connected to the hotshot events API");
 
         Ok(client
             .socket("hotshot-events/events")
@@ -170,8 +180,11 @@ impl<Types: NodeType, ApiVer: StaticVersionType + 'static> EventServiceStream<Ty
                             continue;
                         }
                         Err(err) => {
-                            error!(?err, "Error while reconnecting, giving up");
-                            return None;
+                            error!(?err, "Error while reconnecting, will retry in a while");
+                            async_sleep(Self::RETRY_PERIOD).await;
+                            let fut = Self::connect_inner(this.api_url.clone());
+                            let _ = std::mem::replace(&mut this.connection, Right(Box::pin(fut)));
+                            continue;
                         }
                     },
                 }
@@ -325,14 +338,10 @@ mod tests {
 
         run_app("wrong-path", url.clone());
 
-        assert!(
-            stream
-                .next()
-                .timeout(TIMEOUT)
-                .await
-                .expect("API is reachable")
-                .is_none(),
-            "Stream should've ended, because while url is reachable, it doesn't conform to expected API"
-        )
+        stream
+            .next()
+            .timeout(TIMEOUT)
+            .await
+            .expect_err("API is reachable, but is on wrong path");
     }
 }
