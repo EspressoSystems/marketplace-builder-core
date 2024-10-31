@@ -45,7 +45,7 @@ vbs = "0.1"
 vec1 = "1.12"
 
 [workspace.package]
-version = "0.1.52"
+version = "0.1.53"
 edition = "2021"
 
 [workspace.lints.rust]
