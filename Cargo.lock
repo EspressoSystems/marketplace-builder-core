@@ -3019,7 +3019,7 @@ dependencies = [
 [[package]]
 name = "hotshot"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3067,7 +3067,7 @@ dependencies = [
 [[package]]
 name = "hotshot-builder-api"
 version = "0.1.7"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "async-trait",
  "clap",
@@ -3146,7 +3146,7 @@ dependencies = [
 [[package]]
 name = "hotshot-example-types"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3180,7 +3180,7 @@ dependencies = [
 [[package]]
 name = "hotshot-fakeapi"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3200,7 +3200,7 @@ dependencies = [
 [[package]]
 name = "hotshot-macros"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3211,7 +3211,7 @@ dependencies = [
 [[package]]
 name = "hotshot-orchestrator"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3240,7 +3240,7 @@ dependencies = [
 [[package]]
 name = "hotshot-task"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3256,7 +3256,7 @@ dependencies = [
 [[package]]
 name = "hotshot-task-impls"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3294,7 +3294,7 @@ dependencies = [
 [[package]]
 name = "hotshot-testing"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3400,7 +3400,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.11"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -4466,7 +4466,7 @@ dependencies = [
 [[package]]
 name = "libp2p-networking"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -4475,6 +4475,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
+ "cbor4ii",
  "custom_debug",
  "delegate",
  "derive_builder",
@@ -8290,7 +8291,7 @@ dependencies = [
 [[package]]
 name = "utils"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#fc63cc7743eec6fc351aa16175c6466560a597ee"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=keyao/num_nodes_api#d213cda358ce782058c8743b3a65296e8f127642"
 dependencies = [
  "tracing",
 ]
