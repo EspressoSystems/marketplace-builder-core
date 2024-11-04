@@ -3,14 +3,14 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", branch = "keyao/num_nodes_api" }
-hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
-hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "keyao/num_nodes_api" }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.80" }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.80" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.53" }
+hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.80" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.80" }
+hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.80" }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.80" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.80" }
 
 anyhow = "1"
 async-broadcast = "0.7"
