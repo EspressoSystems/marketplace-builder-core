@@ -16,6 +16,7 @@ use futures::{Stream, StreamExt};
 use hotshot::types::Event;
 use hotshot_events_service::events::Error as EventStreamError;
 use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::utils::BuilderCommitment;
 use surf_disco::client::HealthStatus;
 use surf_disco::Client;
 use tracing::{error, warn};
@@ -344,4 +345,25 @@ mod tests {
             .await
             .expect_err("API is reachable, but is on wrong path");
     }
+}
+
+// TODO: Update commitment calculation with the new `commit`.
+// <https://github.com/EspressoSystems/marketplace-builder-core/issues/143>
+pub trait LegacyCommit<T: NodeType> {
+    fn legacy_commit(&self) -> committable::Commitment<hotshot_types::data::Leaf<T>>;
+}
+
+impl<T: NodeType> LegacyCommit<T> for hotshot_types::data::Leaf<T> {
+    fn legacy_commit(&self) -> committable::Commitment<hotshot_types::data::Leaf<T>> {
+        <hotshot_types::data::Leaf<T> as committable::Committable>::commit(self)
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct ProposalId<Types>
+where
+    Types: NodeType,
+{
+    pub view_number: Types::View,
+    pub payload_commitment: BuilderCommitment,
 }

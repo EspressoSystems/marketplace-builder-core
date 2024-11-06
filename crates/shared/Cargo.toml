@@ -4,6 +4,19 @@ version = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+anyhow = { workspace = true }
+async-broadcast = { workspace = true }
+async-compatibility-layer = { workspace = true, features = ["logging-utils"] }
+async-lock = { workspace = true }
+async-std = { workspace = true }
+async-trait = { workspace = true }
+bincode = { workspace = true }
+chrono = { workspace = true }
+committable = { workspace = true }
+derive_more = { workspace = true, features = ["debug"] }
+either = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
 hotshot = { workspace = true }
 hotshot-builder-api = { workspace = true }
 hotshot-events-service = { workspace = true }
@@ -12,22 +25,14 @@ hotshot-task-impls = { workspace = true }
 hotshot-testing = { workspace = true }
 hotshot-types = { workspace = true }
 
-anyhow = { workspace = true }
-async-broadcast = { workspace = true }
-async-compatibility-layer = { workspace = true, features = ["logging-utils"] }
-async-std = { workspace = true }
-async-trait = { workspace = true }
-bincode = { workspace = true }
-chrono = { workspace = true }
-committable = { workspace = true }
-either = { workspace = true }
-futures = { workspace = true }
-hex = { workspace = true }
+nonempty-collections = "0.2"
 rand = { workspace = true }
 serde = { workspace = true }
+sha2 = { workspace = true }
 surf-disco = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+typenum = { workspace = true }
 url = { workspace = true }
 vbs = { workspace = true }
 vec1 = { workspace = true }
@@ -35,6 +40,8 @@ vec1 = { workspace = true }
 [dev-dependencies]
 portpicker = "0.1.1"
 tide-disco = { workspace = true }
+
+jf-vid = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 
 [lints]
 workspace = true
