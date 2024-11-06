@@ -8,7 +8,7 @@ use marketplace_builder_shared::block::BuilderStateId;
 
 use crate::{
     builder_state::MessageType,
-    service::{BuilderHooks, ProxyGlobalState},
+    service::{BuilderHooks, MarketplaceBuilderService},
 };
 
 use std::{fmt::Debug, sync::Arc};
@@ -160,7 +160,7 @@ async fn test_builder_order() {
 
     let (senders, global_state) = start_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
 
-    let proxy_global_state = ProxyGlobalState::new(
+    let proxy_global_state = MarketplaceBuilderService::new(
         global_state.clone(),
         Arc::new(NoOpHooks),
         BLSPubKey::generated_from_seed_indexed([0; 32], 0),
@@ -318,7 +318,7 @@ async fn test_builder_order_chain_fork() {
     };
 
     let (senders, global_state) = start_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
-    let proxy_global_state = ProxyGlobalState::new(
+    let proxy_global_state = MarketplaceBuilderService::new(
         global_state.clone(),
         Arc::new(NoOpHooks),
         BLSPubKey::generated_from_seed_indexed([0; 32], 0),
@@ -507,7 +507,7 @@ async fn test_builder_order_should_fail() {
     const NUM_STORAGE_NODES: usize = 4;
 
     let (senders, global_state) = start_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
-    let proxy_global_state = ProxyGlobalState::new(
+    let proxy_global_state = MarketplaceBuilderService::new(
         global_state,
         Arc::new(NoOpHooks),
         BLSPubKey::generated_from_seed_indexed([0; 32], 0),

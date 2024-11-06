@@ -4731,7 +4731,7 @@ dependencies = [
  "async-trait",
  "clap",
  "committable",
- "derivative",
+ "derive_more 1.0.0",
  "either",
  "futures",
  "hex",

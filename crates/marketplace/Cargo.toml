@@ -14,7 +14,7 @@ async-std = { workspace = true, features = ["unstable", "attributes"] }
 async-trait = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 committable = { workspace = true }
-derivative = { workspace = true }
+derive_more = { workspace = true, features = ["deref", "deref_mut"] }
 either = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
