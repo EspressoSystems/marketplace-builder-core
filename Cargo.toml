@@ -3,14 +3,14 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.79" }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.79" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.52" }
-hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.79" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.79" }
-hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.79" }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.79" }
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.79" }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/tx_status_api" }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/tx_status_api" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", branch = "sishan/tx_status_api" }
+hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/tx_status_api" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/tx_status_api" }
+hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/tx_status_api" }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/tx_status_api" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "sishan/tx_status_api" }
 
 anyhow = "1"
 async-broadcast = "0.7"
