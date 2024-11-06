@@ -2,7 +2,7 @@ use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use crate::{
     builder_state::{DaProposalMessage, QuorumProposalMessage, ALLOW_EMPTY_BLOCK_PERIOD},
-    service::{GlobalState, ProxyGlobalState, ReceivedTransaction},
+    service::{GlobalState, ProxyGlobalState},
 };
 use async_broadcast::{broadcast, Sender};
 use async_lock::RwLock;
@@ -30,6 +30,7 @@ use hotshot_types::{
     },
     utils::BuilderCommitment,
 };
+use marketplace_builder_shared::block::ReceivedTransaction;
 use marketplace_builder_shared::testing::constants::{
     TEST_CHANNEL_BUFFER_SIZE, TEST_NUM_CONSENSUS_RETRIES, TEST_NUM_NODES_IN_VID_COMPUTATION,
 };

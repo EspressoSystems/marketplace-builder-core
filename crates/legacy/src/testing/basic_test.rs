@@ -36,17 +36,15 @@ mod tests {
         block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
         state_types::{TestInstanceState, TestValidatedState},
     };
-    use marketplace_builder_shared::block::ParentBlockReferences;
+    use marketplace_builder_shared::block::{
+        ParentBlockReferences, ReceivedTransaction, TransactionSource,
+    };
     use marketplace_builder_shared::testing::constants::{
         TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD, TEST_PROTOCOL_MAX_BLOCK_SIZE,
     };
 
-    use crate::builder_state::{
-        DaProposalMessage, DecideMessage, QuorumProposalMessage, TransactionSource,
-    };
-    use crate::service::{
-        handle_received_txns, GlobalState, ProxyGlobalState, ReceivedTransaction,
-    };
+    use crate::builder_state::{DaProposalMessage, DecideMessage, QuorumProposalMessage};
+    use crate::service::{handle_received_txns, GlobalState, ProxyGlobalState};
     use crate::LegacyCommit;
     use async_lock::RwLock;
     use committable::{Commitment, CommitmentBoundsArkless, Committable};
@@ -188,14 +186,14 @@ mod tests {
             // Submit Transactions to the Builder
             {
                 // Prepare the transaction message
-                let tx = TestTransaction::new(vec![round as u8]);
+                let txn = TestTransaction::new(vec![round as u8]);
 
-                let tx_vec = vec![tx];
+                let tx_vec = vec![txn];
                 assert_eq!(
                     handle_received_txns(
                         &tx_sender,
                         tx_vec.clone(),
-                        TransactionSource::HotShot,
+                        TransactionSource::Public,
                         u64::MAX,
                     )
                     .await

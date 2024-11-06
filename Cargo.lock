@@ -3083,7 +3083,6 @@ dependencies = [
  "bincode",
  "clap",
  "committable",
- "derivative",
  "futures",
  "hex",
  "hotshot",

@@ -10,14 +10,13 @@ use hotshot_types::{
     utils::BuilderCommitment,
     vid::{VidCommitment, VidPrecomputeData},
 };
-use marketplace_builder_shared::block::{BlockId, BuilderStateId, ParentBlockReferences};
+use marketplace_builder_shared::block::{
+    BlockId, BuilderStateId, ParentBlockReferences, ReceivedTransaction,
+};
 
 use committable::Commitment;
 
-use crate::{
-    service::{GlobalState, ReceivedTransaction},
-    LegacyCommit,
-};
+use crate::{service::GlobalState, LegacyCommit};
 use async_broadcast::broadcast;
 use async_broadcast::Receiver as BroadcastReceiver;
 use async_broadcast::Sender as BroadcastSender;
@@ -41,13 +40,6 @@ use std::{cmp::PartialEq, num::NonZeroUsize};
 use std::{collections::hash_map::Entry, time::Duration};
 
 pub type TxTimeStamp = u128;
-
-/// Enum to hold the different sources of the transaction
-#[derive(Clone, Debug, PartialEq)]
-pub enum TransactionSource {
-    External, // txn from the external source i.e private mempool
-    HotShot,  // txn from the HotShot network i.e public mempool
-}
 
 /// Decide Message to be put on the decide channel
 #[derive(Clone, Debug)]
@@ -669,13 +661,13 @@ impl<Types: NodeType> BuilderState<Types> {
             <Types::BlockPayload as BlockPayload<Types>>::from_bytes(encoded_txns, metadata);
         let txn_commitments = block_payload.transaction_commitments(metadata);
 
-        for tx in txn_commitments.iter() {
-            self.txns_in_queue.remove(tx);
+        for txn in txn_commitments.iter() {
+            self.txns_in_queue.remove(txn);
         }
 
         self.included_txns.extend(txn_commitments.iter());
         self.tx_queue
-            .retain(|tx| self.txns_in_queue.contains(&tx.commit));
+            .retain(|txn| self.txns_in_queue.contains(&txn.commit));
 
         if !txn_commitments.is_empty() {
             self.allow_empty_block_until = Some(Types::View::new(
@@ -739,7 +731,7 @@ impl<Types: NodeType> BuilderState<Types> {
             .max_block_size;
         let transactions_to_include = self.tx_queue.iter().scan(0, |total_size, tx| {
             let prev_size = *total_size;
-            *total_size += tx.len;
+            *total_size += tx.min_block_size;
             // We will include one transaction over our target block length
             // if it's the first transaction in queue, otherwise we'd have a possible failure
             // state where a single transaction larger than target block state is stuck in
@@ -747,7 +739,7 @@ impl<Types: NodeType> BuilderState<Types> {
             if *total_size >= max_block_size && prev_size != 0 {
                 None
             } else {
-                Some(tx.tx.clone())
+                Some(tx.transaction.clone())
             }
         });
 
@@ -1042,7 +1034,7 @@ impl<Types: NodeType> BuilderState<Types> {
         txn_garbage_collect_duration: Duration,
         validated_state: Arc<Types::ValidatedState>,
     ) -> Self {
-        let txns_in_queue: HashSet<_> = tx_queue.iter().map(|tx| tx.commit).collect();
+        let txns_in_queue: HashSet<_> = tx_queue.iter().map(|txn| txn.commit).collect();
         BuilderState {
             included_txns: HashSet::new(),
             included_txns_old: HashSet::new(),
@@ -1123,16 +1115,16 @@ impl<Types: NodeType> BuilderState<Types> {
     async fn collect_txns(&mut self, timeout_after: Instant) {
         while Instant::now() <= timeout_after {
             match self.tx_receiver.try_recv() {
-                Ok(tx) => {
-                    if self.included_txns.contains(&tx.commit)
-                        || self.included_txns_old.contains(&tx.commit)
-                        || self.included_txns_expiring.contains(&tx.commit)
-                        || self.txns_in_queue.contains(&tx.commit)
+                Ok(txn) => {
+                    if self.included_txns.contains(&txn.commit)
+                        || self.included_txns_old.contains(&txn.commit)
+                        || self.included_txns_expiring.contains(&txn.commit)
+                        || self.txns_in_queue.contains(&txn.commit)
                     {
                         continue;
                     }
-                    self.txns_in_queue.insert(tx.commit);
-                    self.tx_queue.push_back(tx);
+                    self.txns_in_queue.insert(txn.commit);
+                    self.tx_queue.push_back(txn);
                 }
                 Err(async_broadcast::TryRecvError::Empty)
                 | Err(async_broadcast::TryRecvError::Closed) => {

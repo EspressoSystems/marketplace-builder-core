@@ -4,7 +4,6 @@ use crate::{
     builder_state::{
         BuilderState, DAProposalInfo, DaProposalMessage, MessageType, QuorumProposalMessage,
     },
-    service::ReceivedTransaction,
     LegacyCommit,
 };
 use async_broadcast::broadcast;
@@ -33,7 +32,7 @@ use crate::service::GlobalState;
 use async_lock::RwLock;
 use committable::{Commitment, CommitmentBoundsArkless, Committable};
 use marketplace_builder_shared::{
-    block::{BuilderStateId, ParentBlockReferences},
+    block::{BuilderStateId, ParentBlockReferences, ReceivedTransaction},
     testing::constants::{TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD, TEST_PROTOCOL_MAX_BLOCK_SIZE},
 };
 use std::sync::Arc;

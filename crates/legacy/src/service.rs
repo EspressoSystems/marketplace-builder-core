@@ -19,13 +19,14 @@ use hotshot_types::{
 use lru::LruCache;
 use vbs::version::StaticVersionType;
 
-use marketplace_builder_shared::block::{BlockId, BuilderStateId, ParentBlockReferences};
+use marketplace_builder_shared::block::{
+    BlockId, BuilderStateId, ParentBlockReferences, ReceivedTransaction, TransactionSource,
+};
 
 use crate::builder_state::{MessageType, RequestMessage, ResponseMessage};
 use crate::{
     builder_state::{
-        BuildBlockInfo, DaProposalMessage, DecideMessage, QuorumProposalMessage, TransactionSource,
-        TriggerStatus,
+        BuildBlockInfo, DaProposalMessage, DecideMessage, QuorumProposalMessage, TriggerStatus,
     },
     LegacyCommit as _,
 };
@@ -66,22 +67,6 @@ pub struct BlockInfo<Types: NodeType> {
     pub offered_fee: u64,
     // Could we have included more transactions with this block, but chose not to?
     pub truncated: bool,
-}
-
-/// [`ReceivedTransaction`] represents receipt information concerning a received
-/// [`NodeType::Transaction`].
-#[derive(Debug)]
-pub struct ReceivedTransaction<Types: NodeType> {
-    // the transaction
-    pub tx: Types::Transaction,
-    // transaction's hash
-    pub commit: Commitment<Types::Transaction>,
-    // transaction's esitmated length
-    pub len: u64,
-    // transaction's source
-    pub source: TransactionSource,
-    // received time
-    pub time_in: Instant,
 }
 
 /// Adjustable limits for block size ceiled by
@@ -375,7 +360,7 @@ impl<Types: NodeType> GlobalState<Types> {
         handle_received_txns(
             &self.tx_sender,
             txns,
-            TransactionSource::External,
+            TransactionSource::Private,
             self.block_size_limits.max_block_size,
         )
         .await
@@ -1108,7 +1093,7 @@ pub async fn run_non_permissioned_standalone_builder_service<
                 handle_received_txns(
                     &tx_sender,
                     transactions,
-                    TransactionSource::HotShot,
+                    TransactionSource::Public,
                     max_block_size,
                 )
                 .await;
@@ -1443,18 +1428,15 @@ where
         // increment the offset so we can ensure we're making progress;
         self.offset += 1;
 
-        let tx = self.txns[offset].clone();
-        let commit = tx.commit();
-        // This is a rough estimate, but we don't have any other way to get real
-        // encoded transaction length. Luckily, this being roughly proportional
-        // to encoded length is enough, because we only use this value to estimate
-        // our limitations on computing the VID in time.
-        let len = tx.minimum_block_size();
+        let txn = self.txns[offset].clone();
+        let commit = txn.commit();
+
+        let min_block_size = txn.minimum_block_size();
         let max_txn_len = self.max_txn_len;
-        if len > max_txn_len {
-            tracing::warn!(%commit, %len, %max_txn_len, "Transaction too big");
+        if min_block_size > max_txn_len {
+            tracing::warn!(%commit, %min_block_size, %max_txn_len, "Transaction too big");
             return Some(Err(HandleReceivedTxnsError::TransactionTooBig {
-                estimated_length: len,
+                estimated_length: min_block_size,
                 max_txn_len: self.max_txn_len,
             }));
         }
@@ -1462,11 +1444,11 @@ where
         let res = self
             .tx_sender
             .try_broadcast(Arc::new(ReceivedTransaction {
-                tx,
+                transaction: txn,
                 source: self.source.clone(),
                 commit,
                 time_in: self.time_in,
-                len,
+                min_block_size,
             }))
             .inspect(|val| {
                 if let Some(evicted_txn) = val {
@@ -1523,15 +1505,14 @@ mod test {
         utils::BuilderCommitment,
     };
     use marketplace_builder_shared::{
-        block::{BlockId, BuilderStateId, ParentBlockReferences},
+        block::{BlockId, BuilderStateId, ParentBlockReferences, TransactionSource},
         testing::constants::{TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD, TEST_PROTOCOL_MAX_BLOCK_SIZE},
     };
     use sha2::{Digest, Sha256};
 
     use crate::{
         builder_state::{
-            BuildBlockInfo, MessageType, RequestMessage, ResponseMessage, TransactionSource,
-            TriggerStatus,
+            BuildBlockInfo, MessageType, RequestMessage, ResponseMessage, TriggerStatus,
         },
         service::{BlockSizeLimits, HandleReceivedTxnsError},
         LegacyCommit,
@@ -4296,7 +4277,7 @@ mod test {
             let mut handle_received_txns_iter = HandleReceivedTxns::<TestTypes>::new(
                 tx_sender,
                 txns.clone(),
-                TransactionSource::HotShot,
+                TransactionSource::Public,
                 TEST_MAX_TX_LEN,
             );
 
@@ -4344,7 +4325,7 @@ mod test {
             let mut handle_received_txns_iter = HandleReceivedTxns::<TestTypes>::new(
                 tx_sender,
                 txns.clone(),
-                TransactionSource::HotShot,
+                TransactionSource::Public,
                 TEST_MAX_TX_LEN,
             );
 
@@ -4402,7 +4383,7 @@ mod test {
             let mut handle_received_txns_iter = HandleReceivedTxns::<TestTypes>::new(
                 tx_sender,
                 txns.clone(),
-                TransactionSource::HotShot,
+                TransactionSource::Public,
                 TEST_MAX_TX_LEN,
             );
 
@@ -4447,7 +4428,7 @@ mod test {
         let handle_received_txns_iter = HandleReceivedTxns::<TestTypes>::new(
             tx_sender,
             txns.clone(),
-            TransactionSource::HotShot,
+            TransactionSource::Public,
             TEST_MAX_TX_LEN,
         );
 
@@ -4466,7 +4447,7 @@ mod test {
         for tx in txns {
             match tx_receiver.next().await {
                 Some(received_txn) => {
-                    assert_eq!(received_txn.tx, tx);
+                    assert_eq!(received_txn.transaction, tx);
                 }
                 _ => {
                     panic!("Expected a TransactionMessage, but got something else");
