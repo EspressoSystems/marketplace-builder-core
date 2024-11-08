@@ -40,7 +40,7 @@ tide-disco = "0.9"
 tokio = "1"
 toml = "0.8"
 tracing = "0.1"
-url = "2.3"
+url = "2.5"
 vbs = "0.1"
 vec1 = "1.12"
 
