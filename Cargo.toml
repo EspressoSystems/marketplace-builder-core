@@ -21,11 +21,14 @@ clap = "4.5"
 chrono = { version = "0.4", features = ["serde"] }
 committable = "0.2"
 derivative = "2.2"
+derive_more = "1.0"
 either = "1.13"
 futures = "0.3"
+jf-vid = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 hex = "0.4.3"
 lru = "0.12.5"
 multimap = "0.10.0"
+nonempty-collections = "0.2"
 num_cpus = "1.16"
 rand = "0.8"
 serde = "1.0"
@@ -38,6 +41,7 @@ tide-disco = "0.9"
 tokio = "1"
 toml = "0.8"
 tracing = "0.1"
+typenum = "1.17"
 url = "2.3"
 vbs = "0.1"
 vec1 = "1.12"
@@ -46,6 +50,9 @@ tracing-subscriber = "0.3"
 [workspace.package]
 version = "0.1.56"
 edition = "2021"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
 
 [workspace.lints.clippy]
 disallowed-names = "deny"

@@ -23,6 +23,9 @@ Cargo.lock
 /target*
 /.vscode
 
+mutants.out/
+mutants.out.old/
+
 # OSX
 **/.DS_Store
 

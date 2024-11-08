@@ -1972,6 +1972,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -4741,11 +4742,13 @@ name = "marketplace-builder-shared"
 version = "0.1.56"
 dependencies = [
  "anyhow",
+ "async-broadcast",
  "async-lock 3.4.0",
  "async-trait",
  "bincode",
  "chrono",
  "committable",
+ "derive_more 1.0.0",
  "either",
  "futures",
  "hex",
@@ -4753,8 +4756,11 @@ dependencies = [
  "hotshot-builder-api",
  "hotshot-events-service",
  "hotshot-example-types",
+ "hotshot-task-impls",
  "hotshot-testing",
  "hotshot-types",
+ "jf-vid",
+ "nonempty-collections",
  "portpicker",
  "rand 0.8.5",
  "serde",
@@ -5095,6 +5101,12 @@ dependencies = [
  "memchr",
  "minimal-lexical",
 ]
+
+[[package]]
+name = "nonempty-collections"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c07626f57b1cb0ee81e5193d331209751d2e18ffa3ceaa0fd6fab63db31fafd9"
 
 [[package]]
 name = "nu-ansi-term"
