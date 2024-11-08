@@ -1,47 +1,34 @@
+use async_broadcast::broadcast;
 use hotshot_builder_api::v0_3::data_source::{AcceptsTxnSubmits, BuilderDataSource};
 use hotshot_types::{
     bundle::Bundle,
-    data::QuorumProposal,
-    traits::node_implementation::{ConsensusTime, NodeType},
+    data::{QuorumProposal, ViewNumber},
+    traits::node_implementation::ConsensusTime,
 };
-use marketplace_builder_shared::block::BuilderStateId;
+use marketplace_builder_shared::{
+    block::BuilderStateId,
+    testing::constants::{
+        TEST_API_TIMEOUT, TEST_BASE_FEE, TEST_INCLUDED_TX_GC_PERIOD,
+        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+    },
+};
 use tracing_subscriber::EnvFilter;
 
 use crate::{
-    builder_state::MessageType,
-    service::{BuilderHooks, ProxyGlobalState},
+    hooks::NoHooks,
+    service::{GlobalState, ProxyGlobalState},
+    testing::calc_proposal_events,
 };
 
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use hotshot_example_types::block_types::TestTransaction;
+use hotshot_example_types::node_types::TestTypes;
 
-use crate::testing::TestTypes;
-use crate::testing::{calc_proposal_msg, start_builder_state};
 use hotshot::{
     rand::{self, seq::SliceRandom, thread_rng},
     types::{BLSPubKey, Event, SignatureKey},
 };
-use std::time::Duration;
-
-/// [`NoOpHooks`] is a struct placeholder that is used to implement the
-/// [`BuilderHooks`] trait for the [`TestTypes`] `NodeType` in a way that doesn't
-/// do anything.  This is a convenience for creating [`ProxyGlobalState`] objects
-struct NoOpHooks;
-
-#[async_trait::async_trait]
-impl BuilderHooks<TestTypes> for NoOpHooks {
-    #[inline(always)]
-    async fn process_transactions(
-        &self,
-        transactions: Vec<<TestTypes as NodeType>::Transaction>,
-    ) -> Vec<<TestTypes as NodeType>::Transaction> {
-        transactions
-    }
-
-    #[inline(always)]
-    async fn handle_hotshot_event(&self, _event: &Event<TestTypes>) {}
-}
 
 /// [`RoundTransactionBehavior`] is an enum that is used to represent different
 /// behaviors that we may want to simulate during a round.  This applies to
@@ -159,17 +146,20 @@ async fn test_builder_order() {
     const NUM_TXNS_PER_ROUND: usize = 5;
     /// Capacity of broadcast channels
     const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
-    /// Number of nodes on DA committee
-    const NUM_STORAGE_NODES: usize = 4;
 
-    let (senders, global_state) = start_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
-
-    let proxy_global_state = ProxyGlobalState::new(
-        global_state.clone(),
-        Arc::new(NoOpHooks),
+    let global_state = GlobalState::new(
         BLSPubKey::generated_from_seed_indexed([0; 32], 0),
-        Duration::from_secs(1),
+        TEST_API_TIMEOUT,
+        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+        TEST_INCLUDED_TX_GC_PERIOD,
+        CHANNEL_CAPACITY,
+        TEST_BASE_FEE,
+        NoHooks(PhantomData),
     );
+    let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
+
+    let (event_stream_sender, event_stream) = broadcast(1024);
+    global_state.start_event_loop(event_stream);
 
     // Transactions to send
     let all_transactions = (0..NUM_ROUNDS)
@@ -238,23 +228,20 @@ async fn test_builder_order() {
             // get transactions submitted in previous rounds, [] for genesis
             // and simulate the block built from those
             let transactions = prev_proposed_transactions.take().unwrap_or_default();
-            let (quorum_proposal, quorum_proposal_msg, da_proposal_msg, builder_state_id) =
-                calc_proposal_msg(NUM_STORAGE_NODES, round, prev_quorum_proposal, transactions)
-                    .await;
+            let (quorum_proposal, events, builder_state_id) =
+                calc_proposal_events(round, prev_quorum_proposal, transactions).await;
 
             prev_quorum_proposal = Some(quorum_proposal.clone());
 
-            // send quorum and DA proposals for this round
-            senders
-                .da_proposal
-                .broadcast(MessageType::DaProposalMessage(da_proposal_msg))
-                .await
-                .unwrap();
-            senders
-                .quorum_proposal
-                .broadcast(MessageType::QuorumProposalMessage(quorum_proposal_msg))
-                .await
-                .unwrap();
+            for evt in events {
+                event_stream_sender
+                    .broadcast(Event {
+                        view_number: ViewNumber::new(round as u64),
+                        event: evt,
+                    })
+                    .await
+                    .unwrap();
+            }
 
             builder_state_id
         };
@@ -304,8 +291,6 @@ async fn test_builder_order_chain_fork() {
     const NUM_TXNS_PER_ROUND: usize = 5;
     // Capacity of broadcast channels
     const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
-    // Number of nodes on DA committee
-    const NUM_STORAGE_NODES: usize = 4;
 
     // the round we want to skip all the transactions for the fork chain
     // round 0 is pre-fork
@@ -324,13 +309,19 @@ async fn test_builder_order_chain_fork() {
         RoundTransactionBehavior::NoAdjust
     };
 
-    let (senders, global_state) = start_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
-    let proxy_global_state = ProxyGlobalState::new(
-        global_state.clone(),
-        Arc::new(NoOpHooks),
+    let global_state = GlobalState::new(
         BLSPubKey::generated_from_seed_indexed([0; 32], 0),
-        Duration::from_secs(1),
+        TEST_API_TIMEOUT,
+        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+        TEST_INCLUDED_TX_GC_PERIOD,
+        CHANNEL_CAPACITY,
+        TEST_BASE_FEE,
+        NoHooks(PhantomData),
     );
+    let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
+
+    let (event_stream_sender, event_stream) = broadcast(1024);
+    global_state.start_event_loop(event_stream);
 
     // Transactions to send
     let all_transactions = (0..NUM_ROUNDS)
@@ -370,28 +361,21 @@ async fn test_builder_order_chain_fork() {
             let transactions = prev_proposed_transactions_branch_1
                 .clone()
                 .unwrap_or_default();
-            let (quorum_proposal, quorum_proposal_msg, da_proposal_msg, builder_state_id) =
-                calc_proposal_msg(
-                    NUM_STORAGE_NODES,
-                    round,
-                    prev_quorum_proposal_branch_1,
-                    transactions,
-                )
-                .await;
+            let (quorum_proposal, events, builder_state_id) =
+                calc_proposal_events(round, prev_quorum_proposal_branch_1, transactions).await;
 
             prev_quorum_proposal_branch_1 = Some(quorum_proposal.clone());
 
             // send quorum and DA proposals for this round
-            senders
-                .da_proposal
-                .broadcast(MessageType::DaProposalMessage(da_proposal_msg))
-                .await
-                .unwrap();
-            senders
-                .quorum_proposal
-                .broadcast(MessageType::QuorumProposalMessage(quorum_proposal_msg))
-                .await
-                .unwrap();
+            for evt in events {
+                event_stream_sender
+                    .broadcast(Event {
+                        view_number: ViewNumber::new(round as u64),
+                        event: evt,
+                    })
+                    .await
+                    .unwrap();
+            }
 
             builder_state_id
         };
@@ -407,30 +391,24 @@ async fn test_builder_order_chain_fork() {
             let transactions = prev_proposed_transactions_branch_2
                 .clone()
                 .unwrap_or_default();
-            let (quorum_proposal, quorum_proposal_msg, da_proposal_msg, builder_state_id) =
-                calc_proposal_msg(
-                    NUM_STORAGE_NODES,
-                    round,
-                    prev_quorum_proposal_branch_2,
-                    transactions,
-                )
-                .await;
+
+            let (quorum_proposal, events, builder_state_id) =
+                calc_proposal_events(round, prev_quorum_proposal_branch_2, transactions).await;
 
             prev_quorum_proposal_branch_2 = Some(quorum_proposal.clone());
 
             // send quorum and DA proposals for this round
             // we also need to send out the message for the fork-ed chain although it's not forked yet
             // to prevent builders resend the transactions we've already committed
-            senders
-                .da_proposal
-                .broadcast(MessageType::DaProposalMessage(da_proposal_msg))
-                .await
-                .unwrap();
-            senders
-                .quorum_proposal
-                .broadcast(MessageType::QuorumProposalMessage(quorum_proposal_msg))
-                .await
-                .unwrap();
+            for evt in events {
+                event_stream_sender
+                    .broadcast(Event {
+                        view_number: ViewNumber::new(round as u64),
+                        event: evt,
+                    })
+                    .await
+                    .unwrap();
+            }
 
             builder_state_id
         };
@@ -513,16 +491,20 @@ async fn test_builder_order_should_fail() {
     const NUM_TXNS_PER_ROUND: usize = 5;
     // Capacity of broadcast channels
     const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
-    // Number of nodes on DA committee
-    const NUM_STORAGE_NODES: usize = 4;
 
-    let (senders, global_state) = start_builder_state(CHANNEL_CAPACITY, NUM_STORAGE_NODES).await;
-    let proxy_global_state = ProxyGlobalState::new(
-        global_state,
-        Arc::new(NoOpHooks),
+    let global_state = GlobalState::new(
         BLSPubKey::generated_from_seed_indexed([0; 32], 0),
-        Duration::from_secs(1),
+        TEST_API_TIMEOUT,
+        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+        TEST_INCLUDED_TX_GC_PERIOD,
+        CHANNEL_CAPACITY,
+        TEST_BASE_FEE,
+        NoHooks(PhantomData),
     );
+    let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
+
+    let (event_stream_sender, event_stream) = broadcast(1024);
+    global_state.start_event_loop(event_stream);
 
     // Transactions to send
     let all_transactions = (0..NUM_ROUNDS)
@@ -567,23 +549,21 @@ async fn test_builder_order_should_fail() {
             // get transactions submitted in previous rounds, [] for genesis
             // and simulate the block built from those
             let transactions = prev_proposed_transactions.take().unwrap_or_default();
-            let (quorum_proposal, quorum_proposal_msg, da_proposal_msg, builder_state_id) =
-                calc_proposal_msg(NUM_STORAGE_NODES, round, prev_quorum_proposal, transactions)
-                    .await;
+            let (quorum_proposal, events, builder_state_id) =
+                calc_proposal_events(round, prev_quorum_proposal, transactions).await;
 
             prev_quorum_proposal = Some(quorum_proposal.clone());
 
             // send quorum and DA proposals for this round
-            senders
-                .da_proposal
-                .broadcast(MessageType::DaProposalMessage(da_proposal_msg))
-                .await
-                .unwrap();
-            senders
-                .quorum_proposal
-                .broadcast(MessageType::QuorumProposalMessage(quorum_proposal_msg))
-                .await
-                .unwrap();
+            for evt in events {
+                event_stream_sender
+                    .broadcast(Event {
+                        view_number: ViewNumber::new(round as u64),
+                        event: evt,
+                    })
+                    .await
+                    .unwrap();
+            }
 
             builder_state_id
         };

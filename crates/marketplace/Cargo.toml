@@ -9,7 +9,7 @@ async-broadcast = "0.7"
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 committable = { workspace = true }
-derivative = { workspace = true }
+derive_more = { workspace = true, features = ["deref", "deref_mut"] }
 futures = { workspace = true }
 marketplace-builder-shared = { path = "../shared" }
 

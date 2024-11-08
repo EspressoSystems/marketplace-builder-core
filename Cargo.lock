@@ -4716,7 +4716,7 @@ dependencies = [
  "async-lock 3.4.0",
  "async-trait",
  "committable",
- "derivative",
+ "derive_more 1.0.0",
  "futures",
  "hotshot",
  "hotshot-builder-api",
