@@ -181,9 +181,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.90"
+version = "1.0.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37bf3594c4c988a53154954629820791dde498571819ae4ca50ca811e060cc95"
+checksum = "4c95c10ba0b00a02636238b814946408b1322d5ac4760326e6fb8ec956d85775"
 
 [[package]]
 name = "arbitrary"
@@ -510,7 +510,7 @@ checksum = "965c2d33e53cb6b267e148a4cb0760bc01f4904c1cd4bb4002a085bb016d1490"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
  "synstructure 0.13.1",
 ]
 
@@ -522,7 +522,7 @@ checksum = "7b18050c2cd6fe86c3a76584ef5e0baf286d038cda203eb6223df2cc413565f7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -857,7 +857,7 @@ checksum = "16e62a023e7c117e27523144c5d2459f4397fcc3cab0085af8e2224f643a0193"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -887,7 +887,7 @@ checksum = "721cae7de5c34fbb2acd27e21e6d2cf7b886dce0c27388d46c4e6c47ea4318dd"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -963,6 +963,17 @@ name = "autocfg"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c4b4d0bd25bd0b74681c0ad21497610ce1b7c91b1022cd21c80c6fbdd9476b0"
+
+[[package]]
+name = "automod"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edf3ee19dbc0a46d740f6f0926bde8c50f02bdbc7b536842da28f6ac56513a8b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.82",
+]
 
 [[package]]
 name = "axum"
@@ -1352,8 +1363,10 @@ checksum = "a21f936df1771bf62b77f047b726c4625ff2e8aa607c01ec06e5a05bd8463401"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-targets 0.52.6",
 ]
 
@@ -1397,7 +1410,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -1796,6 +1809,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "csv"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac574ff4d437a7b5ad237ef331c17ccca63c46479e5b5453eb8e10bb99a759fe"
+dependencies = [
+ "csv-core",
+ "itoa",
+ "ryu",
+ "serde",
+]
+
+[[package]]
+name = "csv-core"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5efa2b3d7902f4b634a20cae3c9c4e6209dc4779feb6863329607560143efa70"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "ctr"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1828,7 +1862,7 @@ checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -1872,7 +1906,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -1883,7 +1917,7 @@ checksum = "d336a2a514f6ccccaa3e09b02d41d35330c07ddf03a62165fcec10bb561c7806"
 dependencies = [
  "darling_core",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -1934,7 +1968,7 @@ checksum = "5060bb0febb73fa907273f8a7ed17ab4bf831d585eac835b28ec24a1e2460956"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -1991,7 +2025,7 @@ checksum = "67e77553c4162a157adbf834ebae5b415acbecbeafc7a74b0e886657506a7611"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -2012,7 +2046,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -2022,7 +2056,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4abae7035bf79b9877b779505d8cf3749285b80c43941eda66604841889451dc"
 dependencies = [
  "derive_builder_core",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -2035,7 +2069,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version 0.4.1",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -2055,7 +2089,7 @@ checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -2123,7 +2157,7 @@ checksum = "97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -2228,7 +2262,7 @@ dependencies = [
  "heck 0.4.1",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -2548,7 +2582,7 @@ checksum = "162ee34ebcb7c64a8abebc059ce0fee27c2262618d7b60ed8faf72fef13c3650"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -2970,8 +3004,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+version = "0.5.79"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3012,13 +3046,14 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "utils",
  "vbs",
 ]
 
 [[package]]
 name = "hotshot-builder-api"
 version = "0.1.7"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
 dependencies = [
  "async-trait",
  "clap",
@@ -3036,7 +3071,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-builder-core"
-version = "0.1.51"
+version = "0.1.55"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3065,7 +3100,7 @@ dependencies = [
 [[package]]
 name = "hotshot-events-service"
 version = "0.1.49"
-source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?tag=0.1.50#8cbc0e0787ebcfef750c0b4f2f9f7f16d8ea21a8"
+source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?tag=0.1.53#8322cafb2fd21487d54a6597a1c65a14628264dc"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3090,8 +3125,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+version = "0.5.79"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3105,6 +3140,7 @@ dependencies = [
  "ethereum-types",
  "futures",
  "hotshot",
+ "hotshot-builder-api",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
@@ -3122,9 +3158,69 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-fakeapi"
+version = "0.5.79"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
+dependencies = [
+ "anyhow",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-trait",
+ "futures",
+ "hotshot-example-types",
+ "hotshot-types",
+ "rand 0.8.5",
+ "serde",
+ "tide-disco",
+ "toml",
+ "tracing",
+ "vbs",
+]
+
+[[package]]
+name = "hotshot-macros"
+version = "0.5.79"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
+dependencies = [
+ "derive_builder",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.82",
+]
+
+[[package]]
+name = "hotshot-orchestrator"
+version = "0.5.79"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
+dependencies = [
+ "anyhow",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
+ "bincode",
+ "blake3",
+ "clap",
+ "csv",
+ "futures",
+ "hotshot-types",
+ "libp2p",
+ "multiaddr",
+ "serde",
+ "serde_json",
+ "surf-disco",
+ "thiserror",
+ "tide-disco",
+ "tokio",
+ "toml",
+ "tracing",
+ "vbs",
+ "vec1",
+]
+
+[[package]]
 name = "hotshot-task"
-version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+version = "0.5.79"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3134,12 +3230,13 @@ dependencies = [
  "futures",
  "tokio",
  "tracing",
+ "utils",
 ]
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+version = "0.5.79"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3169,6 +3266,53 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "utils",
+ "vbs",
+ "vec1",
+]
+
+[[package]]
+name = "hotshot-testing"
+version = "0.5.79"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
+dependencies = [
+ "anyhow",
+ "async-broadcast",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
+ "async-trait",
+ "automod",
+ "bitvec",
+ "committable",
+ "either",
+ "ethereum-types",
+ "futures",
+ "hotshot",
+ "hotshot-builder-api",
+ "hotshot-example-types",
+ "hotshot-fakeapi",
+ "hotshot-macros",
+ "hotshot-orchestrator",
+ "hotshot-task",
+ "hotshot-task-impls",
+ "hotshot-types",
+ "itertools 0.13.0",
+ "jf-signature",
+ "jf-vid",
+ "lru 0.12.5",
+ "portpicker",
+ "rand 0.8.5",
+ "reqwest",
+ "serde",
+ "sha2 0.10.8",
+ "sha3",
+ "tagged-base64",
+ "thiserror",
+ "tide-disco",
+ "tokio",
+ "tracing",
+ "url",
  "vbs",
  "vec1",
 ]
@@ -3176,7 +3320,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.11"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -3228,6 +3372,7 @@ dependencies = [
  "tracing",
  "typenum",
  "url",
+ "utils",
  "vbs",
  "vec1",
 ]
@@ -3685,6 +3830,15 @@ name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
 dependencies = [
  "either",
 ]
@@ -4232,8 +4386,8 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.78"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.78#be7d9be60abbf8f293b7e95940ff77eff2e0739e"
+version = "0.5.79"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -4242,6 +4396,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
+ "cbor4ii",
  "custom_debug",
  "delegate",
  "derive_builder",
@@ -4346,7 +4501,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -4560,7 +4715,7 @@ dependencies = [
 
 [[package]]
 name = "marketplace-builder-core"
-version = "0.1.51"
+version = "0.1.55"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4574,32 +4729,50 @@ dependencies = [
  "hotshot",
  "hotshot-builder-api",
  "hotshot-example-types",
+ "hotshot-macros",
+ "hotshot-testing",
  "hotshot-types",
  "lru 0.12.5",
  "marketplace-builder-shared",
+ "num_cpus",
  "sha2 0.10.8",
  "tagged-base64",
  "tide-disco",
  "tracing",
+ "url",
  "vbs",
 ]
 
 [[package]]
 name = "marketplace-builder-shared"
-version = "0.1.51"
+version = "0.1.55"
 dependencies = [
  "anyhow",
+ "async-compatibility-layer",
+ "async-std",
+ "async-trait",
+ "bincode",
+ "chrono",
  "committable",
  "either",
  "futures",
  "hex",
  "hotshot",
+ "hotshot-builder-api",
  "hotshot-events-service",
+ "hotshot-example-types",
+ "hotshot-testing",
  "hotshot-types",
+ "portpicker",
+ "rand 0.8.5",
+ "serde",
  "surf-disco",
+ "tide-disco",
+ "tokio",
  "tracing",
  "url",
  "vbs",
+ "vec1",
 ]
 
 [[package]]
@@ -4643,7 +4816,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -5050,7 +5223,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -5106,7 +5279,7 @@ checksum = "a948666b637a0f465e8564c73e89d4dde00d72d4d473cc972f390fc3dcee7d9c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -5252,7 +5425,7 @@ dependencies = [
  "pest_meta",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -5283,7 +5456,7 @@ checksum = "2f38a4412a78282e09a2cf38d195ea5420d15ba0602cb375210efbc877243965"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -5507,7 +5680,7 @@ checksum = "440f724eba9f6996b75d63681b0a92b06947f1457076d503a4d2e2c8f56442b8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -5530,7 +5703,7 @@ dependencies = [
  "itertools 0.12.1",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -6317,9 +6490,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.209"
+version = "1.0.214"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99fce0ffe7310761ca6bf9faf5115afbc19688edd00171d81b1bb1b116c63e09"
+checksum = "f55c3193aca71c12ad7890f1785d2b73e1b9f63a0bbc353c08ef26fe03fc56b5"
 dependencies = [
  "serde_derive",
 ]
@@ -6332,7 +6505,7 @@ checksum = "b3acbd21cb24261fc36f595b38d3b34d0ff4e31a6b42edd6a43387d27c5787c8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -6346,13 +6519,13 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.209"
+version = "1.0.214"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5831b979fd7b5439637af1752d535ff49f4860c0f341d1baeb6faf0f4242170"
+checksum = "de523f781f095e28fa605cdce0f8307e451cc0fd14e2eb4cd2e98a355b147766"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -6435,7 +6608,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -6655,7 +6828,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -6776,7 +6949,7 @@ dependencies = [
  "quote",
  "sqlx-core",
  "sqlx-macros-core",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -6799,7 +6972,7 @@ dependencies = [
  "sqlx-mysql",
  "sqlx-postgres",
  "sqlx-sqlite",
- "syn 2.0.77",
+ "syn 2.0.82",
  "tempfile",
  "tokio",
  "url",
@@ -7008,7 +7181,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -7127,9 +7300,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.77"
+version = "2.0.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f35bcdf61fd8e7be6caf75f429fdca8beb3ed76584befb503b1569faee373ed"
+checksum = "83540f837a8afc019423a8edb95b52a8effe46957ee402287f4292fae35be021"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7171,7 +7344,7 @@ checksum = "c8af7666ab7b6390ab78131fb5b0fce11d6b7a6951602017c35fa82800708971"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -7278,7 +7451,7 @@ checksum = "a4558b58466b9ad7ca0f102865eccc95938dca1a74a856f2b57b6629050da261"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -7489,9 +7662,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.40.0"
+version = "1.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2b070231665d27ad9ec9b8df639893f46727666c6767db40317fbe920a5d998"
+checksum = "145f3413504347a2be84393cc8a7d2fb4d863b375909ea59f2158261aa258bbb"
 dependencies = [
  "backtrace",
  "bytes",
@@ -7524,7 +7697,7 @@ checksum = "693d596312e88961bc67d7f1f97af8a70227d9f90c31bba5806eec004978d752"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -7723,7 +7896,7 @@ checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -8009,6 +8182,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
+name = "utils"
+version = "0.5.79"
+source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.80#77fab988f9a18defa6df3b022a9837061919c14a"
+dependencies = [
+ "tracing",
+]
+
+[[package]]
 name = "uuid"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8058,15 +8239,14 @@ dependencies = [
 
 [[package]]
 name = "vbs"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a9d83afb293d109ae418271619046cd9d87d63ba83e473e25a5e36101edc453"
+checksum = "9cf4ed425fa4976d51e35f5882764612c5f735457118d6ef7b6c684b7d34a74d"
 dependencies = [
  "anyhow",
  "bincode",
  "derive_more 0.99.18",
  "serde",
- "serde_with",
 ]
 
 [[package]]
@@ -8180,7 +8360,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
  "wasm-bindgen-shared",
 ]
 
@@ -8214,7 +8394,7 @@ checksum = "afc340c74d9005395cf9dd098506f7f44e38f2b4a21c6aaacf9a105ea5e1e836"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -8605,7 +8785,7 @@ checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]
 
 [[package]]
@@ -8625,5 +8805,5 @@ checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.77",
+ "syn 2.0.82",
 ]

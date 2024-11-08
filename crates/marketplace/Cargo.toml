@@ -4,8 +4,6 @@ version = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-marketplace-builder-shared = { path = "../shared" }
-
 anyhow = "1"
 async-broadcast = "0.7"
 async-compatibility-layer = { workspace = true, features = ["logging-utils"] }
@@ -15,6 +13,8 @@ async-trait = { workspace = true }
 committable = { workspace = true }
 derivative = { workspace = true }
 futures = { workspace = true }
+marketplace-builder-shared = { path = "../shared" }
+
 hotshot = { workspace = true }
 hotshot-builder-api = { workspace = true }
 hotshot-types = { workspace = true }
@@ -27,6 +27,10 @@ vbs = { workspace = true }
 
 [dev-dependencies]
 hotshot-example-types = { workspace = true }
+hotshot-macros = { workspace = true }
+hotshot-testing = { workspace = true }
+num_cpus = "1.16"
+url = "2.5"
 
 [lints]
 workspace = true
