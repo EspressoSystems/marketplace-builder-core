@@ -42,7 +42,6 @@ jobs:
         timeout-minutes: 60
 
   test-ignored:
-    if: false
     runs-on: ubuntu-latest
     env:
       RUST_MIN_STACK: 64000000

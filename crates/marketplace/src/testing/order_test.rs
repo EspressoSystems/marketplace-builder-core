@@ -3,9 +3,12 @@ use hotshot_builder_api::v0_3::data_source::{AcceptsTxnSubmits, BuilderDataSourc
 use hotshot_types::{bundle::Bundle, traits::node_implementation::ConsensusTime};
 use marketplace_builder_shared::{
     block::BuilderStateId,
-    testing::constants::{
-        TEST_API_TIMEOUT, TEST_BASE_FEE, TEST_INCLUDED_TX_GC_PERIOD,
-        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+    testing::{
+        consensus::SimulatedChainState,
+        constants::{
+            TEST_API_TIMEOUT, TEST_BASE_FEE, TEST_INCLUDED_TX_GC_PERIOD,
+            TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+        },
     },
 };
 use tracing_subscriber::EnvFilter;
@@ -13,7 +16,6 @@ use tracing_subscriber::EnvFilter;
 use crate::{
     hooks::NoHooks,
     service::{GlobalState, ProxyGlobalState},
-    testing::SimulatedChainState,
 };
 
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};

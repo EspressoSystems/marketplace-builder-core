@@ -7,9 +7,7 @@ use std::{
 
 use async_broadcast::Sender;
 use async_lock::{Mutex, RwLock};
-use builder_state_map::BuilderStateMap;
 use either::Either;
-use hotshot_builder_api::v0_3::builder::BuildError;
 use hotshot_types::{
     data::{DaProposal, QuorumProposal},
     event::LeafInfo,
@@ -18,18 +16,22 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
     },
 };
+use tiered_view_map::TieredViewMap;
 use tracing::{error, info, warn};
 
 use crate::{
     block::{BuilderStateId, ParentBlockReferences, ReceivedTransaction},
+    error::Error,
     state::BuilderState,
     utils::ProposalId,
 };
 
-pub mod builder_state_map;
+pub mod tiered_view_map;
 
 type ProposalMap<Types> =
     HashMap<ProposalId<Types>, Either<QuorumProposal<Types>, DaProposal<Types>>>;
+
+type BuilderStateMap<Types> = TieredViewMap<BuilderStateId<Types>, Arc<BuilderState<Types>>>;
 
 /// Result of looking up a builder state by ID.
 ///
@@ -100,7 +102,7 @@ where
             Types::ValidatedState::default(),
         );
         let mut builder_states = BuilderStateMap::new();
-        builder_states.insert(bootstrap_state);
+        builder_states.insert(bootstrap_state.id(), bootstrap_state);
 
         Self {
             transaction_sender: txn_sender,
@@ -118,12 +120,22 @@ where
         leaf_chain: Arc<Vec<LeafInfo<Types>>>,
     ) -> BuilderStateMap<Types> {
         let latest_decide_view_num = leaf_chain[0].leaf.view_number();
-        let mut builder_states = self.builder_states.write().await;
-        let highest_active_view_num = builder_states
-            .highest_view()
-            .unwrap_or(Types::View::genesis());
-        let cutoff = Types::View::new(*latest_decide_view_num.min(highest_active_view_num));
-        builder_states.prune(cutoff)
+        let pruned = {
+            let mut builder_states_write_guard = self.builder_states.write().await;
+            let highest_active_view_num = builder_states_write_guard
+                .highest_view()
+                .unwrap_or(Types::View::genesis());
+            let cutoff = Types::View::new(*latest_decide_view_num.min(highest_active_view_num));
+            tracing::info!(
+                lowest_view = ?builder_states_write_guard.lowest_view(),
+                ?cutoff,
+                highest_view = ?builder_states_write_guard.highest_view(),
+                "Pruning builder state map"
+            );
+            builder_states_write_guard.prune(cutoff)
+        };
+        tracing::info!(num_states_pruned = pruned.len(), "Pruned builder state map");
+        pruned
     }
 
     /// This function should be called whenever new transactions are received from HotShot.
@@ -138,7 +150,7 @@ where
     pub async fn handle_transaction(
         &self,
         transaction: ReceivedTransaction<Types>,
-    ) -> Result<(), BuildError> {
+    ) -> Result<(), Error<Types>> {
         match self.transaction_sender.try_broadcast(Arc::new(transaction)) {
             Ok(None) => Ok(()),
             Ok(Some(evicted_txn)) => {
@@ -150,7 +162,7 @@ where
             }
             Err(err) => {
                 warn!(?err, "Failed to broadcast txn");
-                Err(BuildError::Error(err.to_string()))
+                Err(Error::TxnSender(err))
             }
         }
     }
@@ -283,7 +295,10 @@ where
             .new_child(quorum_proposal.clone(), da_proposal.clone())
             .await;
 
-        self.builder_states.write().await.insert(child_state);
+        self.builder_states
+            .write()
+            .await
+            .insert(child_state.id(), child_state);
     }
 
     /// This is an utility function that is used to determine which [`BuilderState`]s
@@ -666,7 +681,7 @@ mod tests {
             .await
             .highest_view_builder()
             .unwrap()
-            .collect_txns(Instant::now() + Duration::from_millis(100))
+            .collect_txns(Instant::now() + Duration::from_secs(10)) // huge duration, we want to clear the whole buffer
             .await;
 
         // After clearing the channel, coordinator should handle transactions again

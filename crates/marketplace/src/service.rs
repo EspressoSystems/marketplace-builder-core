@@ -130,8 +130,8 @@ where
         event_stream: impl Stream<Item = Event<Types>> + Unpin + Send + 'static,
     ) -> JoinHandle<anyhow::Result<()>> {
         spawn(Self::event_loop(
-            self.coordinator.clone(),
-            self.hooks.clone(),
+            Arc::clone(&self.coordinator),
+            Arc::clone(&self.hooks),
             event_stream,
         ))
     }
@@ -366,10 +366,8 @@ where
             .map(|txn| ReceivedTransaction::new(txn, TransactionSource::Private))
             .map(|txn| async {
                 let commit = txn.commit;
-                self.coordinator
-                    .handle_transaction(txn)
-                    .await
-                    .map(|_| commit)
+                self.coordinator.handle_transaction(txn).await?;
+                Ok(commit)
             })
             .collect::<FuturesOrdered<_>>()
             .try_collect()

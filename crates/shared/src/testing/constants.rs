@@ -21,7 +21,7 @@ pub const TEST_NUM_CONSENSUS_RETRIES: usize = 4;
 /// Governs the buffer size used for the test channels.
 /// All of the channels created need a capacity. The concrete capacity isn't
 /// specifically bounded in tests, so it is set to an arbitrary value.
-pub const TEST_CHANNEL_BUFFER_SIZE: usize = 32;
+pub const TEST_CHANNEL_BUFFER_SIZE: usize = 81920;
 
 /// Governs the included transaction GC period used in tests.
 /// This is an arbitrary default value for testing.

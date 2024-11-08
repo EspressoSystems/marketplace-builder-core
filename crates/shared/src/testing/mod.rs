@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use tracing_subscriber::EnvFilter;
 use validation::BuilderValidationConfig;
 
+pub mod consensus;
 pub mod constants;
 pub mod generation;
 pub mod mock;

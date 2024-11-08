@@ -58,6 +58,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
 disallowed-names = "deny"
 doc_markdown = "deny"
 doc_link_with_quotes = "deny"
+clone_on_ref_ptr = "deny"
 
 [workspace.lints.rustdoc]
 broken_intra_doc_links = "deny"

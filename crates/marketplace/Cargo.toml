@@ -29,7 +29,7 @@ vbs = { workspace = true }
 hotshot-example-types = { workspace = true }
 hotshot-macros = { workspace = true }
 hotshot-testing = { workspace = true }
-num_cpus = "1.16"
+num_cpus = { workspace = true }
 url = "2.5"
 
 [lints]

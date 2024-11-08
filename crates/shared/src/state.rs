@@ -159,6 +159,24 @@ where
             <Types::BlockPayload as BlockPayload<Types>>::from_bytes(encoded_txns, metadata);
         let txn_commitments = block_payload.transaction_commitments(metadata);
 
+        let views_since_nonempty_block = if txn_commitments.is_empty() {
+            // If this block is empty, we should add the amount of views that passed since
+            // parent. We can't just assume one view has passed because we have to take
+            // possible failed views which don't produce da_proposals and thus don't lead to
+            // children spawning
+            self.parent_block_references
+                .views_since_nonempty_block
+                .map(|old_value| {
+                    old_value
+                        + (quorum_proposal
+                            .view_number
+                            .saturating_sub(*self.parent_block_references.view_number))
+                })
+        } else {
+            // This block is non-empty
+            Some(0)
+        };
+
         // We replace our parent_block_references with information from the
         // quorum proposal.  This is identifying the block that this specific
         // instance of [BuilderState] is attempting to build for.
@@ -167,6 +185,8 @@ where
             vid_commitment: quorum_proposal.block_header.payload_commitment(),
             leaf_commit: Committable::commit(&leaf),
             builder_commitment: quorum_proposal.block_header.builder_commitment(),
+            tx_number: txn_commitments.len(),
+            views_since_nonempty_block,
         };
 
         let mut txn_queue = self.txn_queue.read().await.clone();

@@ -11,7 +11,7 @@ use tracing_subscriber::EnvFilter;
 
 use crate::hooks::NoHooks;
 use crate::service::{GlobalState, ProxyGlobalState};
-use crate::testing::SimulatedChainState;
+use marketplace_builder_shared::testing::consensus::SimulatedChainState;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;

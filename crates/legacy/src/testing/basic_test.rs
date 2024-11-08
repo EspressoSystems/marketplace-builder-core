@@ -1,512 +1,125 @@
-pub use hotshot::traits::election::static_committee::StaticCommittee;
-pub use hotshot_types::{
-    data::{DaProposal, EpochNumber, Leaf, QuorumProposal, ViewNumber},
-    message::Proposal,
-    signature_key::BLSPubKey,
-    simple_certificate::{QuorumCertificate, SimpleCertificate, SuccessThreshold},
-    traits::{
-        block_contents::BlockPayload,
-        node_implementation::{ConsensusTime, NodeType},
-    },
+use async_broadcast::broadcast;
+use hotshot::types::{BLSPubKey, SignatureKey};
+use hotshot_builder_api::v0_1::data_source::AcceptsTxnSubmits;
+
+use hotshot_example_types::block_types::TestTransaction;
+use hotshot_example_types::state_types::TestInstanceState;
+use marketplace_builder_shared::block::BlockId;
+use marketplace_builder_shared::testing::consensus::SimulatedChainState;
+use marketplace_builder_shared::testing::constants::{
+    TEST_API_TIMEOUT, TEST_BASE_FEE, TEST_CHANNEL_BUFFER_SIZE, TEST_INCLUDED_TX_GC_PERIOD,
+    TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT, TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+    TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
 };
+use tokio::time::sleep;
+use tracing_subscriber::EnvFilter;
 
-pub use crate::builder_state::{BuilderState, MessageType};
-pub use async_broadcast::broadcast;
-/// The following tests are performed:
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::VecDeque;
-    use std::{hash::Hash, marker::PhantomData};
+use crate::service::{GlobalState, ProxyGlobalState};
+use std::sync::Arc;
+use std::time::Duration;
 
-    use hotshot::types::SignatureKey;
-    use hotshot_builder_api::v0_2::data_source::BuilderDataSource;
-    use hotshot_example_types::auction_results_provider_types::TestAuctionResult;
-    use hotshot_example_types::node_types::TestVersions;
-    use hotshot_types::{
-        signature_key::BuilderKey,
-        simple_vote::QuorumData,
-        traits::block_contents::{vid_commitment, BlockHeader},
-        utils::BuilderCommitment,
-    };
+/// This test simulates multiple builder states receiving messages from the channels and processing them
+#[tokio::test]
+async fn test_builder() {
+    // Setup logging
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .try_init();
 
-    use hotshot_example_types::{
-        block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
-        state_types::{TestInstanceState, TestValidatedState},
-    };
-    use marketplace_builder_shared::block::ParentBlockReferences;
-    use marketplace_builder_shared::testing::constants::{
-        TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD, TEST_NUM_NODES_IN_VID_COMPUTATION,
+    tracing::info!("Testing the builder core with multiple messages from the channels");
+
+    // Number of views to simulate
+    const NUM_ROUNDS: usize = 5;
+    // Number of transactions to submit per round
+    const NUM_TXNS_PER_ROUND: usize = 4;
+
+    let global_state = GlobalState::new(
+        BLSPubKey::generated_from_seed_indexed([0; 32], 0),
+        TEST_API_TIMEOUT,
+        TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
         TEST_PROTOCOL_MAX_BLOCK_SIZE,
-    };
-    use tokio::time::error::Elapsed;
-    use tokio::time::timeout;
-    use tracing_subscriber::EnvFilter;
+        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+        TEST_NUM_NODES_IN_VID_COMPUTATION,
+        TestInstanceState::default(),
+        TEST_INCLUDED_TX_GC_PERIOD,
+        TEST_CHANNEL_BUFFER_SIZE,
+        TEST_BASE_FEE,
+    );
+    let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
 
-    use crate::builder_state::{
-        DaProposalMessage, DecideMessage, QuorumProposalMessage, TransactionSource,
-    };
-    use crate::service::{
-        handle_received_txns, GlobalState, ProxyGlobalState, ReceivedTransaction,
-    };
-    use crate::LegacyCommit;
-    use async_lock::RwLock;
-    use committable::{Commitment, CommitmentBoundsArkless, Committable};
-    use sha2::{Digest, Sha256};
-    use std::sync::Arc;
-    use std::time::Duration;
+    let (event_stream_sender, event_stream) = broadcast(1024);
+    Arc::clone(&global_state).start_event_loop(event_stream);
 
-    use serde::{Deserialize, Serialize};
-    /// This test simulates multiple builder states receiving messages from the channels and processing them
-    #[tokio::test]
-    //#[instrument]
-    async fn test_builder() {
-        // Setup logging
-        let _ = tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::from_default_env())
-            .try_init();
-        tracing::info!("Testing the builder core with multiple messages from the channels");
-        #[derive(
-            Copy,
-            Clone,
-            Debug,
-            Default,
-            Hash,
-            PartialEq,
-            Eq,
-            PartialOrd,
-            Ord,
-            Serialize,
-            Deserialize,
-        )]
-        struct TestTypes;
-        impl NodeType for TestTypes {
-            type View = ViewNumber;
-            type Epoch = EpochNumber;
-            type BlockHeader = TestBlockHeader;
-            type BlockPayload = TestBlockPayload;
-            type SignatureKey = BLSPubKey;
-            type Transaction = TestTransaction;
-            type ValidatedState = TestValidatedState;
-            type InstanceState = TestInstanceState;
-            type Membership = StaticCommittee<Self>;
-            type BuilderSignatureKey = BuilderKey;
-            type AuctionResult = TestAuctionResult;
-        }
-        // no of test messages to send
-        let num_test_messages = 5;
-        let multiplication_factor = 5;
-        const NUM_NODES_IN_VID_COMPUTATION: usize = 4;
+    // Transactions to send
+    let all_transactions = (0..NUM_ROUNDS)
+        .map(|round| {
+            (0..NUM_TXNS_PER_ROUND)
+                .map(|tx_num| TestTransaction::new(vec![round as u8, tx_num as u8]))
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
 
-        // settingup the broadcast channels i.e [From hostshot: (tx, decide, da, quorum, )], [From api:(req - broadcast, res - mpsc channel) ]
-        let (decide_sender, decide_receiver) =
-            broadcast::<MessageType<TestTypes>>(num_test_messages * multiplication_factor);
-        let (da_sender, da_receiver) =
-            broadcast::<MessageType<TestTypes>>(num_test_messages * multiplication_factor);
-        let (quorum_sender, quorum_proposal_receiver) =
-            broadcast::<MessageType<TestTypes>>(num_test_messages * multiplication_factor);
-        let (bootstrap_sender, bootstrap_receiver) =
-            broadcast::<MessageType<TestTypes>>(num_test_messages * multiplication_factor);
-        let (tx_sender, tx_receiver) = broadcast::<Arc<ReceivedTransaction<TestTypes>>>(
-            num_test_messages * multiplication_factor,
-        );
-        let tx_queue = VecDeque::new();
-        // generate the keys for the buidler
-        let seed = [201_u8; 32];
-        let (builder_pub_key, builder_private_key) =
-            BLSPubKey::generated_from_seed_indexed(seed, 2011_u64);
-        // instantiate the global state also
-        let initial_commitment = vid_commitment(&[], TEST_NUM_NODES_IN_VID_COMPUTATION);
-        let global_state = Arc::new(RwLock::new(GlobalState::<TestTypes>::new(
-            bootstrap_sender,
-            tx_sender.clone(),
-            initial_commitment,
-            ViewNumber::new(0),
-            ViewNumber::new(0),
-            TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-            TEST_PROTOCOL_MAX_BLOCK_SIZE,
-            TEST_NUM_NODES_IN_VID_COMPUTATION,
-        )));
+    // set up state to track between simulated consensus rounds
+    let mut prev_proposed_transactions: Option<Vec<TestTransaction>> = None;
+    let mut transaction_history = Vec::new();
 
-        let bootstrap_builder_state = BuilderState::new(
-            ParentBlockReferences {
-                view_number: ViewNumber::new(0),
-                vid_commitment: initial_commitment,
-                leaf_commit: Commitment::<Leaf<TestTypes>>::default_commitment_no_preimage(),
-                builder_commitment: BuilderCommitment::from_bytes([]),
-            },
-            decide_receiver.clone(),
-            da_receiver.clone(),
-            quorum_proposal_receiver.clone(),
-            bootstrap_receiver,
-            tx_receiver,
-            tx_queue,
-            global_state.clone(),
-            Duration::from_millis(100),
-            1,
-            Arc::new(TestInstanceState::default()),
-            Duration::from_millis(100),
-            Arc::new(TestValidatedState::default()),
-        );
+    let mut chain_state = SimulatedChainState::new(event_stream_sender);
 
-        // Kick off async look for the bootstrap builder state
-        bootstrap_builder_state.event_loop();
+    // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
+    // then construct DA and Quorum Proposals based on what we received from builder in the previous round
+    // and request a new bundle.
+    #[allow(clippy::needless_range_loop)] // intent is clearer this way
+    for round in 0..NUM_ROUNDS {
+        // simulate transaction being submitted to the builder
+        proxy_global_state
+            .submit_txns(all_transactions[round].clone())
+            .await
+            .unwrap();
 
-        let proxy_global_state = ProxyGlobalState::new(
-            global_state.clone(),
-            (builder_pub_key, builder_private_key),
-            Duration::from_millis(100),
-        );
-
-        // to store all the sent messages
-        // storing response messages
-        let mut previous_commitment = initial_commitment;
-        let mut previous_view = ViewNumber::new(0);
-        let mut previous_quorum_proposal = {
-            let previous_jc = QuorumCertificate::<TestTypes>::genesis::<TestVersions>(
-                &TestValidatedState::default(),
-                &TestInstanceState::default(),
-            )
+        // get transactions submitted in previous rounds, [] for genesis
+        // and simulate the block built from those
+        let builder_state_id = chain_state
+            .simulate_consensus_round(prev_proposed_transactions)
             .await;
 
-            QuorumProposal::<TestTypes> {
-                block_header: TestBlockHeader {
-                    block_number: 0,
-                    payload_commitment: previous_commitment,
-                    builder_commitment: BuilderCommitment::from_bytes([]),
-                    timestamp: 0,
-                    metadata: TestMetadata {
-                        num_transactions: 0,
-                    },
-                    random: 1, // arbitrary
-                },
-                view_number: ViewNumber::new(0),
-                justify_qc: previous_jc.clone(),
-                upgrade_certificate: None,
-                proposal_certificate: None,
-            }
-        };
+        // give builder state time to fork
+        sleep(Duration::from_millis(100)).await;
 
-        // generate num_test messages for each type and send it to the respective channels;
-        for round in 0..num_test_messages as u32 {
-            // Submit Transactions to the Builder
-            {
-                // Prepare the transaction message
-                let tx = TestTransaction::new(vec![round as u8]);
+        // get response
+        let mut available_states = global_state
+            .available_blocks_implementation(builder_state_id.clone())
+            .await
+            .unwrap();
 
-                let tx_vec = vec![tx];
-                assert_eq!(
-                    handle_received_txns(
-                        &tx_sender,
-                        tx_vec.clone(),
-                        TransactionSource::HotShot,
-                        u64::MAX,
-                    )
-                    .await
-                    .into_iter()
-                    .map(|res| res.unwrap())
-                    .collect::<Vec<_>>(),
-                    tx_vec.iter().map(|tx| tx.commit()).collect::<Vec<_>>(),
-                    "handle_received_txns should have the commits for all transactions submitted",
-                );
-            }
-
-            // Request available blocks from the builder
-            {
-                let (leader_pub, leader_priv) =
-                    BLSPubKey::generated_from_seed_indexed(seed, round as u64);
-
-                let commitment_signature =
-                    <BLSPubKey as SignatureKey>::sign(&leader_priv, previous_commitment.as_ref())
-                        .unwrap();
-
-                let available_blocks = proxy_global_state
-                    .available_blocks(
-                        &previous_commitment,
-                        previous_view.u64(),
-                        leader_pub,
-                        &commitment_signature,
-                    )
-                    .await
-                    .unwrap();
-
-                // The available blocks should **NOT** be empty
-                assert!(
-                    available_blocks.len() == 1,
-                    "available blocks should return a single entry"
-                );
-                assert!(
-                    available_blocks[0].offered_fee >= 1,
-                    "offered fee should be greater than 1"
-                );
-
-                let block_hash = available_blocks[0].block_hash.clone();
-
-                // Let's claim this block, and this block header
-                let block_hash_signature =
-                    <BLSPubKey as SignatureKey>::sign(&leader_priv, block_hash.as_ref()).unwrap();
-
-                let claimed_block = proxy_global_state
-                    .claim_block_with_num_nodes(
-                        &block_hash,
-                        previous_view.u64(),
-                        leader_pub,
-                        &block_hash_signature,
-                        // Increment to test whether `num_nodes` is updated properly.
-                        TEST_NUM_NODES_IN_VID_COMPUTATION + 1,
-                    )
-                    .await
-                    .unwrap();
-
-                let _claimed_block_header = proxy_global_state
-                    .claim_block_header_input(
-                        &block_hash,
-                        previous_view.u64(),
-                        leader_pub,
-                        &block_hash_signature,
-                    )
-                    .await
-                    .unwrap();
-
-                // Create the proposals from the transactions contained within
-                // the claim_block result.
-
-                let proposed_transactions = claimed_block.block_payload.transactions.clone();
-                assert_eq!(
-                    proposed_transactions.len(),
-                    1,
-                    "there should be one transaction in the proposed block"
-                );
-
-                let encoded_transactions = TestTransaction::encode(&proposed_transactions);
-
-                // Prepare the DA proposal message
-                let da_proposal_message = {
-                    let da_proposal = DaProposal {
-                        encoded_transactions: encoded_transactions.clone().into(),
-                        metadata: TestMetadata {
-                            num_transactions: encoded_transactions.len() as u64,
-                        },
-                        view_number: ViewNumber::new(round as u64),
-                    };
-                    let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
-                    let seed = [round as u8; 32];
-                    let (pub_key, private_key) =
-                        BLSPubKey::generated_from_seed_indexed(seed, round as u64);
-                    let da_signature =
-                <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
-                    &private_key,
-                    &encoded_transactions_hash,
-                )
-                .expect("Failed to sign encoded tx hash while preparing da proposal");
-
-                    DaProposalMessage::<TestTypes> {
-                        proposal: Arc::new(Proposal {
-                            data: da_proposal,
-                            signature: da_signature.clone(),
-                            _pd: PhantomData,
-                        }),
-                        sender: pub_key,
-                    }
+        let transactions = match available_states.pop() {
+            Some(block_info) => {
+                let block_id = BlockId {
+                    hash: block_info.block_hash,
+                    view: builder_state_id.parent_view,
                 };
-
-                // Prepare the Quorum proposal message
-                // calculate the vid commitment over the encoded_transactions
-                let quorum_certificate_message = {
-                    let block_payload = claimed_block.block_payload.clone();
-                    let metadata = claimed_block.metadata;
-
-                    tracing::debug!(
-                        "Encoded transactions: {:?} Num nodes:{}",
-                        encoded_transactions,
-                        NUM_NODES_IN_VID_COMPUTATION
-                    );
-
-                    let block_payload_commitment =
-                        vid_commitment(&encoded_transactions, NUM_NODES_IN_VID_COMPUTATION);
-
-                    tracing::debug!(
-                        "Block Payload vid commitment: {:?}",
-                        block_payload_commitment
-                    );
-
-                    let builder_commitment =
-                        <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(
-                            &block_payload,
-                            &metadata,
-                        );
-
-                    let block_header = TestBlockHeader {
-                        block_number: round as u64,
-                        payload_commitment: block_payload_commitment,
-                        builder_commitment,
-                        timestamp: round as u64,
-                        metadata,
-                        random: 1, // arbitrary
-                    };
-
-                    let justify_qc = {
-                        let previous_justify_qc = previous_quorum_proposal.justify_qc.clone();
-                        // metadata
-                        let _metadata = <TestBlockHeader as BlockHeader<TestTypes>>::metadata(
-                            &previous_quorum_proposal.block_header,
-                        );
-                        let leaf = Leaf::from_quorum_proposal(&previous_quorum_proposal);
-
-                        let q_data = QuorumData::<TestTypes> {
-                            leaf_commit: leaf.legacy_commit(),
-                        };
-
-                        let previous_quorum_view_number =
-                            previous_quorum_proposal.view_number.u64();
-                        let view_number = if previous_quorum_view_number == 0
-                            && previous_justify_qc.view_number.u64() == 0
-                        {
-                            ViewNumber::new(0)
-                        } else {
-                            ViewNumber::new(1 + previous_justify_qc.view_number.u64())
-                        };
-                        // form a justify qc
-                        SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold>::new(
-                            q_data.clone(),
-                            q_data.commit(),
-                            view_number,
-                            previous_justify_qc.signatures.clone(),
-                            PhantomData,
-                        )
-                    };
-
-                    tracing::debug!("Iteration: {} justify_qc: {:?}", round, justify_qc);
-
-                    let quorum_proposal = QuorumProposal::<TestTypes> {
-                        block_header,
-                        view_number: ViewNumber::new(round as u64),
-                        justify_qc: justify_qc.clone(),
-                        upgrade_certificate: None,
-                        proposal_certificate: None,
-                    };
-
-                    let payload_vid_commitment =
-                        <TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(
-                            &quorum_proposal.block_header,
-                        );
-
-                    let quorum_signature = <BLSPubKey as SignatureKey>::sign(
-                        &leader_priv,
-                        payload_vid_commitment.as_ref(),
-                    )
-                    .expect("Failed to sign payload commitment while preparing Quorum proposal");
-
-                    QuorumProposalMessage::<TestTypes> {
-                        proposal: Arc::new(Proposal {
-                            data: quorum_proposal.clone(),
-                            signature: quorum_signature,
-                            _pd: PhantomData,
-                        }),
-                        sender: leader_pub,
-                    }
-                };
-
-                // Prepare the Decide Message
-                // The Decide is mainly for cleanup of old BuilderStates.
-                // This may not be necessary for this test
-                let decide_message = {
-                    let leaf = match round {
-                        0 => {
-                            Leaf::genesis(
-                                &TestValidatedState::default(),
-                                &TestInstanceState::default(),
-                            )
-                            .await
-                        }
-                        _ => {
-                            let block_payload = BlockPayload::<TestTypes>::from_bytes(
-                                &encoded_transactions,
-                                <TestBlockHeader as BlockHeader<TestTypes>>::metadata(
-                                    &quorum_certificate_message.proposal.data.block_header,
-                                ),
-                            );
-                            let mut current_leaf = Leaf::from_quorum_proposal(
-                                &quorum_certificate_message.proposal.data,
-                            );
-                            current_leaf
-                                .fill_block_payload(block_payload, NUM_NODES_IN_VID_COMPUTATION)
-                                .unwrap();
-                            current_leaf
-                        }
-                    };
-
-                    DecideMessage::<TestTypes> {
-                        latest_decide_view_number: leaf.view_number(),
-                    }
-                };
-
-                // Increment the view and the previous commitment
-                previous_commitment = quorum_certificate_message
-                    .proposal
-                    .data
-                    .block_header
-                    .payload_commitment;
-                previous_view = quorum_certificate_message.proposal.data.view_number;
-                previous_quorum_proposal =
-                    quorum_certificate_message.proposal.as_ref().data.clone();
-
-                // Broadcast the DA proposal
-                da_sender
-                    .broadcast(MessageType::DaProposalMessage(da_proposal_message))
+                let block = global_state
+                    .claim_block_implementation(block_id.clone())
                     .await
                     .unwrap();
-
-                // Broadcast the Quorum Certificate
-                quorum_sender
-                    .broadcast(MessageType::QuorumProposalMessage(
-                        quorum_certificate_message,
-                    ))
+                global_state
+                    .claim_block_header_input_implementation(block_id)
                     .await
                     .unwrap();
-
-                // Send the Decide Message
-                decide_sender
-                    .broadcast(MessageType::DecideMessage(decide_message))
-                    .await
-                    .unwrap();
+                block.block_payload.transactions
             }
-        }
-
-        // We cloned these receivers to ensure that progress was being made
-        // by the Builder processes.  Using these broadcast receivers we can
-        // verify the number of messages received in this entire process, as
-        // well as the order of them, should we be so inclined.
-
-        // There should be num_test_messages messages in the receivers
-        let mut da_receiver = da_receiver;
-        let mut quorum_proposal_receiver = quorum_proposal_receiver;
-        let mut decide_receiver = decide_receiver;
-        for _ in 0..num_test_messages {
-            da_receiver.recv().await.unwrap();
-            quorum_proposal_receiver.recv().await.unwrap();
-            decide_receiver.recv().await.unwrap();
-        }
-
-        // There should not be any other messages to receive
-        let Err(Elapsed { .. }) = timeout(Duration::from_millis(100), da_receiver.recv()).await
-        else {
-            panic!("There should not be any more messages in the da_receiver");
-        };
-        let Err(Elapsed { .. }) =
-            timeout(Duration::from_millis(100), quorum_proposal_receiver.recv()).await
-        else {
-            panic!("There should not be any more messages in the da_receiver");
-        };
-        let Err(Elapsed { .. }) = timeout(Duration::from_millis(100), decide_receiver.recv()).await
-        else {
-            panic!("There should not be any more messages in the da_receiver");
+            None => vec![],
         };
 
-        // Verify `num_nodes`.
-        assert_eq!(
-            global_state.read_arc().await.num_nodes,
-            TEST_NUM_NODES_IN_VID_COMPUTATION + 1
-        );
+        // in the next round we will use received transactions to simulate
+        // the block being proposed
+        prev_proposed_transactions = Some(transactions.clone());
+        // save transactions to history
+        transaction_history.extend(transactions);
     }
+
+    // we should've served all transactions submitted, and in correct order
+    assert_eq!(
+        transaction_history,
+        all_transactions.into_iter().flatten().collect::<Vec<_>>()
+    );
 }

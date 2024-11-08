@@ -96,10 +96,22 @@ impl<Types: NodeType> std::fmt::Display for BuilderStateId<Types> {
 /// References to the parent block that is extended to spawn the new builder state.
 #[derive(derive_more::Debug, Clone, PartialEq, Eq)]
 pub struct ParentBlockReferences<Types: NodeType> {
+    /// View on which the parent block was proposed
     pub view_number: Types::View,
+    /// VID commitment of the parent block payload
     pub vid_commitment: VidCommitment,
+    /// Leaf commitment of the parent leaf
     pub leaf_commit: Commitment<Leaf<Types>>,
+    /// Builder commitment of the parent block payload
     pub builder_commitment: BuilderCommitment,
+    /// Number of transactions included in the parent block
+    pub tx_number: usize,
+    /// Number of views since the last non-empty block, if known
+    /// Can be interpreted as offset from parent block to the
+    /// last non-empty one, i.e. 0 indicates that the parent block is
+    /// not empty, and 1 would indicate that this block is empty,
+    /// but grandparent isn't
+    pub views_since_nonempty_block: Option<u64>,
 }
 
 impl<Types> ParentBlockReferences<Types>
@@ -113,6 +125,8 @@ where
             vid_commitment: VidCommitment::default(),
             leaf_commit: fake_commitment(),
             builder_commitment: BuilderCommitment::from_bytes([0; 32]),
+            tx_number: 0,
+            views_since_nonempty_block: None,
         }
     }
 }
