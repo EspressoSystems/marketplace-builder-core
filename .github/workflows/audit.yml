@@ -18,7 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: cachix/install-nix-action@v30
+
+      - uses: cachix/cachix-action@v15
+        # If PR is from a non-collaborator (e.g. dependabot) the secrets are missing and the login to cachix fails.
+        continue-on-error: true
+        with:
+          name: espresso-systems-private
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
+          extraPullNames: nix-community
+          skipPush: ${{ github.actor == 'dependabot[bot]' }}
 
       - name: Audit
-        run: cargo audit
+        run: nix develop .# -c cargo audit
