@@ -16,7 +16,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      RUSTFLAGS: '--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std"'
       RUST_LOG: info
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +45,6 @@ jobs:
     if: false
     runs-on: ubuntu-latest
     env:
-      RUSTFLAGS: '--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std"'
       RUST_MIN_STACK: 64000000
       RUST_LOG: info
     steps:

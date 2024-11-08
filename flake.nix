@@ -87,8 +87,8 @@
         RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
         RUST_BACKTRACE = 1;
         RUST_LOG = "info";
-        RUSTFLAGS = " --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
-        RUSTDOCFLAGS = " --cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\" --cfg hotshot_example";
+        RUSTFLAGS = " --cfg hotshot_example";
+        RUSTDOCFLAGS = " --cfg hotshot_example";
         RUST_MIN_STACK = 64000000;
       in
       {
