@@ -620,6 +620,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-fs"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "279cf904654eeebfa37ac9bb1598880884924aab82e290aa65c9e77a0e142e06"
+dependencies = [
+ "async-lock 2.8.0",
+ "autocfg",
+ "blocking",
+ "futures-lite 1.13.0",
+]
+
+[[package]]
 name = "async-global-executor"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -724,6 +736,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-net"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0434b1ed18ce1cf5769b8ac540e33f01fa9471058b5e89da9e06f3c882a8c12f"
+dependencies = [
+ "async-io 1.13.0",
+ "blocking",
+ "futures-lite 1.13.0",
+]
+
+[[package]]
 name = "async-process"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -798,6 +821,21 @@ dependencies = [
  "pin-utils",
  "slab",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "async-std-resolver"
+version = "0.24.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc3b454643291f9a4a3bbdb35fa62efa4ba7be5ea13fe243e3be4352182ff4b8"
+dependencies = [
+ "async-std",
+ "async-trait",
+ "futures-io",
+ "futures-util",
+ "hickory-resolver",
+ "pin-utils",
+ "socket2 0.5.7",
 ]
 
 [[package]]
@@ -1228,12 +1266,13 @@ name = "cdn-broker"
 version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
 dependencies = [
+ "async-std",
  "cdn-proto",
  "clap",
  "console-subscriber 0.3.0",
  "dashmap",
  "derivative",
- "jf-signature 0.1.0",
+ "jf-signature",
  "lazy_static",
  "local-ip-address",
  "parking_lot",
@@ -1251,9 +1290,10 @@ name = "cdn-client"
 version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
 dependencies = [
+ "async-std",
  "cdn-proto",
  "clap",
- "jf-signature 0.1.0",
+ "jf-signature",
  "parking_lot",
  "rand 0.8.5",
  "tokio",
@@ -1266,9 +1306,10 @@ name = "cdn-marshal"
 version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
 dependencies = [
+ "async-std",
  "cdn-proto",
  "clap",
- "jf-signature 0.1.0",
+ "jf-signature",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -1285,7 +1326,7 @@ dependencies = [
  "capnp",
  "capnpc",
  "derivative",
- "jf-signature 0.1.0",
+ "jf-signature",
  "kanal",
  "lazy_static",
  "mnemonic",
@@ -2153,6 +2194,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.17"
+source = "git+https://github.com/dtolnay/dyn-clone?tag=1.0.17#51bf8816be5a73e38b59fd4d9dda2bc18e9c2429"
+
+[[package]]
 name = "ed25519"
 version = "2.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2959,11 +3005,13 @@ dependencies = [
 [[package]]
 name = "hotshot"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "anyhow",
  "async-broadcast",
- "async-lock 3.4.0",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
  "async-trait",
  "bimap",
  "bincode",
@@ -2982,7 +3030,7 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "jf-signature 0.2.0",
+ "jf-signature",
  "libp2p-identity",
  "libp2p-networking",
  "lru 0.12.5",
@@ -2997,7 +3045,6 @@ dependencies = [
  "time 0.3.36",
  "tokio",
  "tracing",
- "tracing-subscriber 0.3.18",
  "url",
  "utils",
  "vbs",
@@ -3006,7 +3053,7 @@ dependencies = [
 [[package]]
 name = "hotshot-builder-api"
 version = "0.1.7"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "async-trait",
  "clap",
@@ -3059,7 +3106,7 @@ dependencies = [
 [[package]]
 name = "hotshot-events-service"
 version = "0.1.49"
-source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?branch=sishan/tx_status_api#f60a094bdb5006ba9e2e46d39b3b6c7a0ca645e6"
+source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?branch=sishan/tx_status_api#523ae077b64ab4b8055719875c7f72325f19bb3a"
 dependencies = [
  "async-broadcast",
  "async-compatibility-layer",
@@ -3085,11 +3132,13 @@ dependencies = [
 [[package]]
 name = "hotshot-example-types"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "anyhow",
  "async-broadcast",
- "async-lock 3.4.0",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
  "async-trait",
  "bitvec",
  "committable",
@@ -3101,7 +3150,6 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "jf-vid",
  "rand 0.8.5",
  "reqwest",
  "serde",
@@ -3118,10 +3166,11 @@ dependencies = [
 [[package]]
 name = "hotshot-fakeapi"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "anyhow",
- "async-lock 3.4.0",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
  "async-trait",
  "futures",
  "hotshot-example-types",
@@ -3129,7 +3178,6 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "tide-disco",
- "tokio",
  "toml",
  "tracing",
  "vbs",
@@ -3138,7 +3186,7 @@ dependencies = [
 [[package]]
 name = "hotshot-macros"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3149,10 +3197,12 @@ dependencies = [
 [[package]]
 name = "hotshot-orchestrator"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "anyhow",
- "async-lock 3.4.0",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
  "bincode",
  "blake3",
  "clap",
@@ -3176,10 +3226,12 @@ dependencies = [
 [[package]]
 name = "hotshot-task"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "anyhow",
  "async-broadcast",
+ "async-compatibility-layer",
+ "async-std",
  "async-trait",
  "futures",
  "tokio",
@@ -3190,11 +3242,13 @@ dependencies = [
 [[package]]
 name = "hotshot-task-impls"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "anyhow",
  "async-broadcast",
- "async-lock 3.4.0",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
  "async-trait",
  "bincode",
  "bitvec",
@@ -3206,9 +3260,8 @@ dependencies = [
  "hotshot-builder-api",
  "hotshot-task",
  "hotshot-types",
- "jf-signature 0.2.0",
+ "jf-signature",
  "jf-vid",
- "lru 0.12.5",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
@@ -3227,11 +3280,13 @@ dependencies = [
 [[package]]
 name = "hotshot-testing"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "anyhow",
  "async-broadcast",
- "async-lock 3.4.0",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
  "async-trait",
  "automod",
  "bitvec",
@@ -3249,7 +3304,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "itertools 0.13.0",
- "jf-signature 0.2.0",
+ "jf-signature",
  "jf-vid",
  "lru 0.12.5",
  "portpicker",
@@ -3271,7 +3326,7 @@ dependencies = [
 [[package]]
 name = "hotshot-types"
 version = "0.1.11"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -3280,7 +3335,9 @@ dependencies = [
  "ark-serialize",
  "ark-srs",
  "ark-std",
- "async-lock 3.4.0",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
  "async-trait",
  "bincode",
  "bitvec",
@@ -3292,13 +3349,13 @@ dependencies = [
  "derivative",
  "digest 0.10.7",
  "displaydoc",
- "dyn-clone",
+ "dyn-clone 1.0.17 (git+https://github.com/dtolnay/dyn-clone?tag=1.0.17)",
  "either",
  "espresso-systems-common",
  "ethereum-types",
  "futures",
  "jf-pcs",
- "jf-signature 0.2.0",
+ "jf-signature",
  "jf-utils",
  "jf-vid",
  "lazy_static",
@@ -3616,6 +3673,7 @@ dependencies = [
  "ipnet",
  "log",
  "rtnetlink",
+ "smol",
  "system-configuration 0.5.1",
  "tokio",
  "windows",
@@ -3884,7 +3942,7 @@ dependencies = [
  "derivative",
  "displaydoc",
  "downcast-rs",
- "dyn-clone",
+ "dyn-clone 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.14.5",
  "itertools 0.12.1",
  "jf-utils",
@@ -3921,35 +3979,6 @@ dependencies = [
 name = "jf-signature"
 version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
-dependencies = [
- "ark-bls12-381",
- "ark-bn254",
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "blst",
- "derivative",
- "digest 0.10.7",
- "displaydoc",
- "hashbrown 0.14.5",
- "itertools 0.12.1",
- "jf-crhf",
- "jf-relation",
- "jf-rescue",
- "jf-utils",
- "num-bigint",
- "num-traits",
- "serde",
- "sha3",
- "tagged-base64",
- "zeroize",
-]
-
-[[package]]
-name = "jf-signature"
-version = "0.2.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=jf-signature-v0.2.0#ca160ce3452b560cad512b750a742a87c48c5881"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -4203,6 +4232,7 @@ version = "0.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d17cbcf7160ff35c3e8e560de4a068fe9d6cb777ea72840e48eb76ff9576c4b6"
 dependencies = [
+ "async-std-resolver",
  "async-trait",
  "futures",
  "hickory-resolver",
@@ -4325,6 +4355,8 @@ version = "0.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49007d9a339b3e1d7eeebc4d67c05dbf23d300b7d091193ec2d3f26802d7faf2"
 dependencies = [
+ "async-io 2.3.4",
+ "async-std",
  "data-encoding",
  "futures",
  "hickory-proto",
@@ -4361,10 +4393,12 @@ dependencies = [
 [[package]]
 name = "libp2p-networking"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "anyhow",
- "async-lock 3.4.0",
+ "async-compatibility-layer",
+ "async-lock 2.8.0",
+ "async-std",
  "async-trait",
  "bincode",
  "blake3",
@@ -4389,7 +4423,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
- "tracing-subscriber 0.3.18",
  "void",
 ]
 
@@ -4399,6 +4432,7 @@ version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c67296ad4e092e23f92aea3d2bdb6f24eab79c0929ed816dfb460ea2f4567d2b"
 dependencies = [
+ "async-std",
  "bytes",
  "futures",
  "futures-timer",
@@ -4445,6 +4479,7 @@ version = "0.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80cae6cb75f89dbca53862f9ebe0b9f463aa7b302762fcfaafb9e51dcc9b0f7e"
 dependencies = [
+ "async-std",
  "either",
  "fnv",
  "futures",
@@ -4481,6 +4516,7 @@ version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b2460fc2748919adff99ecbc1aab296e4579e41f374fb164149bd2c9e529d4c"
 dependencies = [
+ "async-io 1.13.0",
  "futures",
  "futures-timer",
  "if-watch",
@@ -5086,6 +5122,7 @@ version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "416060d346fbaf1f23f9512963e3e878f1a78e707cb699ba9215761754244307"
 dependencies = [
+ "async-io 1.13.0",
  "bytes",
  "futures",
  "libc",
@@ -5780,6 +5817,8 @@ version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c7c5fdde3cdae7203427dc4f0a68fe0ed09833edc525a03456b153b79828684"
 dependencies = [
+ "async-io 2.3.4",
+ "async-std",
  "bytes",
  "futures-io",
  "pin-project-lite 0.2.14",
@@ -6217,6 +6256,7 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "322c53fd76a18698f1c27381d58091de3a043d356aa5bd0d510608b565f469a0"
 dependencies = [
+ "async-global-executor",
  "futures",
  "log",
  "netlink-packet-route",
@@ -6780,6 +6820,23 @@ dependencies = [
  "autocfg",
  "static_assertions",
  "version_check",
+]
+
+[[package]]
+name = "smol"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13f2b548cd8447f8de0fdf1c592929f70f4fc7039a05e47404b0d096ec6987a1"
+dependencies = [
+ "async-channel 1.9.0",
+ "async-executor",
+ "async-fs",
+ "async-io 1.13.0",
+ "async-lock 2.8.0",
+ "async-net",
+ "async-process",
+ "blocking",
+ "futures-lite 1.13.0",
 ]
 
 [[package]]
@@ -8156,7 +8213,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 [[package]]
 name = "utils"
 version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#d95861d3fe8161dba7bbc370bf1f00e6902d519a"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=sishan/tx_status_api#fdbe9207916ff3e16937ed507c4adde15b6a8229"
 dependencies = [
  "tracing",
 ]
