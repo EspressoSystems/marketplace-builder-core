@@ -2926,7 +2926,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-builder-core"
-version = "0.1.55"
+version = "0.1.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4708,7 +4708,7 @@ dependencies = [
 
 [[package]]
 name = "marketplace-builder-core"
-version = "0.1.55"
+version = "0.1.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4738,7 +4738,7 @@ dependencies = [
 
 [[package]]
 name = "marketplace-builder-shared"
-version = "0.1.55"
+version = "0.1.56"
 dependencies = [
  "anyhow",
  "async-lock 3.4.0",
