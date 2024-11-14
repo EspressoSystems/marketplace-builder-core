@@ -1,21 +1,17 @@
 use async_broadcast::broadcast;
-use hotshot::types::{BLSPubKey, Event, SignatureKey};
+use hotshot::types::{BLSPubKey, SignatureKey};
 use hotshot_builder_api::v0_3::data_source::{AcceptsTxnSubmits, BuilderDataSource};
-use hotshot_example_types::node_types::TestTypes;
-use hotshot_types::data::{QuorumProposal, ViewNumber};
 
 use hotshot_example_types::block_types::TestTransaction;
-use tokio::time::sleep;
-use tracing_subscriber::EnvFilter;
-
-use hotshot_types::traits::node_implementation::ConsensusTime;
 use marketplace_builder_shared::testing::constants::{
     TEST_API_TIMEOUT, TEST_BASE_FEE, TEST_INCLUDED_TX_GC_PERIOD, TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
 };
+use tokio::time::sleep;
+use tracing_subscriber::EnvFilter;
 
 use crate::hooks::NoHooks;
 use crate::service::{GlobalState, ProxyGlobalState};
-use crate::testing::calc_proposal_events;
+use crate::testing::SimulatedChainState;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
@@ -62,8 +58,9 @@ async fn test_builder() {
 
     // set up state to track between simulated consensus rounds
     let mut prev_proposed_transactions: Option<Vec<TestTransaction>> = None;
-    let mut prev_quorum_proposal: Option<QuorumProposal<TestTypes>> = None;
     let mut transaction_history = Vec::new();
+
+    let mut chain_state = SimulatedChainState::new(event_stream_sender);
 
     // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
     // then construct DA and Quorum Proposals based on what we received from builder in the previous round
@@ -78,22 +75,9 @@ async fn test_builder() {
 
         // get transactions submitted in previous rounds, [] for genesis
         // and simulate the block built from those
-        let transactions = prev_proposed_transactions.take().unwrap_or_default();
-        let (quorum_proposal, events, builder_state_id) =
-            calc_proposal_events(round, prev_quorum_proposal, transactions).await;
-
-        prev_quorum_proposal = Some(quorum_proposal.clone());
-
-        // send quorum and DA proposals for this round
-        for evt in events {
-            event_stream_sender
-                .broadcast(Event {
-                    view_number: ViewNumber::new(round as u64),
-                    event: evt,
-                })
-                .await
-                .unwrap();
-        }
+        let builder_state_id = chain_state
+            .simulate_consensus_round(prev_proposed_transactions)
+            .await;
 
         // give builder state time to fork
         sleep(Duration::from_millis(100)).await;

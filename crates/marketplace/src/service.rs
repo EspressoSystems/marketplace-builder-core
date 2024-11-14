@@ -7,7 +7,6 @@ use marketplace_builder_shared::{
 };
 
 pub use async_broadcast::{broadcast, RecvError, TryRecvError};
-use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::{Commitment, Committable};
 use futures::{future::BoxFuture, stream::FuturesUnordered, Stream};
@@ -30,7 +29,6 @@ use hotshot_types::{
     },
     vid::VidCommitment,
 };
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::{fmt::Display, time::Instant};
 use tagged_base64::TaggedBase64;
@@ -49,26 +47,21 @@ where
     Types: NodeType,
     Hooks: BuilderHooks<Types>,
 {
-    // coordinator
+    /// Coordinator we'll rely on to manage builder states
     coordinator: Arc<BuilderStateCoordinator<Types>>,
-
-    // identity keys for the builder
-    // May be ideal place as GlobalState interacts with hotshot apis
-    // and then can sign on responders as desired
+    /// Identity keys for the builder
     builder_keys: (
         Types::BuilderSignatureKey, // pub key
         <<Types as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey, // private key
     ),
 
-    // Maximum time allotted to wait for bundle before returning an error
+    /// Maximum time allotted to wait for bundle before returning an error
     api_timeout: Duration,
-
-    maximize_txn_capture_timeout: Duration,
-
-    bundle_cache: RwLock<HashMap<BuilderStateId<Types>, Bundle<Types>>>,
-
+    /// Maximum time we're allowed to expend waiting for more transactions to
+    /// arrive when serving a bundle.
+    tx_capture_timeout: Duration,
+    /// Base fee per bundle byte
     base_fee: u64,
-
     hooks: Arc<Hooks>,
 }
 
@@ -87,7 +80,7 @@ where
             <<Types as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
         ),
         api_timeout: Duration,
-        maximize_txn_capture_timeout: Duration,
+        tx_capture_timeout: Duration,
         txn_garbage_collect_duration: Duration,
         txn_channel_capacity: usize,
         base_fee: u64,
@@ -100,8 +93,7 @@ where
             coordinator: Arc::new(coordinator),
             builder_keys,
             api_timeout,
-            maximize_txn_capture_timeout,
-            bundle_cache: RwLock::new(HashMap::new()),
+            tx_capture_timeout,
             base_fee,
         })
     }
@@ -165,7 +157,6 @@ where
                 EventType::Transactions { transactions } => {
                     let transactions = hooks.process_transactions(transactions).await;
 
-                    // TODO: record results
                     let _ = transactions
                         .into_iter()
                         .map(|txn| {
@@ -193,15 +184,15 @@ where
     }
 
     /// Collect transactions to include in the bundle. Will wait until we have
-    /// at least one transaction or up to the configured `maximize_txn_capture_timeout` duration elapses.
+    /// at least one transaction or up to the configured `tx_capture_timeout` duration elapses.
     #[tracing::instrument(skip_all, fields(builder_parent_block_references = %state.parent_block_references))]
     async fn collect_transactions(
         &self,
         state: &Arc<BuilderState<Types>>,
     ) -> Option<Vec<Types::Transaction>> {
         // collect all the transactions from the near future
-        let timeout_after = Instant::now() + self.maximize_txn_capture_timeout;
-        let sleep_interval = self.maximize_txn_capture_timeout / 10;
+        let timeout_after = Instant::now() + self.tx_capture_timeout;
+        let sleep_interval = self.tx_capture_timeout / 10;
         while Instant::now() <= timeout_after {
             let queue_populated = state.collect_txns(timeout_after).await;
 
@@ -345,11 +336,6 @@ where
             };
 
             let bundle = self.assemble_bundle(transactions, view_number).await?;
-
-            self.bundle_cache
-                .write()
-                .await
-                .insert(state_id, bundle.clone());
 
             tracing::info!("Serving bundle");
 

@@ -1,9 +1,11 @@
 use std::marker::PhantomData;
 
+use async_broadcast::Sender;
 use committable::Committable;
 use hotshot::{
+    rand::{seq::SliceRandom, thread_rng},
     traits::BlockPayload,
-    types::{BLSPubKey, EventType, SignatureKey},
+    types::{BLSPubKey, Event, EventType, SignatureKey},
 };
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
@@ -25,122 +27,146 @@ pub mod basic_test;
 pub mod integration;
 pub mod order_test;
 
-pub async fn calc_proposal_events(
-    round: usize,
-    prev_quorum_proposal: Option<QuorumProposal<TestTypes>>,
-    transactions: Vec<TestTransaction>,
-) -> (
-    QuorumProposal<TestTypes>,
-    Vec<EventType<TestTypes>>,
-    BuilderStateId<TestTypes>,
-) {
-    // get transactions submitted in previous rounds, [] for genesis
-    // and simulate the block built from those
-    let num_transactions = transactions.len() as u64;
-    let encoded_transactions = TestTransaction::encode(&transactions);
-    let block_payload = TestBlockPayload { transactions };
-    let block_vid_commitment =
-        vid_commitment(&encoded_transactions, TEST_NUM_NODES_IN_VID_COMPUTATION);
-    let metadata = TestMetadata { num_transactions };
-    let block_builder_commitment =
-        <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(
-            &block_payload,
-            &metadata,
-        );
+pub(crate) struct SimulatedChainState {
+    round: ViewNumber,
+    previous_quorum_proposal: Option<QuorumProposal<TestTypes>>,
+    event_stream_sender: Sender<Event<TestTypes>>,
+}
 
-    // generate key for leader of this round
-    let seed = [round as u8; 32];
-    let (pub_key, private_key) = BLSPubKey::generated_from_seed_indexed(seed, round as u64);
-
-    let quorum_signature =
-        <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
-            &private_key,
-            block_vid_commitment.as_ref(),
-        )
-        .expect("Failed to sign payload commitment while preparing Quorum proposal");
-    let da_signature =
-        <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
-            &private_key,
-            Sha256::digest(&encoded_transactions).as_ref(),
-        )
-        .expect("Failed to sign payload commitment while preparing DA proposal");
-
-    let da_proposal = DaProposal {
-        encoded_transactions: encoded_transactions.into(),
-        metadata,
-        view_number: ViewNumber::new(round as u64),
-    };
-
-    let block_header = TestBlockHeader {
-        block_number: round as u64,
-        payload_commitment: block_vid_commitment,
-        builder_commitment: block_builder_commitment,
-        timestamp: round as u64,
-        metadata,
-        random: 1, // arbitrary
-    };
-
-    let justify_qc = match prev_quorum_proposal.as_ref() {
-        None => {
-            QuorumCertificate::<TestTypes>::genesis::<TestVersions>(
-                &TestValidatedState::default(),
-                &TestInstanceState::default(),
-            )
-            .await
+impl SimulatedChainState {
+    pub fn new(event_stream_sender: Sender<Event<TestTypes>>) -> Self {
+        Self {
+            round: ViewNumber::genesis(),
+            previous_quorum_proposal: None,
+            event_stream_sender,
         }
-        Some(prev_proposal) => {
-            let prev_justify_qc = &prev_proposal.justify_qc;
-            let quorum_data = QuorumData::<TestTypes> {
-                leaf_commit: Committable::commit(&Leaf::from_quorum_proposal(prev_proposal)),
-            };
+    }
 
-            // form a justify qc
-            SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold>::new(
-                quorum_data.clone(),
-                quorum_data.commit(),
-                prev_proposal.view_number,
-                prev_justify_qc.signatures.clone(),
-                PhantomData,
+    pub async fn simulate_consensus_round(
+        &mut self,
+        transactions: Option<Vec<TestTransaction>>,
+    ) -> BuilderStateId<TestTypes> {
+        let transactions = transactions.unwrap_or_default();
+        let num_transactions = transactions.len() as u64;
+        let encoded_transactions = TestTransaction::encode(&transactions);
+        let block_payload = TestBlockPayload { transactions };
+        let block_vid_commitment =
+            vid_commitment(&encoded_transactions, TEST_NUM_NODES_IN_VID_COMPUTATION);
+        let metadata = TestMetadata { num_transactions };
+        let block_builder_commitment =
+            <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(
+                &block_payload,
+                &metadata,
+            );
+
+        // generate key for leader of this round
+        let seed = [self.round.u64() as u8; 32];
+        let (pub_key, private_key) = BLSPubKey::generated_from_seed_indexed(seed, self.round.u64());
+
+        let quorum_signature =
+            <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
+                &private_key,
+                block_vid_commitment.as_ref(),
             )
+            .expect("Failed to sign payload commitment while preparing Quorum proposal");
+        let da_signature =
+            <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
+                &private_key,
+                Sha256::digest(&encoded_transactions).as_ref(),
+            )
+            .expect("Failed to sign payload commitment while preparing DA proposal");
+
+        let da_proposal = DaProposal {
+            encoded_transactions: encoded_transactions.into(),
+            metadata,
+            view_number: self.round,
+        };
+
+        let block_header = TestBlockHeader {
+            block_number: self.round.u64(),
+            payload_commitment: block_vid_commitment,
+            builder_commitment: block_builder_commitment,
+            timestamp: self.round.u64(),
+            metadata,
+            random: 1, // arbitrary
+        };
+
+        let justify_qc = match self.previous_quorum_proposal.as_ref() {
+            None => {
+                QuorumCertificate::<TestTypes>::genesis::<TestVersions>(
+                    &TestValidatedState::default(),
+                    &TestInstanceState::default(),
+                )
+                .await
+            }
+            Some(prev_proposal) => {
+                let prev_justify_qc = &prev_proposal.justify_qc;
+                let quorum_data = QuorumData::<TestTypes> {
+                    leaf_commit: Committable::commit(&Leaf::from_quorum_proposal(prev_proposal)),
+                };
+
+                // form a justify qc
+                SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold>::new(
+                    quorum_data.clone(),
+                    quorum_data.commit(),
+                    prev_proposal.view_number,
+                    prev_justify_qc.signatures.clone(),
+                    PhantomData,
+                )
+            }
+        };
+
+        tracing::debug!("Iteration: {} justify_qc: {:?}", self.round, justify_qc);
+
+        let quorum_proposal = QuorumProposal::<TestTypes> {
+            block_header,
+            view_number: self.round,
+            justify_qc: justify_qc.clone(),
+            upgrade_certificate: None,
+            proposal_certificate: None,
+        };
+
+        let quorum_proposal_event = EventType::QuorumProposal {
+            proposal: Proposal {
+                data: quorum_proposal.clone(),
+                signature: quorum_signature,
+                _pd: PhantomData,
+            },
+            sender: pub_key,
+        };
+
+        let da_proposal_event = EventType::DaProposal {
+            proposal: Proposal {
+                data: da_proposal,
+                signature: da_signature,
+                _pd: PhantomData,
+            },
+            sender: pub_key,
+        };
+
+        let builder_state_id = BuilderStateId {
+            parent_commitment: block_vid_commitment,
+            parent_view: self.round,
+        };
+
+        let mut events = vec![quorum_proposal_event, da_proposal_event];
+        // Shuffle the events to shake out possible bugs that depend on event ordering
+        events.shuffle(&mut thread_rng());
+
+        for evt in events {
+            self.event_stream_sender
+                .broadcast(Event {
+                    view_number: self.round,
+                    event: evt,
+                })
+                .await
+                .unwrap();
         }
-    };
 
-    tracing::debug!("Iteration: {} justify_qc: {:?}", round, justify_qc);
+        // Update own state
+        self.round = ViewNumber::new(self.round.u64() + 1);
+        self.previous_quorum_proposal = Some(quorum_proposal);
 
-    let quorum_proposal = QuorumProposal::<TestTypes> {
-        block_header,
-        view_number: ViewNumber::new(round as u64),
-        justify_qc: justify_qc.clone(),
-        upgrade_certificate: None,
-        proposal_certificate: None,
-    };
-
-    let quorum_proposal_event = EventType::QuorumProposal {
-        proposal: Proposal {
-            data: quorum_proposal.clone(),
-            signature: quorum_signature,
-            _pd: PhantomData,
-        },
-        sender: pub_key,
-    };
-
-    let da_proposal_event = EventType::DaProposal {
-        proposal: Proposal {
-            data: da_proposal,
-            signature: da_signature,
-            _pd: PhantomData,
-        },
-        sender: pub_key,
-    };
-
-    let builder_state_id = BuilderStateId {
-        parent_commitment: block_vid_commitment,
-        parent_view: ViewNumber::new(round as u64),
-    };
-
-    (
-        quorum_proposal,
-        vec![quorum_proposal_event, da_proposal_event],
-        builder_state_id,
-    )
+        builder_state_id
+    }
 }

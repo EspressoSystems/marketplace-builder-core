@@ -1,10 +1,6 @@
 use async_broadcast::broadcast;
 use hotshot_builder_api::v0_3::data_source::{AcceptsTxnSubmits, BuilderDataSource};
-use hotshot_types::{
-    bundle::Bundle,
-    data::{QuorumProposal, ViewNumber},
-    traits::node_implementation::ConsensusTime,
-};
+use hotshot_types::{bundle::Bundle, traits::node_implementation::ConsensusTime};
 use marketplace_builder_shared::{
     block::BuilderStateId,
     testing::constants::{
@@ -17,17 +13,16 @@ use tracing_subscriber::EnvFilter;
 use crate::{
     hooks::NoHooks,
     service::{GlobalState, ProxyGlobalState},
-    testing::calc_proposal_events,
+    testing::SimulatedChainState,
 };
 
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use hotshot_example_types::block_types::TestTransaction;
-use hotshot_example_types::node_types::TestTypes;
 
 use hotshot::{
     rand::{self, seq::SliceRandom, thread_rng},
-    types::{BLSPubKey, Event, SignatureKey},
+    types::{BLSPubKey, SignatureKey},
 };
 
 /// [`RoundTransactionBehavior`] is an enum that is used to represent different
@@ -208,13 +203,13 @@ async fn test_builder_order() {
 
     // set up state to track between simulated consensus rounds
     let mut prev_proposed_transactions: Option<Vec<TestTransaction>> = None;
-    let mut prev_quorum_proposal: Option<QuorumProposal<TestTypes>> = None;
+    let mut chain_state = SimulatedChainState::new(event_stream_sender);
     let mut transaction_history = Vec::new();
 
     // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
     // then construct DA and Quorum Proposals based on what we received from builder in the previous round
     // and request a new bundle.
-    for (round, round_transactions, round_behavior) in all_transactions
+    for (_round, round_transactions, round_behavior) in all_transactions
         .iter()
         .enumerate()
         .map(|(round, txns)| (round, txns, determine_round_behavior(round)))
@@ -224,27 +219,9 @@ async fn test_builder_order() {
         let BuilderStateId {
             parent_view,
             parent_commitment,
-        } = {
-            // get transactions submitted in previous rounds, [] for genesis
-            // and simulate the block built from those
-            let transactions = prev_proposed_transactions.take().unwrap_or_default();
-            let (quorum_proposal, events, builder_state_id) =
-                calc_proposal_events(round, prev_quorum_proposal, transactions).await;
-
-            prev_quorum_proposal = Some(quorum_proposal.clone());
-
-            for evt in events {
-                event_stream_sender
-                    .broadcast(Event {
-                        view_number: ViewNumber::new(round as u64),
-                        event: evt,
-                    })
-                    .await
-                    .unwrap();
-            }
-
-            builder_state_id
-        };
+        } = chain_state
+            .simulate_consensus_round(prev_proposed_transactions)
+            .await;
 
         // simulate transaction being submitted to the builder
         proxy_global_state
@@ -334,18 +311,18 @@ async fn test_builder_order_chain_fork() {
 
     // set up state to track between simulated consensus rounds
     let mut prev_proposed_transactions_branch_1: Option<Vec<TestTransaction>> = None;
-    let mut prev_quorum_proposal_branch_1: Option<QuorumProposal<TestTypes>> = None;
+    let mut chain_state_branch_1 = SimulatedChainState::new(event_stream_sender.clone());
     let mut transaction_history_branch_1 = Vec::new();
 
     // set up state to track the fork-ed chain
     let mut prev_proposed_transactions_branch_2: Option<Vec<TestTransaction>> = None;
-    let mut prev_quorum_proposal_branch_2: Option<QuorumProposal<TestTypes>> = None;
+    let mut chain_state_branch_2 = SimulatedChainState::new(event_stream_sender);
     let mut transaction_history_branch_2 = Vec::new();
 
     // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
     // then construct DA and Quorum Proposals based on what we received from builder in the previous round
     // and request a new bundle.
-    for (round, transactions, fork_round_behavior) in all_transactions
+    for (_, transactions, fork_round_behavior) in all_transactions
         .iter()
         .enumerate()
         .map(|(round, txns)| (round, txns, determine_round_behavior(round)))
@@ -355,63 +332,18 @@ async fn test_builder_order_chain_fork() {
         let BuilderStateId {
             parent_view: parent_view_branch_1,
             parent_commitment: parent_commitment_branch_1,
-        } = {
-            // get transactions submitted in previous rounds, [] for genesis
-            // and simulate the block built from those
-            let transactions = prev_proposed_transactions_branch_1
-                .clone()
-                .unwrap_or_default();
-            let (quorum_proposal, events, builder_state_id) =
-                calc_proposal_events(round, prev_quorum_proposal_branch_1, transactions).await;
-
-            prev_quorum_proposal_branch_1 = Some(quorum_proposal.clone());
-
-            // send quorum and DA proposals for this round
-            for evt in events {
-                event_stream_sender
-                    .broadcast(Event {
-                        view_number: ViewNumber::new(round as u64),
-                        event: evt,
-                    })
-                    .await
-                    .unwrap();
-            }
-
-            builder_state_id
-        };
+        } = chain_state_branch_1
+            .simulate_consensus_round(prev_proposed_transactions_branch_1)
+            .await;
 
         // Simulate consensus deciding on the transactions that are included
         // in the block, branch 2
         let BuilderStateId {
             parent_view: parent_view_branch_2,
             parent_commitment: parent_commitment_branch_2,
-        } = {
-            // get transactions submitted in previous rounds, [] for genesis
-            // and simulate the block built from those
-            let transactions = prev_proposed_transactions_branch_2
-                .clone()
-                .unwrap_or_default();
-
-            let (quorum_proposal, events, builder_state_id) =
-                calc_proposal_events(round, prev_quorum_proposal_branch_2, transactions).await;
-
-            prev_quorum_proposal_branch_2 = Some(quorum_proposal.clone());
-
-            // send quorum and DA proposals for this round
-            // we also need to send out the message for the fork-ed chain although it's not forked yet
-            // to prevent builders resend the transactions we've already committed
-            for evt in events {
-                event_stream_sender
-                    .broadcast(Event {
-                        view_number: ViewNumber::new(round as u64),
-                        event: evt,
-                    })
-                    .await
-                    .unwrap();
-            }
-
-            builder_state_id
-        };
+        } = chain_state_branch_2
+            .simulate_consensus_round(prev_proposed_transactions_branch_2)
+            .await;
 
         // simulate transaction being submitted to the builder
         proxy_global_state
@@ -529,13 +461,13 @@ async fn test_builder_order_should_fail() {
     };
     // set up state to track between simulated consensus rounds
     let mut prev_proposed_transactions: Option<Vec<TestTransaction>> = None;
-    let mut prev_quorum_proposal: Option<QuorumProposal<TestTypes>> = None;
+    let mut chain_state = SimulatedChainState::new(event_stream_sender);
     let mut transaction_history = Vec::new();
 
     // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
     // then construct DA and Quorum Proposals based on what we received from builder in the previous round
     // and request a new bundle.
-    for (round, round_transactions, round_behavior) in all_transactions
+    for (_, round_transactions, round_behavior) in all_transactions
         .iter()
         .enumerate()
         .map(|(round, txns)| (round, txns, determine_round_behavior(round)))
@@ -545,28 +477,9 @@ async fn test_builder_order_should_fail() {
         let BuilderStateId {
             parent_view,
             parent_commitment,
-        } = {
-            // get transactions submitted in previous rounds, [] for genesis
-            // and simulate the block built from those
-            let transactions = prev_proposed_transactions.take().unwrap_or_default();
-            let (quorum_proposal, events, builder_state_id) =
-                calc_proposal_events(round, prev_quorum_proposal, transactions).await;
-
-            prev_quorum_proposal = Some(quorum_proposal.clone());
-
-            // send quorum and DA proposals for this round
-            for evt in events {
-                event_stream_sender
-                    .broadcast(Event {
-                        view_number: ViewNumber::new(round as u64),
-                        event: evt,
-                    })
-                    .await
-                    .unwrap();
-            }
-
-            builder_state_id
-        };
+        } = chain_state
+            .simulate_consensus_round(prev_proposed_transactions)
+            .await;
 
         // simulate transaction being submitted to the builder
         proxy_global_state

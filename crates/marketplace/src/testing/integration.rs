@@ -74,6 +74,7 @@ where
     ) -> Box<dyn BuilderTask<Types>> {
         let builder_key_pair = Types::BuilderSignatureKey::generated_from_seed_indexed([0; 32], 0);
 
+        // Create the global state
         let service = GlobalState::new(
             builder_key_pair,
             Duration::from_millis(500),
@@ -84,9 +85,8 @@ where
             config.hooks,
         );
 
-        // create the proxy global state it will server the builder apis
-        let app = service
-            .clone()
+        // Create tide-disco app based on global state
+        let app = Arc::clone(&service)
             .into_app()
             .expect("Failed to create builder tide-disco app");
 
@@ -94,6 +94,8 @@ where
 
         spawn(app.serve(url_clone, StaticVersion::<0, 1> {}));
 
+        // Return the global state as a task that will be later started
+        // by the test harness with event stream from one of HS nodes
         Box::new(MarketplaceBuilderTask { service })
     }
 }
