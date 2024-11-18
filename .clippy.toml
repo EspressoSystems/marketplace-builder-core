@@ -1,2 +1,2 @@
-disallowed-names = [ "TYPES" ]
-doc-valid-idents = [ "HotShot", ".." ]
+disallowed-names = ["TYPES"]
+doc-valid-idents = ["HotShot", ".."]
