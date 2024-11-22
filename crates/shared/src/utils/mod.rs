@@ -99,6 +99,7 @@ where
 
     /// Will consume self and return result of underlying future
     pub async fn resolve(self) -> T {
+        self.start();
         self.handle.await
     }
 }

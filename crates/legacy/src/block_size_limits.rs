@@ -4,7 +4,7 @@ use std::sync::atomic::Ordering;
 
 #[derive(Debug, Clone, Copy, bytemuck::NoUninit)]
 #[repr(C)]
-struct MutableState {
+pub(crate) struct MutableState {
     pub max_block_size: u64,
     pub last_block_size_increment: u64,
 }
@@ -13,7 +13,7 @@ struct MutableState {
 /// maximum block size allowed by the protocol
 #[derive(Debug)]
 pub struct BlockSizeLimits {
-    mutable_state: Atomic<MutableState>,
+    pub(crate) mutable_state: Atomic<MutableState>,
     pub protocol_max_block_size: u64,
     pub increment_period: Duration,
 }

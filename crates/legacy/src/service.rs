@@ -71,15 +71,15 @@ pub type BuilderKeys<Types> = (
 );
 
 pub struct GlobalState<Types: NodeType> {
-    coordinator: Arc<BuilderStateCoordinator<Types>>,
-    builder_keys: BuilderKeys<Types>,
-    max_api_waiting_time: Duration,
-    block_store: RwLock<BlockStore<Types>>,
-    block_size_limits: BlockSizeLimits,
-    maximize_txn_capture_timeout: Duration,
-    num_nodes: AtomicUsize,
-    instance_state: Types::InstanceState,
-    base_fee: u64,
+    pub(crate) coordinator: Arc<BuilderStateCoordinator<Types>>,
+    pub(crate) builder_keys: BuilderKeys<Types>,
+    pub(crate) max_api_waiting_time: Duration,
+    pub(crate) block_store: RwLock<BlockStore<Types>>,
+    pub(crate) block_size_limits: BlockSizeLimits,
+    pub(crate) maximize_txn_capture_timeout: Duration,
+    pub(crate) num_nodes: AtomicUsize,
+    pub(crate) instance_state: Types::InstanceState,
+    pub(crate) base_fee: u64,
 }
 
 impl<Types: NodeType> GlobalState<Types>

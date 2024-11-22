@@ -8,7 +8,7 @@ use marketplace_builder_shared::testing::constants::*;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
-use crate::service::{GlobalState, ALLOW_EMPTY_BLOCK_PERIOD};
+use crate::service::{GlobalState, ProxyGlobalState, ALLOW_EMPTY_BLOCK_PERIOD};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -53,7 +53,8 @@ async fn test_empty_block_rate() {
     );
 
     let (event_stream_sender, event_stream) = broadcast(1024);
-    Arc::clone(&global_state).start_event_loop(event_stream);
+    let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
+    global_state.start_event_loop(event_stream);
 
     let mut chain_state = SimulatedChainState::new(event_stream_sender);
 
@@ -69,10 +70,10 @@ async fn test_empty_block_rate() {
 
         // get response
         for _ in 0..NUM_RETRIES {
-            let available_blocks = global_state
-                .available_blocks_implementation(builder_state_id.clone())
-                .await
-                .unwrap();
+            let available_blocks =
+                super::get_available_blocks(&proxy_global_state, &builder_state_id)
+                    .await
+                    .unwrap();
             assert!(
                 available_blocks.is_empty(),
                 "Builder shouldn't be building empty block without recent blocks with transactions"
@@ -123,7 +124,8 @@ async fn test_eager_block_rate() {
     );
 
     let (event_stream_sender, event_stream) = broadcast(1024);
-    Arc::clone(&global_state).start_event_loop(event_stream);
+    let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
+    global_state.start_event_loop(event_stream);
 
     let mut chain_state = SimulatedChainState::new(event_stream_sender);
 
@@ -136,10 +138,10 @@ async fn test_eager_block_rate() {
 
         // get response
         for _ in 0..NUM_RETRIES {
-            let available_blocks = global_state
-                .available_blocks_implementation(builder_state_id.clone())
-                .await
-                .unwrap();
+            let available_blocks =
+                super::get_available_blocks(&proxy_global_state, &builder_state_id)
+                    .await
+                    .unwrap();
             assert!(
                 available_blocks.is_empty(),
                 "Builder shouldn't be building empty block without recent blocks with transactions"
@@ -158,10 +160,10 @@ async fn test_eager_block_rate() {
 
         // get response
         for _ in 0..NUM_RETRIES {
-            let available_blocks = global_state
-                .available_blocks_implementation(builder_state_id.clone())
-                .await
-                .unwrap();
+            let available_blocks =
+                super::get_available_blocks(&proxy_global_state, &builder_state_id)
+                    .await
+                    .unwrap();
             assert_eq!(
                 available_blocks.first().unwrap().block_size,
                 0,
@@ -181,10 +183,10 @@ async fn test_eager_block_rate() {
 
         // get response
         for _ in 0..NUM_RETRIES {
-            let available_blocks = global_state
-                .available_blocks_implementation(builder_state_id.clone())
-                .await
-                .unwrap();
+            let available_blocks =
+                super::get_available_blocks(&proxy_global_state, &builder_state_id)
+                    .await
+                    .unwrap();
             assert_eq!(
                 available_blocks.first().unwrap().block_size,
                 0,
@@ -201,10 +203,10 @@ async fn test_eager_block_rate() {
 
         // get response
         for _ in 0..NUM_RETRIES {
-            let available_blocks = global_state
-                .available_blocks_implementation(builder_state_id.clone())
-                .await
-                .unwrap();
+            let available_blocks =
+                super::get_available_blocks(&proxy_global_state, &builder_state_id)
+                    .await
+                    .unwrap();
             assert!(
                 available_blocks.is_empty(),
                 "Builder shouldn't be building empty block without recent blocks with transactions"

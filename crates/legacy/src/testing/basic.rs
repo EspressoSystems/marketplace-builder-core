@@ -6,11 +6,7 @@ use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::state_types::TestInstanceState;
 use marketplace_builder_shared::block::BlockId;
 use marketplace_builder_shared::testing::consensus::SimulatedChainState;
-use marketplace_builder_shared::testing::constants::{
-    TEST_API_TIMEOUT, TEST_BASE_FEE, TEST_CHANNEL_BUFFER_SIZE, TEST_INCLUDED_TX_GC_PERIOD,
-    TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT, TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-    TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
-};
+use marketplace_builder_shared::testing::constants::*;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
@@ -48,7 +44,7 @@ async fn test_builder() {
     let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
 
     let (event_stream_sender, event_stream) = broadcast(1024);
-    Arc::clone(&global_state).start_event_loop(event_stream);
+    global_state.start_event_loop(event_stream);
 
     // Transactions to send
     let all_transactions = (0..NUM_ROUNDS)
@@ -86,10 +82,10 @@ async fn test_builder() {
         sleep(Duration::from_millis(100)).await;
 
         // get response
-        let mut available_states = global_state
-            .available_blocks_implementation(builder_state_id.clone())
-            .await
-            .unwrap();
+        let mut available_states =
+            super::get_available_blocks(&proxy_global_state, &builder_state_id)
+                .await
+                .unwrap();
 
         let transactions = match available_states.pop() {
             Some(block_info) => {
@@ -98,13 +94,11 @@ async fn test_builder() {
                     view: builder_state_id.parent_view,
                 };
                 // Get block for its transactions
-                let block = global_state
-                    .claim_block_implementation(block_id.clone())
+                let block = super::get_block(&proxy_global_state, &block_id)
                     .await
                     .unwrap();
                 // Get header input just to check it's in working order
-                global_state
-                    .claim_block_header_input_implementation(block_id)
+                super::get_block_header_input(&proxy_global_state, &block_id)
                     .await
                     .expect("Failed to claim header input");
                 block.block_payload.transactions

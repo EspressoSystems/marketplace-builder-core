@@ -1,0 +1,124 @@
+use async_broadcast::broadcast;
+use hotshot::types::{BLSPubKey, SignatureKey};
+use hotshot_builder_api::v0_1::data_source::AcceptsTxnSubmits;
+use hotshot_example_types::block_types::TestTransaction;
+use hotshot_example_types::state_types::TestInstanceState;
+use marketplace_builder_shared::block::BlockId;
+use marketplace_builder_shared::testing::consensus::SimulatedChainState;
+use marketplace_builder_shared::testing::constants::*;
+use tokio::time::sleep;
+use tracing_subscriber::EnvFilter;
+
+use crate::block_size_limits::BlockSizeLimits;
+use crate::service::{GlobalState, ProxyGlobalState};
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::time::Duration;
+
+/// This tests simulates size limits being decreased lower than our capacity
+/// and then checks that size limits return to protocol maximum over time
+#[tokio::test]
+async fn block_size_increment() {
+    // Setup logging
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .try_init();
+
+    tracing::info!("Testing the builder core with multiple messages from the channels");
+
+    // Number of views we'll need to simulate to reach protocol max block size
+    // Basically compound interest formula solved for time
+    let num_rounds: u64 =
+        (((PROTOCOL_MAX_BLOCK_SIZE / BlockSizeLimits::MAX_BLOCK_SIZE_FLOOR) as f64).ln()
+            / (1.0 + 1f64 / BlockSizeLimits::MAX_BLOCK_SIZE_CHANGE_DIVISOR as f64).ln())
+        .ceil() as u64;
+
+    // Max block size for this test. Relatively low
+    // so that we don't spend a lot of rounds in this test
+    // in this test
+    const PROTOCOL_MAX_BLOCK_SIZE: u64 = BlockSizeLimits::MAX_BLOCK_SIZE_FLOOR * 3;
+
+    let global_state = GlobalState::new(
+        BLSPubKey::generated_from_seed_indexed([0; 32], 0),
+        TEST_API_TIMEOUT, // More generous API timeout
+        Duration::ZERO,   // We don't want to delay increments for this test
+        PROTOCOL_MAX_BLOCK_SIZE,
+        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+        TEST_NUM_NODES_IN_VID_COMPUTATION,
+        TestInstanceState::default(),
+        TEST_INCLUDED_TX_GC_PERIOD,
+        TEST_CHANNEL_BUFFER_SIZE,
+        TEST_BASE_FEE,
+    );
+    global_state.block_size_limits.mutable_state.store(
+        crate::block_size_limits::MutableState {
+            max_block_size: BlockSizeLimits::MAX_BLOCK_SIZE_FLOOR,
+            last_block_size_increment: coarsetime::Instant::now().as_ticks(),
+        },
+        Ordering::Relaxed,
+    );
+    let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
+
+    let (event_stream_sender, event_stream) = broadcast(1024);
+    Arc::clone(&global_state).start_event_loop(event_stream);
+
+    // set up state to track between simulated consensus rounds
+    let mut chain_state = SimulatedChainState::new(event_stream_sender);
+
+    // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
+    // then construct DA and Quorum Proposals based on what we received from builder in the previous round
+    // and request a new bundle.
+    #[allow(clippy::needless_range_loop)] // intent is clearer this way
+    for round in 0..num_rounds {
+        // We should still be climbing
+        assert_ne!(
+            global_state
+                .block_size_limits
+                .mutable_state
+                .load(Ordering::Relaxed)
+                .max_block_size,
+            PROTOCOL_MAX_BLOCK_SIZE,
+            "On round {round}/{num_rounds} we shouldn't be back to PROTOCOL_MAX_BLOCK_SIZE yet"
+        );
+
+        // simulate transaction being submitted to the builder
+        proxy_global_state
+            .submit_txns(vec![TestTransaction::default()])
+            .await
+            .unwrap();
+
+        // get transactions submitted in previous rounds, [] for genesis
+        // and simulate the block built from those
+        let builder_state_id = chain_state.simulate_consensus_round(None).await;
+
+        // give builder state time to fork
+        sleep(Duration::from_millis(100)).await;
+
+        // Get response. Called through
+        let mut available_states =
+            super::get_available_blocks(&proxy_global_state, &builder_state_id)
+                .await
+                .unwrap();
+
+        if let Some(block_info) = available_states.pop() {
+            let block_id = BlockId {
+                hash: block_info.block_hash,
+                view: builder_state_id.parent_view,
+            };
+            // Get header input, this should trigger block size limits increment
+            super::get_block_header_input(&proxy_global_state, &block_id)
+                .await
+                .expect("Failed to claim header input");
+        }
+    }
+
+    // We should've returned to protocol max block size
+    assert_eq!(
+        global_state
+            .block_size_limits
+            .mutable_state
+            .load(Ordering::Relaxed)
+            .max_block_size,
+        PROTOCOL_MAX_BLOCK_SIZE
+    )
+}
