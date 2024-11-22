@@ -5,7 +5,6 @@ use hotshot::traits::BlockPayload;
 use hotshot_builder_api::v0_3::builder::BuildError;
 use hotshot_types::traits::{node_implementation::NodeType, signature_key::BuilderSignatureKey};
 use thiserror::Error;
-use tokio::time::error::Elapsed;
 
 use crate::block::ReceivedTransaction;
 
@@ -16,7 +15,7 @@ pub enum Error<Types: NodeType> {
     #[error("Failed to sign response")]
     Signing(<Types::BuilderSignatureKey as BuilderSignatureKey>::SignError),
     #[error("API response timed out")]
-    ApiTimeout(#[from] Elapsed),
+    ApiTimeout,
     #[error("Resource not found")]
     NotFound,
     #[error(transparent)]
@@ -32,7 +31,7 @@ impl<Types: NodeType> From<Error<Types>> for BuildError {
                 BuildError::Error("Signature validation failed".to_owned())
             }
             Error::Signing(_) => BuildError::Error("Failed to sign response".to_owned()),
-            Error::ApiTimeout(_) => BuildError::Error("Timeout".to_owned()),
+            Error::ApiTimeout => BuildError::Error("Timeout".to_owned()),
             Error::NotFound => BuildError::NotFound,
             Error::BuildBlock(_) => BuildError::Error("Failed to build block".to_owned()),
             Error::TxnSender(_) => BuildError::Error("Transaction channel error".to_owned()),

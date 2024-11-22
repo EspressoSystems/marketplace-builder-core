@@ -54,8 +54,8 @@ impl<Types: NodeType> BlockInfo<Types> {
 
 #[derive(Default)]
 pub struct BlockStore<Types: NodeType> {
-    blocks: TieredViewMap<BlockId<Types>, BlockInfo<Types>>,
-    block_cache: TieredViewMap<BuilderStateId<Types>, BlockId<Types>>,
+    pub(crate) blocks: TieredViewMap<BlockId<Types>, BlockInfo<Types>>,
+    pub(crate) block_cache: TieredViewMap<BuilderStateId<Types>, BlockId<Types>>,
 }
 
 impl<Types: NodeType> BlockStore<Types> {

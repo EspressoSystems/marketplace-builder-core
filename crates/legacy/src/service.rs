@@ -590,7 +590,7 @@ where
             self.available_blocks_implementation(state_id),
         )
         .await
-        .map_err(Error::<Types>::ApiTimeout)??;
+        .map_err(|_| Error::<Types>::ApiTimeout)??;
 
         Ok(available_blocks)
     }
@@ -621,7 +621,7 @@ where
             self.claim_block_implementation(block_id),
         )
         .await
-        .map_err(Error::<Types>::ApiTimeout)??;
+        .map_err(|_| Error::<Types>::ApiTimeout)??;
 
         Ok(block)
     }
@@ -679,7 +679,7 @@ where
             // we can't keep up with this block size, reduce max block size
             self.block_size_limits.decrement_block_size();
         })
-        .map_err(Error::<Types>::ApiTimeout)??;
+        .map_err(|_| Error::<Types>::ApiTimeout)??;
 
         if self.max_api_waiting_time.saturating_sub(start.elapsed())
             > self.max_api_waiting_time / VID_RESPONSE_TARGET_MARGIN_DIVISOR
@@ -729,5 +729,162 @@ impl<Types: NodeType> ReadState for ProxyGlobalState<Types> {
         op: impl Send + for<'a> FnOnce(&'a Self::State) -> BoxFuture<'a, T> + 'async_trait,
     ) -> T {
         op(self).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use hotshot_example_types::{node_types::TestTypes, state_types::TestInstanceState};
+    use marketplace_builder_shared::testing::constants::{
+        TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
+    };
+    use once_cell::sync::Lazy;
+
+    use super::*;
+
+    static SIGNING_KEYS: Lazy<(
+        <TestTypes as NodeType>::SignatureKey,
+        <<TestTypes as NodeType>::SignatureKey as SignatureKey>::PrivateKey,
+    )> = Lazy::new(|| {
+        <<TestTypes as NodeType>::SignatureKey as SignatureKey>::generated_from_seed_indexed(
+            [0; 32], 0,
+        )
+    });
+
+    fn sign(
+        data: &[u8],
+    ) -> <<TestTypes as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType {
+        <<TestTypes as NodeType>::SignatureKey as SignatureKey>::sign(&SIGNING_KEYS.1, data)
+            .unwrap()
+    }
+
+    // We need to extract the error strings by hand because BuildError doesn't implement Eq
+    fn assert_eq_generic_err(err: BuildError, expected_err: Error<TestTypes>) {
+        let BuildError::Error(expected_err_str) = expected_err.into() else {
+            panic!("Unexpected conversion of Error to BuildError");
+        };
+        println!("{:#?}", err);
+        let BuildError::Error(err_str) = err else {
+            panic!("Unexpected BuildError by builder");
+        };
+        assert_eq!(expected_err_str, err_str);
+    }
+
+    #[tokio::test]
+    async fn test_signature_checks() {
+        let expected_signing_keys = &SIGNING_KEYS;
+        let wrong_signing_key =
+            <<TestTypes as NodeType>::SignatureKey as SignatureKey>::generated_from_seed_indexed(
+                [0; 32], 1,
+            )
+            .1;
+
+        // Signature over wrong data by expected signing key
+        let signature_over_bogus_data = sign(&[42]);
+
+        // Sign correct data with unexpected key
+        let sign_with_wrong_key = |data| {
+            <<TestTypes as NodeType>::SignatureKey as SignatureKey>::sign(&wrong_signing_key, data)
+                .unwrap()
+        };
+
+        let builder_commitment = BuilderCommitment::from_bytes([]);
+        let vid_commitment = VidCommitment::default();
+
+        let global_state = GlobalState::<TestTypes>::new(
+            BuilderConfig::test(),
+            TestInstanceState::default(),
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            TEST_NUM_NODES_IN_VID_COMPUTATION,
+        );
+
+        let proxy_global_state = ProxyGlobalState(global_state);
+
+        // Available blocks
+        {
+            // Verification  should fail if signature is over incorrect data
+            let err = proxy_global_state
+                .available_blocks(
+                    &vid_commitment,
+                    0,
+                    expected_signing_keys.0,
+                    &signature_over_bogus_data,
+                )
+                .await
+                .expect_err("Signature verification should've failed");
+
+            assert_eq_generic_err(err, Error::SignatureValidation);
+
+            // Verification  should also fail if signature is over correct data but by incorrect key
+            let err = proxy_global_state
+                .available_blocks(
+                    &vid_commitment,
+                    0,
+                    expected_signing_keys.0,
+                    &sign_with_wrong_key(vid_commitment.as_ref()),
+                )
+                .await
+                .expect_err("Signature verification should've failed");
+
+            assert_eq_generic_err(err, Error::SignatureValidation);
+        }
+
+        // Claim block
+        {
+            // Verification  should fail if signature is over incorrect data
+            let err = proxy_global_state
+                .claim_block(
+                    &builder_commitment,
+                    0,
+                    expected_signing_keys.0,
+                    &signature_over_bogus_data,
+                )
+                .await
+                .expect_err("Signature verification should've failed");
+
+            assert_eq_generic_err(err, Error::SignatureValidation);
+
+            // Verification  should also fail if signature is over correct data but by incorrect key
+            let err = proxy_global_state
+                .claim_block(
+                    &builder_commitment,
+                    0,
+                    expected_signing_keys.0,
+                    &sign_with_wrong_key(builder_commitment.as_ref()),
+                )
+                .await
+                .expect_err("Signature verification should've failed");
+
+            assert_eq_generic_err(err, Error::SignatureValidation);
+        }
+
+        // Claim block header input
+        {
+            // Verification  should fail if signature is over incorrect data
+            let err = proxy_global_state
+                .claim_block_header_input(
+                    &builder_commitment,
+                    0,
+                    expected_signing_keys.0,
+                    &signature_over_bogus_data,
+                )
+                .await
+                .expect_err("Signature verification should've failed");
+
+            assert_eq_generic_err(err, Error::SignatureValidation);
+
+            // Verification  should also fail if signature is over correct data but by incorrect key
+            let err = proxy_global_state
+                .claim_block_header_input(
+                    &builder_commitment,
+                    0,
+                    expected_signing_keys.0,
+                    &sign_with_wrong_key(builder_commitment.as_ref()),
+                )
+                .await
+                .expect_err("Signature verification should've failed");
+
+            assert_eq_generic_err(err, Error::SignatureValidation);
+        }
     }
 }
