@@ -1,6 +1,5 @@
 use async_broadcast::broadcast;
 use hotshot::types::EventType;
-use hotshot_builder_api::v0_1::data_source::AcceptsTxnSubmits;
 
 use hotshot_example_types::block_types::{TestBlockHeader, TestMetadata, TestTransaction};
 use hotshot_example_types::node_types::{TestTypes, TestVersions};
@@ -19,6 +18,7 @@ use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
 use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState};
+use crate::testing::TestProxyGlobalState;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -44,7 +44,7 @@ async fn test_builder() {
         TEST_PROTOCOL_MAX_BLOCK_SIZE,
         TEST_NUM_NODES_IN_VID_COMPUTATION,
     );
-    let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
+    let proxy_global_state = TestProxyGlobalState(ProxyGlobalState(Arc::clone(&global_state)));
 
     let (event_stream_sender, event_stream) = broadcast(1024);
     global_state.start_event_loop(event_stream);
@@ -62,7 +62,7 @@ async fn test_builder() {
     let mut prev_proposed_transactions: Option<Vec<TestTransaction>> = None;
     let mut transaction_history = Vec::new();
 
-    let mut chain_state = SimulatedChainState::new(event_stream_sender);
+    let mut chain_state = SimulatedChainState::new(event_stream_sender.clone());
 
     // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
     // then construct DA and Quorum Proposals based on what we received from builder in the previous round
@@ -71,9 +71,12 @@ async fn test_builder() {
     for round in 0..NUM_ROUNDS {
         // simulate transaction being submitted to the builder
         proxy_global_state
-            .submit_txns(all_transactions[round].clone())
-            .await
-            .unwrap();
+            .submit_transactions(
+                &event_stream_sender,
+                ViewNumber::new(round as u64),
+                all_transactions[round].clone(),
+            )
+            .await;
 
         // get transactions submitted in previous rounds, [] for genesis
         // and simulate the block built from those
@@ -82,7 +85,7 @@ async fn test_builder() {
             .await;
 
         // get response
-        let transactions = super::get_transactions(&proxy_global_state, &builder_state_id).await;
+        let transactions = proxy_global_state.get_transactions(&builder_state_id).await;
 
         // in the next round we will use received transactions to simulate
         // the block being proposed
@@ -119,7 +122,7 @@ async fn test_pruning() {
         TEST_PROTOCOL_MAX_BLOCK_SIZE,
         TEST_NUM_NODES_IN_VID_COMPUTATION,
     );
-    let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
+    let proxy_global_state = TestProxyGlobalState(ProxyGlobalState(Arc::clone(&global_state)));
 
     let (event_stream_sender, event_stream) = broadcast(1024);
     Arc::clone(&global_state).start_event_loop(event_stream);
@@ -169,9 +172,12 @@ async fn test_pruning() {
 
         // simulate transaction being submitted to the builder
         proxy_global_state
-            .submit_txns(all_transactions[round].clone())
-            .await
-            .unwrap();
+            .submit_transactions(
+                &event_stream_sender,
+                ViewNumber::new(round as u64),
+                all_transactions[round].clone(),
+            )
+            .await;
 
         // get transactions submitted in previous rounds, [] for genesis
         // and simulate the block built from those
@@ -180,7 +186,7 @@ async fn test_pruning() {
             .await;
 
         // get response
-        let transactions = super::get_transactions(&proxy_global_state, &builder_state_id).await;
+        let transactions = proxy_global_state.get_transactions(&builder_state_id).await;
 
         // in the next round we will use received transactions to simulate
         // the block being proposed

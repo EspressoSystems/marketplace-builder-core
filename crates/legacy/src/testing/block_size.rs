@@ -1,7 +1,8 @@
 use async_broadcast::broadcast;
-use hotshot_builder_api::v0_1::data_source::AcceptsTxnSubmits;
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::state_types::TestInstanceState;
+use hotshot_types::data::ViewNumber;
+use hotshot_types::traits::node_implementation::ConsensusTime;
 use marketplace_builder_shared::block::BlockId;
 use marketplace_builder_shared::testing::consensus::SimulatedChainState;
 use marketplace_builder_shared::testing::constants::TEST_NUM_NODES_IN_VID_COMPUTATION;
@@ -9,6 +10,7 @@ use tracing_subscriber::EnvFilter;
 
 use crate::block_size_limits::BlockSizeLimits;
 use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState};
+use crate::testing::TestProxyGlobalState;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
@@ -54,13 +56,13 @@ async fn block_size_increment() {
         },
         Ordering::Relaxed,
     );
-    let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
+    let proxy_global_state = TestProxyGlobalState(ProxyGlobalState(Arc::clone(&global_state)));
 
     let (event_stream_sender, event_stream) = broadcast(1024);
     Arc::clone(&global_state).start_event_loop(event_stream);
 
     // set up state to track between simulated consensus rounds
-    let mut chain_state = SimulatedChainState::new(event_stream_sender);
+    let mut chain_state = SimulatedChainState::new(event_stream_sender.clone());
 
     // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
     // then construct DA and Quorum Proposals based on what we received from builder in the previous round
@@ -80,19 +82,22 @@ async fn block_size_increment() {
 
         // simulate transaction being submitted to the builder
         proxy_global_state
-            .submit_txns(vec![TestTransaction::default()])
-            .await
-            .unwrap();
+            .submit_transactions(
+                &event_stream_sender,
+                ViewNumber::genesis(),
+                vec![TestTransaction::default()],
+            )
+            .await;
 
         // get transactions submitted in previous rounds, [] for genesis
         // and simulate the block built from those
         let builder_state_id = chain_state.simulate_consensus_round(None).await;
 
         // Get response. Called through
-        let mut available_states =
-            super::get_available_blocks(&proxy_global_state, &builder_state_id)
-                .await
-                .unwrap();
+        let mut available_states = proxy_global_state
+            .get_available_blocks(&builder_state_id)
+            .await
+            .unwrap();
 
         if let Some(block_info) = available_states.pop() {
             let block_id = BlockId {
@@ -100,7 +105,8 @@ async fn block_size_increment() {
                 view: builder_state_id.parent_view,
             };
             // Get header input, this should trigger block size limits increment
-            super::get_block_header_input(&proxy_global_state, &block_id)
+            proxy_global_state
+                .get_block_header_input(&block_id)
                 .await
                 .expect("Failed to claim header input");
         }
