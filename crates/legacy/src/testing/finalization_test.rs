@@ -1,357 +1,16 @@
-use std::{sync::Arc, time::Duration};
+use async_broadcast::broadcast;
+use hotshot::types::{BLSPubKey, SignatureKey};
 
-use crate::{
-    builder_state::{DaProposalMessage, QuorumProposalMessage, ALLOW_EMPTY_BLOCK_PERIOD},
-    service::{GlobalState, ProxyGlobalState, ReceivedTransaction},
-};
-use async_broadcast::{broadcast, Sender};
-use async_lock::RwLock;
-use committable::Commitment;
-use hotshot::{
-    traits::BlockPayload,
-    types::{BLSPubKey, SignatureKey},
-};
-use hotshot_builder_api::{
-    v0_2::{block_info::AvailableBlockInfo, data_source::BuilderDataSource},
-    v0_3::{builder::BuildError, data_source::AcceptsTxnSubmits},
-};
-use hotshot_example_types::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
-    node_types::{TestTypes, TestVersions},
-    state_types::{TestInstanceState, TestValidatedState},
-};
-use hotshot_types::{
-    data::{DaProposal, QuorumProposal, ViewNumber},
-    message::Proposal,
-    simple_certificate::QuorumCertificate,
-    traits::{
-        block_contents::{vid_commitment, BlockHeader},
-        node_implementation::ConsensusTime,
-    },
-    utils::BuilderCommitment,
-};
-use marketplace_builder_shared::testing::constants::{
-    TEST_CHANNEL_BUFFER_SIZE, TEST_NUM_CONSENSUS_RETRIES, TEST_NUM_NODES_IN_VID_COMPUTATION,
-};
-use marketplace_builder_shared::{
-    block::BuilderStateId, testing::constants::TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-};
-use marketplace_builder_shared::{
-    block::ParentBlockReferences, testing::constants::TEST_PROTOCOL_MAX_BLOCK_SIZE,
-};
-use sha2::{Digest, Sha256};
+use hotshot_example_types::block_types::TestTransaction;
+use hotshot_example_types::state_types::TestInstanceState;
+use marketplace_builder_shared::testing::consensus::SimulatedChainState;
+use marketplace_builder_shared::testing::constants::*;
+use tokio::time::sleep;
+use tracing_subscriber::EnvFilter;
 
-use super::basic_test::{BuilderState, MessageType};
-
-type TestSetup = (
-    ProxyGlobalState<TestTypes>,
-    async_broadcast::Sender<MessageType<TestTypes>>,
-    async_broadcast::Sender<MessageType<TestTypes>>,
-    async_broadcast::Sender<MessageType<TestTypes>>,
-    async_broadcast::Sender<Arc<ReceivedTransaction<TestTypes>>>,
-);
-
-/// [`setup_builder_for_test`] sets up a test environment for the builder state.
-/// It returns a tuple containing the proxy global state, the sender for decide
-/// messages, the sender for data availability proposals,
-fn setup_builder_for_test() -> TestSetup {
-    let (req_sender, req_receiver) = broadcast(TEST_CHANNEL_BUFFER_SIZE);
-    let (tx_sender, tx_receiver) = broadcast(TEST_CHANNEL_BUFFER_SIZE);
-
-    let parent_commitment = vid_commitment(&[], TEST_NUM_NODES_IN_VID_COMPUTATION);
-    let bootstrap_builder_state_id = BuilderStateId::<TestTypes> {
-        parent_commitment,
-        parent_view: ViewNumber::genesis(),
-    };
-
-    let global_state = Arc::new(RwLock::new(GlobalState::new(
-        req_sender,
-        tx_sender.clone(),
-        bootstrap_builder_state_id.parent_commitment,
-        bootstrap_builder_state_id.parent_view,
-        bootstrap_builder_state_id.parent_view,
-        TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-        TEST_PROTOCOL_MAX_BLOCK_SIZE,
-        TEST_NUM_NODES_IN_VID_COMPUTATION,
-    )));
-
-    let max_api_duration = Duration::from_millis(100);
-
-    let proxy_global_state = ProxyGlobalState::new(
-        global_state.clone(),
-        BLSPubKey::generated_from_seed_indexed([1; 32], 0),
-        max_api_duration,
-    );
-
-    let (decide_sender, decide_receiver) = broadcast(TEST_CHANNEL_BUFFER_SIZE);
-    let (da_proposal_sender, da_proposal_receiver) = broadcast(TEST_CHANNEL_BUFFER_SIZE);
-    let (quorum_proposal_sender, quorum_proposal_receiver) = broadcast(TEST_CHANNEL_BUFFER_SIZE);
-    let bootstrap_builder_state = BuilderState::<TestTypes>::new(
-        ParentBlockReferences {
-            vid_commitment: parent_commitment,
-            view_number: ViewNumber::genesis(),
-            leaf_commit: Commitment::from_raw([0; 32]),
-            builder_commitment: BuilderCommitment::from_bytes([0; 32]),
-        },
-        decide_receiver,
-        da_proposal_receiver,
-        quorum_proposal_receiver,
-        req_receiver,
-        tx_receiver,
-        Default::default(),
-        global_state.clone(),
-        Duration::from_millis(40),
-        1,
-        Default::default(),
-        Duration::from_secs(1),
-        Default::default(),
-    );
-
-    bootstrap_builder_state.event_loop();
-
-    (
-        proxy_global_state,
-        decide_sender,
-        da_proposal_sender,
-        quorum_proposal_sender,
-        tx_sender,
-    )
-}
-
-/// [`process_available_blocks_round`] processes available rounds for a given
-/// round. It returns the number of attempts made to get the available blocks
-/// and the result of the available blocks.
-///
-/// By default Consensus will retry 3-4 times to get available blocks from the
-/// Builder.
-async fn process_available_blocks_round(
-    proxy_global_state: &ProxyGlobalState<TestTypes>,
-    builder_state_id: BuilderStateId<TestTypes>,
-    round: u64,
-) -> (
-    usize,
-    Result<Vec<AvailableBlockInfo<TestTypes>>, BuildError>,
-) {
-    let (leader_pub, leader_priv) = BLSPubKey::generated_from_seed_indexed([0; 32], round);
-
-    let current_commit_signature = <BLSPubKey as SignatureKey>::sign(
-        &leader_priv,
-        builder_state_id.parent_commitment.as_ref(),
-    )
-    .unwrap();
-
-    // Simulate Consensus retries
-
-    let mut attempt = 0;
-    loop {
-        attempt += 1;
-
-        let available_blocks_result = proxy_global_state
-            .available_blocks(
-                &builder_state_id.parent_commitment,
-                builder_state_id.parent_view.u64(),
-                leader_pub,
-                &current_commit_signature,
-            )
-            .await;
-
-        if available_blocks_result.is_ok() {
-            return (attempt, available_blocks_result);
-        }
-
-        if attempt >= TEST_NUM_CONSENSUS_RETRIES {
-            return (attempt, available_blocks_result);
-        }
-    }
-}
-
-/// [`progress_round_with_available_block_info`] is a helper function that
-/// progresses the round with the information returned from a call to
-/// [`process_available_blocks_round`]. This function simulates decide events
-/// if the next call to [`ProxyGlobalState::available_blocks`] returns something
-/// successfully rather than an error.
-///
-/// This is the workflow that happens if the builder has a block to propose,
-/// and the block is included by consensus.
-async fn progress_round_with_available_block_info(
-    proxy_global_state: &ProxyGlobalState<TestTypes>,
-    available_block_info: AvailableBlockInfo<TestTypes>,
-    builder_state_id: BuilderStateId<TestTypes>,
-    round: u64,
-    da_proposal_sender: &Sender<MessageType<TestTypes>>,
-    quorum_proposal_sender: &Sender<MessageType<TestTypes>>,
-) -> BuilderStateId<TestTypes> {
-    let (leader_pub, leader_priv) = BLSPubKey::generated_from_seed_indexed([0; 32], round);
-
-    let signed_parent_commitment =
-        <BLSPubKey as SignatureKey>::sign(&leader_priv, available_block_info.block_hash.as_ref())
-            .unwrap();
-
-    let claim_block_result = proxy_global_state
-        .claim_block(
-            &available_block_info.block_hash,
-            builder_state_id.parent_view.u64(),
-            leader_pub,
-            &signed_parent_commitment,
-        )
-        .await
-        .unwrap_or_else(|_| panic!("claim block should succeed for round {round}"));
-
-    let _claim_block_header_result = proxy_global_state
-        .claim_block_header_input(
-            &available_block_info.block_hash,
-            builder_state_id.parent_view.u64(),
-            leader_pub,
-            &signed_parent_commitment,
-        )
-        .await
-        .unwrap_or_else(|_| panic!("claim block header input should succeed for round {round}"));
-
-    progress_round_with_transactions(
-        builder_state_id,
-        claim_block_result.block_payload.transactions,
-        round,
-        da_proposal_sender,
-        quorum_proposal_sender,
-    )
-    .await
-}
-
-/// [`progress_round_without_available_block_info`] is a helper function that
-/// progresses the round without any available block information.
-///
-/// This is the workflow that happens if the builder does not have a block to
-/// propose, and consensus must continue to progress without a block built by
-/// any builder.
-async fn progress_round_without_available_block_info(
-    builder_state_id: BuilderStateId<TestTypes>,
-    round: u64,
-    da_proposal_sender: &Sender<MessageType<TestTypes>>,
-    quorum_proposal_sender: &Sender<MessageType<TestTypes>>,
-) -> BuilderStateId<TestTypes> {
-    progress_round_with_transactions(
-        builder_state_id,
-        vec![],
-        round,
-        da_proposal_sender,
-        quorum_proposal_sender,
-    )
-    .await
-}
-
-/// [`progress_round_with_transactions`] is a helper function that progress
-/// consensus with the given list of transactions.
-///
-/// This function is used by [`progress_round_without_available_block_info`] and
-/// by [`progress_round_with_available_block_info`] to progress the round with
-/// the given transactions.
-async fn progress_round_with_transactions(
-    builder_state_id: BuilderStateId<TestTypes>,
-    transactions: Vec<TestTransaction>,
-    round: u64,
-    da_proposal_sender: &Sender<MessageType<TestTypes>>,
-    quorum_proposal_sender: &Sender<MessageType<TestTypes>>,
-) -> BuilderStateId<TestTypes> {
-    let (leader_pub, leader_priv) = BLSPubKey::generated_from_seed_indexed([0; 32], round);
-    let encoded_transactions = TestTransaction::encode(&transactions);
-    let next_view = builder_state_id.parent_view + 1;
-
-    // Create and send the DA Proposals and Quorum Proposals
-    {
-        let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
-        let da_signature =
-        <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
-            &leader_priv,
-            &encoded_transactions_hash,
-        )
-        .expect("should sign encoded transactions hash successfully");
-
-        let metadata = TestMetadata {
-            num_transactions: transactions.len() as u64,
-        };
-
-        da_proposal_sender
-            .broadcast(MessageType::DaProposalMessage(DaProposalMessage {
-                proposal: Arc::new(Proposal {
-                    data: DaProposal::<TestTypes> {
-                        encoded_transactions: encoded_transactions.clone().into(),
-                        metadata,
-                        view_number: next_view,
-                    },
-                    signature: da_signature,
-                    _pd: Default::default(),
-                }),
-                sender: leader_pub,
-            }))
-            .await
-            .expect("should broadcast DA Proposal successfully");
-
-        let payload_commitment =
-            vid_commitment(&encoded_transactions, TEST_NUM_NODES_IN_VID_COMPUTATION);
-
-        let (block_payload, metadata) =
-            <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
-                transactions,
-                &TestValidatedState::default(),
-                &TestInstanceState::default(),
-            )
-            .await
-            .unwrap();
-
-        let builder_commitment = <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(
-            &block_payload,
-            &metadata,
-        );
-
-        let block_header = TestBlockHeader {
-            block_number: round,
-            payload_commitment,
-            builder_commitment,
-            timestamp: round,
-            metadata,
-            random: 0,
-        };
-
-        let qc_proposal = QuorumProposal::<TestTypes> {
-            block_header,
-            view_number: next_view,
-            justify_qc: QuorumCertificate::<TestTypes>::genesis::<TestVersions>(
-                &TestValidatedState::default(),
-                &TestInstanceState::default(),
-            )
-            .await,
-            upgrade_certificate: None,
-            proposal_certificate: None,
-        };
-
-        let payload_vid_commitment =
-            <TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(
-                &qc_proposal.block_header,
-            );
-
-        let qc_signature = <TestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey::sign(
-                        &leader_priv,
-                        payload_vid_commitment.as_ref(),
-                        ).expect("Failed to sign payload commitment while preparing QC proposal");
-
-        quorum_proposal_sender
-            .broadcast(MessageType::QuorumProposalMessage(QuorumProposalMessage {
-                proposal: Arc::new(Proposal {
-                    data: qc_proposal.clone(),
-                    signature: qc_signature,
-                    _pd: Default::default(),
-                }),
-                sender: leader_pub,
-            }))
-            .await
-            .expect("should broadcast QC Proposal successfully");
-
-        BuilderStateId {
-            parent_commitment: payload_vid_commitment,
-            parent_view: next_view,
-        }
-    }
-}
+use crate::service::{GlobalState, ALLOW_EMPTY_BLOCK_PERIOD};
+use std::sync::Arc;
+use std::time::Duration;
 
 /// [test_empty_block_rate] is a test to ensure that if we don't have any
 /// transactions being submitted, that the builder will continue it's current
@@ -365,35 +24,60 @@ async fn progress_round_with_transactions(
 /// |> block is an integral part of this test.
 #[tokio::test]
 async fn test_empty_block_rate() {
-    let (proxy_global_state, _, da_proposal_sender, quorum_proposal_sender, _) =
-        setup_builder_for_test();
+    // Setup logging
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .try_init();
 
-    let mut current_builder_state_id = BuilderStateId::<TestTypes> {
-        parent_commitment: vid_commitment(&[], TEST_NUM_NODES_IN_VID_COMPUTATION),
-        parent_view: ViewNumber::genesis(),
-    };
+    tracing::info!("Testing the builder core with multiple messages from the channels");
 
-    for round in 0..10 {
-        let (attempts, available_available_blocks_result) = process_available_blocks_round(
-            &proxy_global_state,
-            current_builder_state_id.clone(),
-            round,
-        )
-        .await;
+    // Number of views to simulate
+    const NUM_ROUNDS: u64 = 5;
+    const {
+        assert!(NUM_ROUNDS > ALLOW_EMPTY_BLOCK_PERIOD);
+    }
+    // How many times consensus will re-try getting available blocks
+    const NUM_RETRIES: usize = 5;
 
-        assert_eq!(
-            attempts, TEST_NUM_CONSENSUS_RETRIES,
-            "Consensus should retry {TEST_NUM_CONSENSUS_RETRIES} times to get available blocks"
-        );
-        assert!(available_available_blocks_result.is_err());
+    let global_state = GlobalState::new(
+        BLSPubKey::generated_from_seed_indexed([0; 32], 0),
+        TEST_API_TIMEOUT,
+        TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+        TEST_PROTOCOL_MAX_BLOCK_SIZE,
+        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+        TEST_NUM_NODES_IN_VID_COMPUTATION,
+        TestInstanceState::default(),
+        TEST_INCLUDED_TX_GC_PERIOD,
+        TEST_CHANNEL_BUFFER_SIZE,
+        TEST_BASE_FEE,
+    );
 
-        current_builder_state_id = progress_round_without_available_block_info(
-            current_builder_state_id,
-            round,
-            &da_proposal_sender,
-            &quorum_proposal_sender,
-        )
-        .await;
+    let (event_stream_sender, event_stream) = broadcast(1024);
+    Arc::clone(&global_state).start_event_loop(event_stream);
+
+    let mut chain_state = SimulatedChainState::new(event_stream_sender);
+
+    // Simulate NUM_ROUNDS of consensus. First we submit the transactions for this round to the builder,
+    // then construct DA and Quorum Proposals based on what we received from builder in the previous round
+    // and request a new bundle.
+    #[allow(clippy::needless_range_loop)] // intent is clearer this way
+    for _ in 0..NUM_ROUNDS {
+        let builder_state_id = chain_state.simulate_consensus_round(None).await;
+
+        // give builder state time to fork
+        sleep(Duration::from_millis(100)).await;
+
+        // get response
+        for _ in 0..NUM_RETRIES {
+            let available_blocks = global_state
+                .available_blocks_implementation(builder_state_id.clone())
+                .await
+                .unwrap();
+            assert!(
+                available_blocks.is_empty(),
+                "Builder shouldn't be building empty block without recent blocks with transactions"
+            );
+        }
     }
 }
 
@@ -405,8 +89,7 @@ async fn test_empty_block_rate() {
 /// gets included by consensus.
 /// It then checks that the next `allow_empty_block_period` rounds return empty
 /// blocks without the need to retry.
-/// It then checks that the remaining round up to 9 will not propose any empty
-/// blocks.
+/// It then checks that the remaining rounds will not propose any empty blocks.
 ///
 /// |> Note: this test simulates how consensus interacts with the Builder in a
 /// |> very basic way.  When consensus asks for available blocks, and the
@@ -416,139 +99,116 @@ async fn test_empty_block_rate() {
 /// |> block is an integral part of this test.
 #[tokio::test]
 async fn test_eager_block_rate() {
-    let (proxy_global_state, _, da_proposal_sender, quorum_proposal_sender, _) =
-        setup_builder_for_test();
+    // Setup logging
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .try_init();
 
-    let mut current_builder_state_id = BuilderStateId::<TestTypes> {
-        parent_commitment: vid_commitment(&[], TEST_NUM_NODES_IN_VID_COMPUTATION),
-        parent_view: ViewNumber::genesis(),
-    };
+    tracing::info!("Testing the builder core with multiple messages from the channels");
 
-    // Round 0
+    // How many times consensus will re-try getting available blocks
+    const NUM_RETRIES: usize = 5;
+
+    let global_state = GlobalState::new(
+        BLSPubKey::generated_from_seed_indexed([0; 32], 0),
+        TEST_API_TIMEOUT,
+        TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+        TEST_PROTOCOL_MAX_BLOCK_SIZE,
+        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+        TEST_NUM_NODES_IN_VID_COMPUTATION,
+        TestInstanceState::default(),
+        TEST_INCLUDED_TX_GC_PERIOD,
+        TEST_CHANNEL_BUFFER_SIZE,
+        TEST_BASE_FEE,
+    );
+
+    let (event_stream_sender, event_stream) = broadcast(1024);
+    Arc::clone(&global_state).start_event_loop(event_stream);
+
+    let mut chain_state = SimulatedChainState::new(event_stream_sender);
+
+    // First round, shouldn't be building empty blocks
     {
-        let round = 0;
-        let (attempts, available_available_blocks_result) = process_available_blocks_round(
-            &proxy_global_state,
-            current_builder_state_id.clone(),
-            round,
-        )
-        .await;
+        let builder_state_id = chain_state.simulate_consensus_round(None).await;
 
-        assert_eq!(
-            attempts, TEST_NUM_CONSENSUS_RETRIES,
-            "Consensus should retry {TEST_NUM_CONSENSUS_RETRIES} times to get available blocks for round {round}"
-        );
+        // give builder state time to fork
+        sleep(Duration::from_millis(100)).await;
 
-        assert!(
-            available_available_blocks_result.is_err(),
-            "builder should not propose empty blocks for round {round}"
-        );
-
-        current_builder_state_id = progress_round_without_available_block_info(
-            current_builder_state_id,
-            round,
-            &da_proposal_sender,
-            &quorum_proposal_sender,
-        )
-        .await;
+        // get response
+        for _ in 0..NUM_RETRIES {
+            let available_blocks = global_state
+                .available_blocks_implementation(builder_state_id.clone())
+                .await
+                .unwrap();
+            assert!(
+                available_blocks.is_empty(),
+                "Builder shouldn't be building empty block without recent blocks with transactions"
+            );
+        }
     }
 
-    // Round 1, submit a single transaction, and advance the round
+    // Second round, simulate a transaction has been proposed. Now builder should be proposing empty blocks.
     {
-        proxy_global_state
-            .submit_txns(vec![TestTransaction::new(vec![1])])
-            .await
-            .expect("should submit transaction without issue");
+        let builder_state_id = chain_state
+            .simulate_consensus_round(Some(vec![TestTransaction::default()]))
+            .await;
 
-        let round = 1;
+        // give builder state time to fork
+        sleep(Duration::from_millis(100)).await;
 
-        let (attempts, available_available_blocks_result) = process_available_blocks_round(
-            &proxy_global_state,
-            current_builder_state_id.clone(),
-            round,
-        )
-        .await;
-
-        assert_eq!(
-            attempts, 1,
-            "Consensus should not have needed to retry at all for round {round}"
-        );
-
-        assert!(
-            available_available_blocks_result.is_ok(),
-            "builder should be proposing empty blocks for round {round}"
-        );
-
-        current_builder_state_id = progress_round_with_available_block_info(
-            &proxy_global_state,
-            available_available_blocks_result.unwrap()[0].clone(),
-            current_builder_state_id,
-            round,
-            &da_proposal_sender,
-            &quorum_proposal_sender,
-        )
-        .await;
+        // get response
+        for _ in 0..NUM_RETRIES {
+            let available_blocks = global_state
+                .available_blocks_implementation(builder_state_id.clone())
+                .await
+                .unwrap();
+            assert_eq!(
+                available_blocks.first().unwrap().block_size,
+                0,
+                "Builder should be building empty blocks: we've had a transaction included this round"
+            );
+        }
     }
 
-    // rounds 2 through 2 + ALLOW_EMPTY_BLOCK_PERIOD - 1 should propose empty
-    // blocks.
-    for round in 2..(2 + ALLOW_EMPTY_BLOCK_PERIOD) {
-        let (attempts, available_blocks_result) = process_available_blocks_round(
-            &proxy_global_state,
-            current_builder_state_id.clone(),
-            round,
-        )
-        .await;
+    // Second round, simulate a transaction has been proposed. Now builder should be proposing empty blocks.
+    for _ in 0..ALLOW_EMPTY_BLOCK_PERIOD {
+        let builder_state_id = chain_state
+            .simulate_consensus_round(Some(vec![TestTransaction::default()]))
+            .await;
 
-        assert_eq!(
-            attempts, 1,
-            "Consensus should not have needed to retry at all for round {round}"
-        );
+        // give builder state time to fork
+        sleep(Duration::from_millis(100)).await;
 
-        assert!(
-            available_blocks_result.is_ok(),
-            "builder should be proposing empty blocks for round {round}"
-        );
-
-        let available_blocks_result = available_blocks_result.unwrap();
-
-        assert_eq!(
-            available_blocks_result[0].block_size, 0,
-            "the block should be empty for round {round}"
-        );
-
-        current_builder_state_id = progress_round_with_available_block_info(
-            &proxy_global_state,
-            available_blocks_result[0].clone(),
-            current_builder_state_id,
-            round,
-            &da_proposal_sender,
-            &quorum_proposal_sender,
-        )
-        .await;
+        // get response
+        for _ in 0..NUM_RETRIES {
+            let available_blocks = global_state
+                .available_blocks_implementation(builder_state_id.clone())
+                .await
+                .unwrap();
+            assert_eq!(
+                available_blocks.first().unwrap().block_size,
+                0,
+                "Builder should be building empty blocks: we've had a transaction included recently"
+            );
+        }
     }
 
-    // rounds 2 + ALLOW_EMPTY_BLOCK_PERIOD through 9 should not propose empty
-    for round in (2 + ALLOW_EMPTY_BLOCK_PERIOD)..10 {
-        let (attempts, available_blocks_result) = process_available_blocks_round(
-            &proxy_global_state,
-            current_builder_state_id.clone(),
-            round,
-        )
-        .await;
+    {
+        let builder_state_id = chain_state.simulate_consensus_round(None).await;
 
-        assert_eq!(
-            attempts, TEST_NUM_CONSENSUS_RETRIES,
-            "Consensus should have retries {TEST_NUM_CONSENSUS_RETRIES} times for round {round}"
-        );
-        assert!(available_blocks_result.is_err());
+        // give builder state time to fork
+        sleep(Duration::from_millis(100)).await;
 
-        current_builder_state_id = progress_round_without_available_block_info(
-            current_builder_state_id,
-            round,
-            &da_proposal_sender,
-            &quorum_proposal_sender,
-        )
-        .await;
+        // get response
+        for _ in 0..NUM_RETRIES {
+            let available_blocks = global_state
+                .available_blocks_implementation(builder_state_id.clone())
+                .await
+                .unwrap();
+            assert!(
+                available_blocks.is_empty(),
+                "Builder shouldn't be building empty block without recent blocks with transactions"
+            );
+        }
     }
 }

@@ -97,14 +97,16 @@ async fn test_builder() {
                     hash: block_info.block_hash,
                     view: builder_state_id.parent_view,
                 };
+                // Get block for its transactions
                 let block = global_state
                     .claim_block_implementation(block_id.clone())
                     .await
                     .unwrap();
+                // Get header input just to check it's in working order
                 global_state
                     .claim_block_header_input_implementation(block_id)
                     .await
-                    .unwrap();
+                    .expect("Failed to claim header input");
                 block.block_payload.transactions
             }
             None => vec![],
