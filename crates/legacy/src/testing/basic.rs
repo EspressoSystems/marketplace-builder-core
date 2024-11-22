@@ -8,12 +8,10 @@ use marketplace_builder_shared::testing::consensus::SimulatedChainState;
 use marketplace_builder_shared::testing::constants::{
     TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
 };
-use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
 use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState};
 use std::sync::Arc;
-use std::time::Duration;
 
 /// This test simulates multiple builder states receiving messages from the channels and processing them
 #[tokio::test]
@@ -72,9 +70,6 @@ async fn test_builder() {
         let builder_state_id = chain_state
             .simulate_consensus_round(prev_proposed_transactions)
             .await;
-
-        // give builder state time to fork
-        sleep(Duration::from_millis(100)).await;
 
         // get response
         let mut available_states =

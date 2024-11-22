@@ -4,10 +4,7 @@ use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::state_types::TestInstanceState;
 use marketplace_builder_shared::block::BlockId;
 use marketplace_builder_shared::testing::consensus::SimulatedChainState;
-use marketplace_builder_shared::testing::constants::{
-    TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
-};
-use tokio::time::sleep;
+use marketplace_builder_shared::testing::constants::TEST_NUM_NODES_IN_VID_COMPUTATION;
 use tracing_subscriber::EnvFilter;
 
 use crate::block_size_limits::BlockSizeLimits;
@@ -90,9 +87,6 @@ async fn block_size_increment() {
         // get transactions submitted in previous rounds, [] for genesis
         // and simulate the block built from those
         let builder_state_id = chain_state.simulate_consensus_round(None).await;
-
-        // give builder state time to fork
-        sleep(Duration::from_millis(100)).await;
 
         // Get response. Called through
         let mut available_states =

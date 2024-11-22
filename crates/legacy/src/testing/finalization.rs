@@ -6,12 +6,10 @@ use marketplace_builder_shared::testing::consensus::SimulatedChainState;
 use marketplace_builder_shared::testing::constants::{
     TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
 };
-use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
 use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState, ALLOW_EMPTY_BLOCK_PERIOD};
 use std::sync::Arc;
-use std::time::Duration;
 
 /// [test_empty_block_rate] is a test to ensure that if we don't have any
 /// transactions being submitted, that the builder will continue it's current
@@ -59,9 +57,6 @@ async fn test_empty_block_rate() {
     #[allow(clippy::needless_range_loop)] // intent is clearer this way
     for _ in 0..NUM_ROUNDS {
         let builder_state_id = chain_state.simulate_consensus_round(None).await;
-
-        // give builder state time to fork
-        sleep(Duration::from_millis(100)).await;
 
         // get response
         for _ in 0..NUM_RETRIES {
@@ -122,9 +117,6 @@ async fn test_eager_block_rate() {
     {
         let builder_state_id = chain_state.simulate_consensus_round(None).await;
 
-        // give builder state time to fork
-        sleep(Duration::from_millis(100)).await;
-
         // get response
         for _ in 0..NUM_RETRIES {
             let available_blocks =
@@ -143,9 +135,6 @@ async fn test_eager_block_rate() {
         let builder_state_id = chain_state
             .simulate_consensus_round(Some(vec![TestTransaction::default()]))
             .await;
-
-        // give builder state time to fork
-        sleep(Duration::from_millis(100)).await;
 
         // get response
         for _ in 0..NUM_RETRIES {
@@ -167,9 +156,6 @@ async fn test_eager_block_rate() {
             .simulate_consensus_round(Some(vec![TestTransaction::default()]))
             .await;
 
-        // give builder state time to fork
-        sleep(Duration::from_millis(100)).await;
-
         // get response
         for _ in 0..NUM_RETRIES {
             let available_blocks =
@@ -186,9 +172,6 @@ async fn test_eager_block_rate() {
 
     {
         let builder_state_id = chain_state.simulate_consensus_round(None).await;
-
-        // give builder state time to fork
-        sleep(Duration::from_millis(100)).await;
 
         // get response
         for _ in 0..NUM_RETRIES {

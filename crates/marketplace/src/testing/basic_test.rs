@@ -6,7 +6,6 @@ use hotshot_example_types::block_types::TestTransaction;
 use marketplace_builder_shared::testing::constants::{
     TEST_API_TIMEOUT, TEST_BASE_FEE, TEST_INCLUDED_TX_GC_PERIOD, TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
 };
-use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
 use crate::hooks::NoHooks;
@@ -14,7 +13,6 @@ use crate::service::{GlobalState, ProxyGlobalState};
 use marketplace_builder_shared::testing::consensus::SimulatedChainState;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::time::Duration;
 
 /// This test simulates multiple builder states receiving messages from the channels and processing them
 #[tokio::test]
@@ -78,9 +76,6 @@ async fn test_builder() {
         let builder_state_id = chain_state
             .simulate_consensus_round(prev_proposed_transactions)
             .await;
-
-        // give builder state time to fork
-        sleep(Duration::from_millis(100)).await;
 
         // get response
         let bundle = proxy_global_state
