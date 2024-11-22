@@ -1,16 +1,17 @@
 use async_broadcast::broadcast;
-use hotshot::types::{BLSPubKey, SignatureKey};
 use hotshot_builder_api::v0_1::data_source::AcceptsTxnSubmits;
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::state_types::TestInstanceState;
 use marketplace_builder_shared::block::BlockId;
 use marketplace_builder_shared::testing::consensus::SimulatedChainState;
-use marketplace_builder_shared::testing::constants::*;
+use marketplace_builder_shared::testing::constants::{
+    TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
+};
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
 use crate::block_size_limits::BlockSizeLimits;
-use crate::service::{GlobalState, ProxyGlobalState};
+use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
@@ -38,18 +39,17 @@ async fn block_size_increment() {
     // in this test
     const PROTOCOL_MAX_BLOCK_SIZE: u64 = BlockSizeLimits::MAX_BLOCK_SIZE_FLOOR * 3;
 
+    let mut cfg = BuilderConfig::test();
+    // We don't want to delay increments for this test
+    cfg.max_block_size_increment_period = Duration::ZERO;
     let global_state = GlobalState::new(
-        BLSPubKey::generated_from_seed_indexed([0; 32], 0),
-        TEST_API_TIMEOUT, // More generous API timeout
-        Duration::ZERO,   // We don't want to delay increments for this test
-        PROTOCOL_MAX_BLOCK_SIZE,
-        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
-        TEST_NUM_NODES_IN_VID_COMPUTATION,
+        cfg,
         TestInstanceState::default(),
-        TEST_INCLUDED_TX_GC_PERIOD,
-        TEST_CHANNEL_BUFFER_SIZE,
-        TEST_BASE_FEE,
+        TEST_PROTOCOL_MAX_BLOCK_SIZE,
+        TEST_NUM_NODES_IN_VID_COMPUTATION,
     );
+
+    // Manually set the limits
     global_state.block_size_limits.mutable_state.store(
         crate::block_size_limits::MutableState {
             max_block_size: BlockSizeLimits::MAX_BLOCK_SIZE_FLOOR,

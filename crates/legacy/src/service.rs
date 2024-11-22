@@ -70,6 +70,50 @@ pub type BuilderKeys<Types> = (
     <<Types as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey, // private key
 );
 
+/// Configuration to initialize the builder
+#[derive(Debug, Clone)]
+pub struct BuilderConfig<Types: NodeType> {
+    /// Keys that this builder will use to sign responses
+    pub builder_keys: BuilderKeys<Types>,
+    /// Maximum time allotted for the builder to respond to an API call.
+    /// If the response isn't ready by this time, an error will be returned
+    /// to the caller.
+    pub max_api_waiting_time: Duration,
+    /// Interval at which the builder will optimistically increment its maximum
+    /// allowed block size in case it becomes lower than the protocol maximum.
+    pub max_block_size_increment_period: Duration,
+    /// Time the builder will wait for new transactions before answering an
+    /// `available_blocks` API call if the builder doesn't have any transactions at the moment
+    /// of the call.
+    pub maximize_txn_capture_timeout: Duration,
+    /// (Approximate) duration over which included transaction hashes will be stored
+    /// by the builder for deduplication of incoming transactions.
+    pub txn_garbage_collect_duration: Duration,
+    /// Channel capacity for incoming transactions for a single builder state.
+    pub txn_channel_capacity: usize,
+    /// Base fee; the sequencing fee for a block is calculated as block size × base fee
+    pub base_fee: u64,
+}
+
+#[cfg(test)]
+impl<Types: NodeType> BuilderConfig<Types> {
+    pub(crate) fn test() -> Self {
+        use marketplace_builder_shared::testing::constants::*;
+        Self {
+            builder_keys:
+                <Types::BuilderSignatureKey as BuilderSignatureKey>::generated_from_seed_indexed(
+                    [0u8; 32], 42,
+                ),
+            max_api_waiting_time: TEST_API_TIMEOUT,
+            max_block_size_increment_period: TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
+            maximize_txn_capture_timeout: TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+            txn_garbage_collect_duration: TEST_INCLUDED_TX_GC_PERIOD,
+            txn_channel_capacity: TEST_CHANNEL_BUFFER_SIZE,
+            base_fee: TEST_BASE_FEE,
+        }
+    }
+}
+
 pub struct GlobalState<Types: NodeType> {
     pub(crate) coordinator: Arc<BuilderStateCoordinator<Types>>,
     pub(crate) builder_keys: BuilderKeys<Types>,
@@ -89,35 +133,28 @@ where
     >>::Error: Display,
     for<'a> <Types::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
-        builder_keys: BuilderKeys<Types>,
-        max_api_waiting_time: Duration,
-        max_block_size_increment_period: Duration,
-        protocol_max_block_size: u64,
-        maximize_txn_capture_timeout: Duration,
-        num_nodes: usize,
+        config: BuilderConfig<Types>,
         instance_state: Types::InstanceState,
-        txn_garbage_collect_duration: Duration,
-        txn_channel_capacity: usize,
-        base_fee: u64,
+        protocol_max_block_size: u64,
+        num_nodes: usize,
     ) -> Arc<Self> {
         Arc::new(Self {
             coordinator: Arc::new(BuilderStateCoordinator::new(
-                txn_channel_capacity,
-                txn_garbage_collect_duration,
+                config.txn_channel_capacity,
+                config.txn_garbage_collect_duration,
             )),
             block_store: RwLock::new(BlockStore::new()),
             block_size_limits: BlockSizeLimits::new(
                 protocol_max_block_size,
-                max_block_size_increment_period,
+                config.max_block_size_increment_period,
             ),
             num_nodes: num_nodes.into(),
-            builder_keys,
-            max_api_waiting_time,
-            maximize_txn_capture_timeout,
+            builder_keys: config.builder_keys,
+            max_api_waiting_time: config.max_api_waiting_time,
+            maximize_txn_capture_timeout: config.maximize_txn_capture_timeout,
             instance_state,
-            base_fee,
+            base_fee: config.base_fee,
         })
     }
 

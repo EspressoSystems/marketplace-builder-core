@@ -1,7 +1,7 @@
 //! This module implements interfaces necessary to run legacy builder
 //! in HotShot testing harness.
 
-use std::{collections::HashMap, fmt::Display, marker::PhantomData, sync::Arc, time::Duration};
+use std::{collections::HashMap, fmt::Display, marker::PhantomData, sync::Arc};
 
 use async_trait::async_trait;
 use hotshot::types::SignatureKey;
@@ -9,20 +9,14 @@ use hotshot_testing::{
     block_builder::{BuilderTask, TestBuilderImplementation},
     test_builder::BuilderChange,
 };
-use hotshot_types::{
-    data::ViewNumber,
-    traits::{node_implementation::NodeType, signature_key::BuilderSignatureKey},
-};
-use marketplace_builder_shared::testing::constants::{
-    TEST_API_TIMEOUT, TEST_BASE_FEE, TEST_CHANNEL_BUFFER_SIZE, TEST_INCLUDED_TX_GC_PERIOD,
-    TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
-};
+use hotshot_types::{data::ViewNumber, traits::node_implementation::NodeType};
+use marketplace_builder_shared::testing::constants::TEST_PROTOCOL_MAX_BLOCK_SIZE;
 use tagged_base64::TaggedBase64;
 use tokio::spawn;
 use url::Url;
 use vbs::version::StaticVersion;
 
-use crate::service::GlobalState;
+use crate::service::{BuilderConfig, GlobalState};
 
 /// Testing configuration for legacy builder
 struct TestLegacyBuilderConfig<Types>
@@ -69,19 +63,11 @@ where
         _config: <Self as TestBuilderImplementation<Types>>::Config,
         _changes: HashMap<u64, BuilderChange>,
     ) -> Box<dyn BuilderTask<Types>> {
-        let builder_key_pair = Types::BuilderSignatureKey::generated_from_seed_indexed([0; 32], 0);
-        // Create the global state
         let service = GlobalState::new(
-            builder_key_pair,
-            TEST_API_TIMEOUT,
-            Duration::from_secs(100),
-            8192000,
-            TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
-            num_nodes,
+            BuilderConfig::test(),
             Types::InstanceState::default(),
-            TEST_INCLUDED_TX_GC_PERIOD,
-            TEST_CHANNEL_BUFFER_SIZE,
-            TEST_BASE_FEE,
+            TEST_PROTOCOL_MAX_BLOCK_SIZE,
+            num_nodes,
         );
 
         // Create tide-disco app based on global state

@@ -1,14 +1,15 @@
 use async_broadcast::broadcast;
-use hotshot::types::{BLSPubKey, SignatureKey};
 
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::state_types::TestInstanceState;
 use marketplace_builder_shared::testing::consensus::SimulatedChainState;
-use marketplace_builder_shared::testing::constants::*;
+use marketplace_builder_shared::testing::constants::{
+    TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
+};
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 
-use crate::service::{GlobalState, ProxyGlobalState, ALLOW_EMPTY_BLOCK_PERIOD};
+use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState, ALLOW_EMPTY_BLOCK_PERIOD};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -40,16 +41,10 @@ async fn test_empty_block_rate() {
     const NUM_RETRIES: usize = 5;
 
     let global_state = GlobalState::new(
-        BLSPubKey::generated_from_seed_indexed([0; 32], 0),
-        TEST_API_TIMEOUT,
-        TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-        TEST_PROTOCOL_MAX_BLOCK_SIZE,
-        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
-        TEST_NUM_NODES_IN_VID_COMPUTATION,
+        BuilderConfig::test(),
         TestInstanceState::default(),
-        TEST_INCLUDED_TX_GC_PERIOD,
-        TEST_CHANNEL_BUFFER_SIZE,
-        TEST_BASE_FEE,
+        TEST_PROTOCOL_MAX_BLOCK_SIZE,
+        TEST_NUM_NODES_IN_VID_COMPUTATION,
     );
 
     let (event_stream_sender, event_stream) = broadcast(1024);
@@ -111,16 +106,10 @@ async fn test_eager_block_rate() {
     const NUM_RETRIES: usize = 5;
 
     let global_state = GlobalState::new(
-        BLSPubKey::generated_from_seed_indexed([0; 32], 0),
-        TEST_API_TIMEOUT,
-        TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD,
-        TEST_PROTOCOL_MAX_BLOCK_SIZE,
-        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
-        TEST_NUM_NODES_IN_VID_COMPUTATION,
+        BuilderConfig::test(),
         TestInstanceState::default(),
-        TEST_INCLUDED_TX_GC_PERIOD,
-        TEST_CHANNEL_BUFFER_SIZE,
-        TEST_BASE_FEE,
+        TEST_PROTOCOL_MAX_BLOCK_SIZE,
+        TEST_NUM_NODES_IN_VID_COMPUTATION,
     );
 
     let (event_stream_sender, event_stream) = broadcast(1024);
