@@ -45,7 +45,7 @@ async fn block_size_increment() {
     let global_state = GlobalState::new(
         cfg,
         TestInstanceState::default(),
-        TEST_PROTOCOL_MAX_BLOCK_SIZE,
+        PROTOCOL_MAX_BLOCK_SIZE,
         TEST_NUM_NODES_IN_VID_COMPUTATION,
     );
 

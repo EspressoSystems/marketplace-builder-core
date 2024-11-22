@@ -84,7 +84,7 @@ pub struct BuilderConfig<Types: NodeType> {
     pub max_block_size_increment_period: Duration,
     /// Time the builder will wait for new transactions before answering an
     /// `available_blocks` API call if the builder doesn't have any transactions at the moment
-    /// of the call.
+    /// of the call. Should be less than [`Self::max_api_waiting_time`]
     pub maximize_txn_capture_timeout: Duration,
     /// (Approximate) duration over which included transaction hashes will be stored
     /// by the builder for deduplication of incoming transactions.
@@ -183,31 +183,37 @@ where
                     error!("Error event in HotShot: {:?}", error);
                 }
                 EventType::Transactions { transactions } => {
-                    let _ = transactions
-                        .into_iter()
-                        .map(|txn| {
-                            self.coordinator
-                                .handle_transaction(ReceivedTransaction::new(
+                    let coordinator = Arc::clone(&self.coordinator);
+                    spawn(async move {
+                        transactions
+                            .into_iter()
+                            .map(|txn| {
+                                coordinator.handle_transaction(ReceivedTransaction::new(
                                     txn,
                                     TransactionSource::Public,
                                 ))
-                        })
-                        .collect::<FuturesUnordered<_>>()
-                        .collect::<Vec<_>>()
-                        .await;
+                            })
+                            .collect::<FuturesUnordered<_>>()
+                            .collect::<Vec<_>>()
+                            .await;
+                    });
                 }
                 EventType::Decide { leaf_chain, .. } => {
-                    self.block_store
-                        .write()
-                        .await
-                        .prune(leaf_chain[0].leaf.view_number());
-                    self.coordinator.handle_decide(leaf_chain).await;
+                    let prune_cutoff = leaf_chain[0].leaf.view_number();
+
+                    let coordinator = Arc::clone(&self.coordinator);
+                    spawn(async move { coordinator.handle_decide(leaf_chain).await });
+
+                    let this = Arc::clone(&self);
+                    spawn(async move { this.block_store.write().await.prune(prune_cutoff) });
                 }
                 EventType::DaProposal { proposal, .. } => {
-                    self.coordinator.handle_da_proposal(proposal.data).await;
+                    let coordinator = Arc::clone(&self.coordinator);
+                    spawn(async move { coordinator.handle_da_proposal(proposal.data).await });
                 }
                 EventType::QuorumProposal { proposal, .. } => {
-                    self.coordinator.handle_quorum_proposal(proposal.data).await;
+                    let coordinator = Arc::clone(&self.coordinator);
+                    spawn(async move { coordinator.handle_quorum_proposal(proposal.data).await });
                 }
                 _ => {}
             }
