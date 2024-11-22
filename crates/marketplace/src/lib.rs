@@ -1,3 +1,4 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 // Copyright (c) 2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot Builder Protocol.
 //
@@ -16,4 +17,5 @@ pub mod service;
 
 // tracking the testing
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 pub mod testing;
