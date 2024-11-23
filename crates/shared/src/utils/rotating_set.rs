@@ -75,4 +75,56 @@ where
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+    use std::thread::sleep;
+
+    #[test]
+    fn test_insert_and_contains() {
+        let mut set = RotatingSet::new(Duration::from_secs(1));
+        set.insert(1);
+        assert!(set.contains(&1));
+        assert!(!set.contains(&2));
+    }
+
+    #[test]
+    fn test_rotate_and_contains() {
+        let mut set = RotatingSet::new(Duration::from_micros(10));
+        set.insert(1);
+
+        // Immediately after insertion, item should be in the set
+        assert!(set.contains(&1));
+
+        // Wait for longer than the rotation period
+        sleep(Duration::from_micros(15));
+
+        // Rotate and check if the item is still in the set
+        assert!(set.rotate());
+        assert!(set.contains(&1));
+
+        // Shouldn't rotate this time
+        assert!(!set.rotate());
+
+        // Wait and rotate again to check if it moves to `expiring`
+        sleep(Duration::from_micros(15));
+        assert!(set.rotate());
+        assert!(set.contains(&1));
+
+        // Wait and rotate again to check if it gets removed
+        sleep(Duration::from_micros(15));
+        assert!(set.rotate());
+        assert!(!set.contains(&1));
+    }
+
+    #[test]
+    fn test_force_rotate() {
+        let mut set = RotatingSet::new(Duration::MAX);
+        set.insert(1);
+        set.force_rotate();
+        assert!(set.contains(&1));
+        set.force_rotate();
+        assert!(set.contains(&1));
+        set.force_rotate();
+        assert!(!set.contains(&1));
+    }
+}
