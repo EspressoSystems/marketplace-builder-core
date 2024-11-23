@@ -2,7 +2,6 @@ use async_broadcast::broadcast;
 use hotshot::types::{EventType, SignatureKey};
 
 use hotshot_builder_api::v0_1::data_source::BuilderDataSource;
-use hotshot_builder_api::v0_3::data_source::AcceptsTxnSubmits;
 use hotshot_example_types::block_types::{TestBlockHeader, TestMetadata, TestTransaction};
 use hotshot_example_types::node_types::{TestTypes, TestVersions};
 use hotshot_example_types::state_types::{TestInstanceState, TestValidatedState};
@@ -13,7 +12,6 @@ use hotshot_types::traits::block_contents::BlockHeader;
 use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
 use hotshot_types::utils::BuilderCommitment;
 use hotshot_types::vid::VidCommitment;
-use marketplace_builder_shared::block::BuilderStateId;
 use marketplace_builder_shared::error::Error;
 use marketplace_builder_shared::testing::consensus::SimulatedChainState;
 use marketplace_builder_shared::testing::constants::{
@@ -23,7 +21,7 @@ use tokio::time::sleep;
 use tracing_test::traced_test;
 
 use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState};
-use crate::testing::{assert_eq_generic_err, sign, TestProxyGlobalState, MOCK_LEADER_KEYS};
+use crate::testing::{assert_eq_generic_err, sign, TestServiceWrapper, MOCK_LEADER_KEYS};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -43,9 +41,10 @@ async fn test_builder() {
         TEST_PROTOCOL_MAX_BLOCK_SIZE,
         TEST_NUM_NODES_IN_VID_COMPUTATION,
     );
-    let proxy_global_state = TestProxyGlobalState(ProxyGlobalState(Arc::clone(&global_state)));
 
     let (event_stream_sender, event_stream) = broadcast(1024);
+    let proxy_global_state =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone());
     global_state.start_event_loop(event_stream);
 
     // Transactions to send
@@ -70,11 +69,7 @@ async fn test_builder() {
     for round in 0..NUM_ROUNDS {
         // simulate transaction being submitted to the builder
         proxy_global_state
-            .submit_transactions(
-                &event_stream_sender,
-                ViewNumber::new(round as u64),
-                all_transactions[round].clone(),
-            )
+            .submit_transactions(all_transactions[round].clone())
             .await;
 
         // get transactions submitted in previous rounds, [] for genesis
@@ -117,9 +112,10 @@ async fn test_pruning() {
         TEST_PROTOCOL_MAX_BLOCK_SIZE,
         TEST_NUM_NODES_IN_VID_COMPUTATION,
     );
-    let proxy_global_state = TestProxyGlobalState(ProxyGlobalState(Arc::clone(&global_state)));
 
     let (event_stream_sender, event_stream) = broadcast(1024);
+    let proxy_global_state =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone());
     Arc::clone(&global_state).start_event_loop(event_stream);
 
     // Transactions to send
@@ -167,11 +163,7 @@ async fn test_pruning() {
 
         // simulate transaction being submitted to the builder
         proxy_global_state
-            .submit_transactions(
-                &event_stream_sender,
-                ViewNumber::new(round as u64),
-                all_transactions[round].clone(),
-            )
+            .submit_transactions(all_transactions[round].clone())
             .await;
 
         // get transactions submitted in previous rounds, [] for genesis

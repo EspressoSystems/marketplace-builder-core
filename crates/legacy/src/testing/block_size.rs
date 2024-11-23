@@ -1,5 +1,4 @@
 use async_broadcast::broadcast;
-use hotshot_builder_api::v0_3::data_source::AcceptsTxnSubmits;
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::state_types::TestInstanceState;
 use hotshot_types::data::ViewNumber;
@@ -11,8 +10,8 @@ use marketplace_builder_shared::testing::constants::TEST_NUM_NODES_IN_VID_COMPUT
 use tracing_test::traced_test;
 
 use crate::block_size_limits::BlockSizeLimits;
-use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState};
-use crate::testing::TestProxyGlobalState;
+use crate::service::{BuilderConfig, GlobalState};
+use crate::testing::TestServiceWrapper;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
@@ -52,9 +51,10 @@ async fn block_size_increment() {
         },
         Ordering::Relaxed,
     );
-    let proxy_global_state = TestProxyGlobalState(ProxyGlobalState(Arc::clone(&global_state)));
 
     let (event_stream_sender, event_stream) = broadcast(1024);
+    let proxy_global_state =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone());
     Arc::clone(&global_state).start_event_loop(event_stream);
 
     // set up state to track between simulated consensus rounds
@@ -78,11 +78,7 @@ async fn block_size_increment() {
 
         // simulate transaction being submitted to the builder
         proxy_global_state
-            .submit_transactions(
-                &event_stream_sender,
-                ViewNumber::genesis(),
-                vec![TestTransaction::default()],
-            )
+            .submit_transactions(vec![TestTransaction::default()])
             .await;
 
         // get transactions submitted in previous rounds, [] for genesis
@@ -102,7 +98,7 @@ async fn block_size_increment() {
             };
             // Get header input, this should trigger block size limits increment
             proxy_global_state
-                .get_block_header_input(&block_id)
+                .claim_block_header_input(&block_id)
                 .await
                 .expect("Failed to claim header input");
         }
@@ -134,20 +130,21 @@ async fn huge_transactions() {
         PROTOCOL_MAX_BLOCK_SIZE,
         TEST_NUM_NODES_IN_VID_COMPUTATION,
     );
-    let proxy_global_state = TestProxyGlobalState(ProxyGlobalState(Arc::clone(&global_state)));
+    let (event_stream_sender, event_stream) = broadcast(1024);
+    let proxy_global_state =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender);
+    Arc::clone(&global_state).start_event_loop(event_stream);
 
     let almost_too_big = TestTransaction::new(vec![0u8; PROTOCOL_MAX_BLOCK_SIZE as usize]);
     let too_big = TestTransaction::new(vec![0u8; PROTOCOL_MAX_BLOCK_SIZE as usize + 1]);
 
     proxy_global_state
-        .0
-        .submit_txns(vec![almost_too_big.clone(); N_BIG_TRANSACTIONS])
+        .submit_transactions_private(vec![almost_too_big.clone(); N_BIG_TRANSACTIONS])
         .await
         .unwrap();
 
     proxy_global_state
-        .0
-        .submit_txns(vec![too_big])
+        .submit_transactions_private(vec![too_big])
         .await
         .unwrap_err();
 

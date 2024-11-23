@@ -33,8 +33,10 @@ vbs = { workspace = true }
 [dev-dependencies]
 hotshot-example-types = { workspace = true }
 hotshot-macros = { workspace = true }
+hotshot-task-impls = { workspace = true }
 hotshot-testing = { workspace = true }
 num_cpus = { workspace = true }
+portpicker = { workspace = true }
 tracing-test = { workspace = true }
 url = { workspace = true }
 

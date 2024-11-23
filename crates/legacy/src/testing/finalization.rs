@@ -8,8 +8,8 @@ use marketplace_builder_shared::testing::constants::{
     TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
 };
 
-use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState, ALLOW_EMPTY_BLOCK_PERIOD};
-use crate::testing::TestProxyGlobalState;
+use crate::service::{BuilderConfig, GlobalState, ALLOW_EMPTY_BLOCK_PERIOD};
+use crate::testing::TestServiceWrapper;
 use std::sync::Arc;
 
 // How many times consensus will re-try getting available blocks
@@ -41,7 +41,8 @@ async fn test_empty_block_rate() {
     );
 
     let (event_stream_sender, event_stream) = broadcast(1024);
-    let proxy_global_state = TestProxyGlobalState(ProxyGlobalState(Arc::clone(&global_state)));
+    let proxy_global_state =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone());
     global_state.start_event_loop(event_stream);
 
     let mut chain_state = SimulatedChainState::new(event_stream_sender);
@@ -94,7 +95,8 @@ async fn test_eager_block_rate() {
     );
 
     let (event_stream_sender, event_stream) = broadcast(1024);
-    let proxy_global_state = TestProxyGlobalState(ProxyGlobalState(Arc::clone(&global_state)));
+    let proxy_global_state =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone());
     global_state.start_event_loop(event_stream);
 
     let mut chain_state = SimulatedChainState::new(event_stream_sender);

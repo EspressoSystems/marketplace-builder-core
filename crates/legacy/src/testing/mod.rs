@@ -3,22 +3,28 @@
 #![allow(clippy::borrow_interior_mutable_const)]
 
 use std::cell::LazyCell;
+use std::sync::Arc;
 
 use async_broadcast::Sender;
+use committable::Commitment;
 use hotshot::rand::{thread_rng, Rng};
 use hotshot::types::{BLSPubKey, Event, EventType, SignatureKey};
+use hotshot_builder_api::v0_1::block_info::AvailableBlockHeaderInput;
 use hotshot_builder_api::v0_1::builder::BuildError;
+use hotshot_builder_api::v0_1::data_source::AcceptsTxnSubmits;
 use hotshot_builder_api::v0_1::{block_info::AvailableBlockInfo, data_source::BuilderDataSource};
-use hotshot_builder_api::v0_2::block_info::{AvailableBlockData, AvailableBlockHeaderInput};
-use hotshot_builder_api::v0_3::data_source::AcceptsTxnSubmits;
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::node_types::TestTypes;
+use hotshot_task_impls::builder::v0_1::BuilderClient;
 use hotshot_types::data::ViewNumber;
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
 use marketplace_builder_shared::block::{BlockId, BuilderStateId};
 use marketplace_builder_shared::error::Error;
+use tokio::spawn;
+use url::Url;
+use vbs::version::StaticVersion;
 
-use crate::service::{BuilderKeys, ProxyGlobalState};
+use crate::service::{BuilderKeys, GlobalState, ProxyGlobalState};
 
 mod basic;
 mod block_size;
@@ -47,14 +53,38 @@ fn assert_eq_generic_err(err: BuildError, expected_err: Error<TestTypes>) {
     assert_eq!(expected_err_str, err_str);
 }
 
-struct TestProxyGlobalState(ProxyGlobalState<TestTypes>);
+/// Provides convenience functions on top of service API,
+/// as well as routing requests through as many API surfaces as
+/// possible to shake out more potential bugs
+struct TestServiceWrapper {
+    event_sender: Sender<Event<TestTypes>>,
+    proxy_global_state: ProxyGlobalState<TestTypes>,
+    client: BuilderClient<TestTypes>,
+}
 
-impl TestProxyGlobalState {
+impl TestServiceWrapper {
+    fn new(
+        global_state: Arc<GlobalState<TestTypes>>,
+        event_stream_sender: Sender<Event<TestTypes>>,
+    ) -> Self {
+        let port = portpicker::pick_unused_port().unwrap();
+        let url: Url = format!("http://localhost:{port}").parse().unwrap();
+        let app = Arc::clone(&global_state).into_app().unwrap();
+        spawn(app.serve(url.clone(), StaticVersion::<0, 1> {}));
+        Self {
+            event_sender: event_stream_sender,
+            proxy_global_state: ProxyGlobalState(global_state),
+            client: BuilderClient::new(url),
+        }
+    }
+}
+
+impl TestServiceWrapper {
     pub(crate) async fn get_available_blocks(
         &self,
         state_id: &BuilderStateId<TestTypes>,
     ) -> Result<Vec<AvailableBlockInfo<TestTypes>>, BuildError> {
-        self.0
+        self.proxy_global_state
             .available_blocks(
                 &state_id.parent_commitment,
                 *state_id.parent_view,
@@ -64,25 +94,11 @@ impl TestProxyGlobalState {
             .await
     }
 
-    pub(crate) async fn get_block(
-        &self,
-        block_id: &BlockId<TestTypes>,
-    ) -> Result<AvailableBlockData<TestTypes>, BuildError> {
-        self.0
-            .claim_block(
-                &block_id.hash,
-                *block_id.view,
-                MOCK_LEADER_KEYS.0,
-                &BLSPubKey::sign(&MOCK_LEADER_KEYS.1, block_id.hash.as_ref()).unwrap(),
-            )
-            .await
-    }
-
-    pub(crate) async fn get_block_header_input(
+    pub(crate) async fn claim_block_header_input(
         &self,
         block_id: &BlockId<TestTypes>,
     ) -> Result<AvailableBlockHeaderInput<TestTypes>, BuildError> {
-        self.0
+        self.proxy_global_state
             .claim_block_header_input(
                 &block_id.hash,
                 *block_id.view,
@@ -94,37 +110,59 @@ impl TestProxyGlobalState {
 
     pub(crate) async fn get_transactions(
         &self,
-        builder_state_id: &BuilderStateId<TestTypes>,
+        state_id: &BuilderStateId<TestTypes>,
     ) -> Vec<TestTransaction> {
-        let mut available_states = self.get_available_blocks(builder_state_id).await.unwrap();
+        let mut available_states = self
+            .client
+            .available_blocks(
+                state_id.parent_commitment,
+                *state_id.parent_view,
+                MOCK_LEADER_KEYS.0,
+                &BLSPubKey::sign(&MOCK_LEADER_KEYS.1, state_id.parent_commitment.as_ref()).unwrap(),
+            )
+            .await
+            .unwrap();
 
         let Some(block_info) = available_states.pop() else {
             return vec![];
         };
 
-        let block_id = BlockId {
-            hash: block_info.block_hash,
-            view: builder_state_id.parent_view,
-        };
         // Get block for its transactions
-        let block = self.get_block(&block_id).await.unwrap();
+        let block = self
+            .client
+            .claim_block(
+                block_info.block_hash.clone(),
+                *state_id.parent_view,
+                MOCK_LEADER_KEYS.0,
+                &BLSPubKey::sign(&MOCK_LEADER_KEYS.1, block_info.block_hash.as_ref()).unwrap(),
+            )
+            .await
+            .unwrap();
         block.block_payload.transactions
     }
 
-    pub(crate) async fn submit_transactions(
+    pub(crate) async fn submit_transactions_public(&self, transactions: Vec<TestTransaction>) {
+        self.event_sender
+            .broadcast(Event {
+                view_number: ViewNumber::genesis(),
+                event: EventType::Transactions { transactions },
+            })
+            .await
+            .unwrap();
+    }
+
+    pub(crate) async fn submit_transactions_private(
         &self,
-        event_sender: &Sender<Event<TestTypes>>,
-        view_number: ViewNumber,
         transactions: Vec<TestTransaction>,
-    ) {
+    ) -> Result<Vec<Commitment<TestTransaction>>, BuildError> {
+        self.proxy_global_state.submit_txns(transactions).await
+    }
+
+    pub(crate) async fn submit_transactions(&self, transactions: Vec<TestTransaction>) {
         if thread_rng().gen() {
-            self.0.submit_txns(transactions).await.unwrap();
+            self.submit_transactions_public(transactions).await
         } else {
-            event_sender
-                .broadcast(Event {
-                    view_number,
-                    event: EventType::Transactions { transactions },
-                })
+            self.submit_transactions_private(transactions)
                 .await
                 .unwrap();
         }
