@@ -99,10 +99,12 @@ mod tests {
     use marketplace_builder_shared::testing::constants::{
         TEST_MAX_BLOCK_SIZE_INCREMENT_PERIOD, TEST_PROTOCOL_MAX_BLOCK_SIZE,
     };
+    use tracing_test::traced_test;
 
     use super::*;
 
     #[test]
+    #[traced_test]
     fn test_increment_block_size() {
         let mut block_size_limits = BlockSizeLimits::new(
             TEST_PROTOCOL_MAX_BLOCK_SIZE,
@@ -131,6 +133,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_decrement_block_size() {
         let block_size_limits = BlockSizeLimits::new(
             TEST_PROTOCOL_MAX_BLOCK_SIZE,
@@ -141,6 +144,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_max_block_size_floor() {
         let block_size_limits = BlockSizeLimits::new(
             BlockSizeLimits::MAX_BLOCK_SIZE_FLOOR + 1,

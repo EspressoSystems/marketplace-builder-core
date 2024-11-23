@@ -1,4 +1,5 @@
 use async_broadcast::broadcast;
+use tracing_test::traced_test;
 
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::state_types::TestInstanceState;
@@ -6,11 +7,13 @@ use marketplace_builder_shared::testing::consensus::SimulatedChainState;
 use marketplace_builder_shared::testing::constants::{
     TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
 };
-use tracing_subscriber::EnvFilter;
 
 use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState, ALLOW_EMPTY_BLOCK_PERIOD};
 use crate::testing::TestProxyGlobalState;
 use std::sync::Arc;
+
+// How many times consensus will re-try getting available blocks
+const NUM_RETRIES: usize = 5;
 
 /// [test_empty_block_rate] is a test to ensure that if we don't have any
 /// transactions being submitted, that the builder will continue it's current
@@ -24,20 +27,11 @@ use std::sync::Arc;
 /// |> block is an integral part of this test.
 #[tokio::test]
 async fn test_empty_block_rate() {
-    // Setup logging
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
-
-    tracing::info!("Testing the builder core with multiple messages from the channels");
-
     // Number of views to simulate
     const NUM_ROUNDS: u64 = 5;
     const {
         assert!(NUM_ROUNDS > ALLOW_EMPTY_BLOCK_PERIOD);
     }
-    // How many times consensus will re-try getting available blocks
-    const NUM_RETRIES: usize = 5;
 
     let global_state = GlobalState::new(
         BuilderConfig::test(),
@@ -90,17 +84,8 @@ async fn test_empty_block_rate() {
 /// |> result the number of times that consensus has to ask the Builder for
 /// |> block is an integral part of this test.
 #[tokio::test]
+#[traced_test]
 async fn test_eager_block_rate() {
-    // Setup logging
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
-
-    tracing::info!("Testing the builder core with multiple messages from the channels");
-
-    // How many times consensus will re-try getting available blocks
-    const NUM_RETRIES: usize = 5;
-
     let global_state = GlobalState::new(
         BuilderConfig::test(),
         TestInstanceState::default(),

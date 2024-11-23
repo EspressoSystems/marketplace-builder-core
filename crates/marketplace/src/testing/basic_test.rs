@@ -6,7 +6,7 @@ use hotshot_example_types::block_types::TestTransaction;
 use marketplace_builder_shared::testing::constants::{
     TEST_API_TIMEOUT, TEST_BASE_FEE, TEST_INCLUDED_TX_GC_PERIOD, TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
 };
-use tracing_subscriber::EnvFilter;
+use tracing_test::traced_test;
 
 use crate::hooks::NoHooks;
 use crate::service::{GlobalState, ProxyGlobalState};
@@ -16,12 +16,8 @@ use std::sync::Arc;
 
 /// This test simulates multiple builder states receiving messages from the channels and processing them
 #[tokio::test]
+#[traced_test]
 async fn test_builder() {
-    // Setup logging
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
-
     tracing::info!("Testing the builder core with multiple messages from the channels");
 
     // Number of views to simulate

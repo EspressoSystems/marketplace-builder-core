@@ -187,12 +187,14 @@ mod tests {
     use hotshot_example_types::node_types::TestTypes;
     use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
     use rand::{distributions::Standard, thread_rng, Rng};
+    use tracing_test::traced_test;
 
     type View = ViewNumber;
     type BuilderStateMap =
         super::TieredViewMap<BuilderStateId<TestTypes>, Arc<BuilderState<TestTypes>>>;
 
     #[test]
+    #[traced_test]
     fn test_new_map() {
         let new_map = BuilderStateMap::new();
         assert!(new_map.is_empty());
@@ -204,6 +206,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_insert_and_get() {
         let mut map = BuilderStateMap::new();
 
@@ -218,6 +221,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_range_iteration() {
         let mut map = BuilderStateMap::new();
 
@@ -240,6 +244,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_pruning() {
         let view_count = 11;
         let states_per_view = 13;
@@ -266,6 +271,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_highest_and_lowest_view() {
         let mut map = BuilderStateMap::new();
         assert_eq!(map.highest_view(), None);
@@ -281,6 +287,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_highest_view_builder() {
         let mut map = BuilderStateMap::new();
         assert!(map.highest_view_builder().is_none());
@@ -311,6 +318,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_iterator() {
         let mut map = BuilderStateMap::new();
 

@@ -35,6 +35,7 @@ hotshot-example-types = { workspace = true }
 hotshot-macros = { workspace = true }
 hotshot-testing = { workspace = true }
 num_cpus = { workspace = true }
+tracing-test = { workspace = true }
 url = { workspace = true }
 
 [lints]

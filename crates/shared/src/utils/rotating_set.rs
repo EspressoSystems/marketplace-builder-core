@@ -76,10 +76,13 @@ where
 
 #[cfg(test)]
 mod tests {
+    use tracing_test::traced_test;
+
     use super::*;
     use std::thread::sleep;
 
     #[test]
+    #[traced_test]
     fn test_insert_and_contains() {
         let mut set = RotatingSet::new(Duration::from_secs(1));
         set.insert(1);
@@ -88,6 +91,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_rotate_and_contains() {
         let mut set = RotatingSet::new(Duration::from_micros(10));
         set.insert(1);
@@ -117,6 +121,7 @@ mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_force_rotate() {
         let mut set = RotatingSet::new(Duration::MAX);
         set.insert(1);

@@ -447,6 +447,7 @@ mod tests {
     use std::time::Instant;
 
     use hotshot_example_types::node_types::TestTypes;
+    use tracing_test::traced_test;
 
     use crate::{
         block::TransactionSource,
@@ -461,6 +462,7 @@ mod tests {
     type BuilderStateCoordinator = super::BuilderStateCoordinator<TestTypes>;
 
     #[tokio::test]
+    #[traced_test]
     async fn test_coordinator_new() {
         let coordinator =
             BuilderStateCoordinator::new(TEST_CHANNEL_BUFFER_SIZE, TEST_INCLUDED_TX_GC_PERIOD);
@@ -509,6 +511,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_handle_proposal_matching_types_creates_builder_state() {
         let coordinator =
             BuilderStateCoordinator::new(TEST_CHANNEL_BUFFER_SIZE, TEST_INCLUDED_TX_GC_PERIOD);
@@ -531,6 +534,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_handle_proposal_duplicate_proposal_ignored() {
         let coordinator =
             BuilderStateCoordinator::new(TEST_CHANNEL_BUFFER_SIZE, TEST_INCLUDED_TX_GC_PERIOD);
@@ -551,6 +555,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_handle_proposal_stores_new_proposal_when_no_match() {
         let coordinator =
             BuilderStateCoordinator::new(TEST_CHANNEL_BUFFER_SIZE, TEST_INCLUDED_TX_GC_PERIOD);
@@ -575,6 +580,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_handle_proposal_same_view_different_proposals() {
         let coordinator =
             BuilderStateCoordinator::new(TEST_CHANNEL_BUFFER_SIZE, TEST_INCLUDED_TX_GC_PERIOD);
@@ -609,6 +615,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_decide_reaps_old_proposals() {
         let coordinator =
             BuilderStateCoordinator::new(TEST_CHANNEL_BUFFER_SIZE, TEST_INCLUDED_TX_GC_PERIOD);
@@ -650,6 +657,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_transaction_overflow() {
         let coordinator =
             BuilderStateCoordinator::new(TEST_CHANNEL_BUFFER_SIZE, TEST_INCLUDED_TX_GC_PERIOD);

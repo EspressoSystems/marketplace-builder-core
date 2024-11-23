@@ -11,7 +11,7 @@ use marketplace_builder_shared::{
         },
     },
 };
-use tracing_subscriber::EnvFilter;
+use tracing_test::traced_test;
 
 use crate::{
     hooks::NoHooks,
@@ -128,11 +128,9 @@ fn order_check<T: Eq + Clone + Debug>(
 /// It's fine that leader doesn't include some of transactions we've given, or interspersed with other transactions,
 /// as long as the order is correct it will be good.
 #[tokio::test]
+#[traced_test]
 async fn test_builder_order() {
     // Setup logging
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
 
     tracing::info!("Testing the builder core with multiple messages from the channels");
 
@@ -256,11 +254,9 @@ async fn test_builder_order() {
 /// with one chain proposing transactions we've given and the other not
 /// (we should give out the next batch if responding for first chain and both batches for the other)
 #[tokio::test]
+#[traced_test]
 async fn test_builder_order_chain_fork() {
     // Setup logging
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
 
     tracing::info!("Testing the builder core with multiple messages from the channels");
 
@@ -411,11 +407,9 @@ async fn test_builder_order_chain_fork() {
 /// It should fail as the proposer randomly drop a subset of transactions within a bundle,
 /// which leads to different order of transaction.
 #[tokio::test]
+#[traced_test]
 async fn test_builder_order_should_fail() {
     // Setup logging
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
 
     tracing::info!("Testing the builder core with multiple messages from the channels");
 

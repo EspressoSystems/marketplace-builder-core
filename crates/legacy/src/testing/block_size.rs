@@ -6,7 +6,7 @@ use hotshot_types::traits::node_implementation::ConsensusTime;
 use marketplace_builder_shared::block::BlockId;
 use marketplace_builder_shared::testing::consensus::SimulatedChainState;
 use marketplace_builder_shared::testing::constants::TEST_NUM_NODES_IN_VID_COMPUTATION;
-use tracing_subscriber::EnvFilter;
+use tracing_test::traced_test;
 
 use crate::block_size_limits::BlockSizeLimits;
 use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState};
@@ -18,12 +18,8 @@ use std::time::Duration;
 /// This tests simulates size limits being decreased lower than our capacity
 /// and then checks that size limits return to protocol maximum over time
 #[tokio::test]
+#[traced_test]
 async fn block_size_increment() {
-    // Setup logging
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
-
     tracing::info!("Testing the builder core with multiple messages from the channels");
 
     // Number of views we'll need to simulate to reach protocol max block size

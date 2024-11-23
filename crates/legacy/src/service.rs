@@ -258,52 +258,19 @@ where
         }
     }
 
-    #[instrument(skip_all,
-        fields(state_id = %state_id)
-    )]
-    pub(crate) async fn available_blocks_implementation(
+    /// Build a block with provided builder state
+    ///
+    /// Returns None if there are no transactions to include
+    /// and we aren't prioritizing finalization for this builder state
+    pub(crate) async fn build_block(
         &self,
-        state_id: BuilderStateId<Types>,
-    ) -> Result<Vec<AvailableBlockInfo<Types>>, Error<Types>> {
-        let check_period = self.max_api_waiting_time / 10;
-        let time_to_wait_for_matching_builder = self.max_api_waiting_time / 2;
-
-        let builder = match timeout(
-            time_to_wait_for_matching_builder,
-            self.wait_for_builder_state(&state_id, check_period),
-        )
-        .await
-        {
-            Ok(Ok(builder)) => Some(builder),
-            Err(_) => {
-                /* Timeout waiting for ideal state, get the highest view builder instead */
-                warn!("Couldn't find the ideal builder state");
-                self.coordinator.highest_view_builder().await
-            }
-            Ok(Err(e)) => {
-                /* State already decided */
-                let lowest_view = self.coordinator.lowest_view().await;
-                warn!(
-                    ?lowest_view,
-                    "get_available_blocks request for decided view"
-                );
-                return Err(e);
-            }
-        };
-
-        let Some(builder) = builder else {
-            if let Some(cached_block) = self.block_store.read().await.get_cached(&state_id) {
-                return Ok(vec![cached_block.signed_response(&self.builder_keys)?]);
-            } else {
-                return Err(Error::NotFound);
-            };
-        };
-
+        builder_state: Arc<BuilderState<Types>>,
+    ) -> Result<Option<BlockInfo<Types>>, Error<Types>> {
         let timeout_after = Instant::now() + self.maximize_txn_capture_timeout;
         let sleep_interval = self.maximize_txn_capture_timeout / 10;
 
         while Instant::now() <= timeout_after {
-            let queue_populated = builder.collect_txns(timeout_after).await;
+            let queue_populated = builder_state.collect_txns(timeout_after).await;
 
             if queue_populated || Instant::now() + sleep_interval > timeout_after {
                 // we don't have time for another iteration
@@ -316,19 +283,19 @@ where
         // If the parent block had transactions included and [`ALLOW_EMPTY_BLOCK_PERIOD`] views has not
         // passed since, we will allow building empty blocks. This is done to allow for faster finalization
         // of previous blocks that have had transactions included in them.
-        let should_prioritize_finalization = builder.parent_block_references.tx_number != 0
-            && builder
+        let should_prioritize_finalization = builder_state.parent_block_references.tx_number != 0
+            && builder_state
                 .parent_block_references
                 .views_since_nonempty_block
                 .map(|value| value < ALLOW_EMPTY_BLOCK_PERIOD)
                 .unwrap_or(false);
 
-        let builder: &Arc<BuilderState<Types>> = &builder;
+        let builder: &Arc<BuilderState<Types>> = &builder_state;
         let max_block_size = self.block_size_limits.max_block_size();
 
         if builder.txn_queue.read().await.is_empty() && !should_prioritize_finalization {
             // Don't build an empty block
-            return Ok(vec![]);
+            return Ok(None);
         }
 
         let transactions_to_include = builder
@@ -383,7 +350,7 @@ where
         if truncated {
             builder.txn_queue.write().await.pop_front();
             if !should_prioritize_finalization {
-                return Ok(vec![]);
+                return Ok(None);
             }
         }
 
@@ -402,25 +369,71 @@ where
             join_handle.await.unwrap()
         };
 
-        let block_id = BlockId {
-            hash: payload.builder_commitment(&metadata),
-            view: state_id.parent_view,
-        };
-
         info!(
-            %block_id,
+            builder_id = %builder.id(),
             txn_count = actual_txn_count,
-            "Builder view num {:?}, building block",
-            builder.parent_block_references.view_number,
+            block_size,
+            "Built a block",
         );
 
-        let info = BlockInfo {
+        Ok(Some(BlockInfo {
             block_payload: payload,
             block_size,
             metadata,
             vid_data: WaitAndKeep::new(Box::pin(fut)),
             offered_fee,
             truncated,
+        }))
+    }
+
+    #[instrument(skip_all,
+        fields(state_id = %state_id)
+    )]
+    pub(crate) async fn available_blocks_implementation(
+        &self,
+        state_id: BuilderStateId<Types>,
+    ) -> Result<Vec<AvailableBlockInfo<Types>>, Error<Types>> {
+        let check_period = self.max_api_waiting_time / 10;
+        let time_to_wait_for_matching_builder = self.max_api_waiting_time / 2;
+
+        let builder = match timeout(
+            time_to_wait_for_matching_builder,
+            self.wait_for_builder_state(&state_id, check_period),
+        )
+        .await
+        {
+            Ok(Ok(builder)) => Some(builder),
+            Err(_) => {
+                /* Timeout waiting for ideal state, get the highest view builder instead */
+                warn!("Couldn't find the ideal builder state");
+                self.coordinator.highest_view_builder().await
+            }
+            Ok(Err(e)) => {
+                /* State already decided */
+                let lowest_view = self.coordinator.lowest_view().await;
+                warn!(
+                    ?lowest_view,
+                    "get_available_blocks request for decided view"
+                );
+                return Err(e);
+            }
+        };
+
+        let Some(builder) = builder else {
+            if let Some(cached_block) = self.block_store.read().await.get_cached(&state_id) {
+                return Ok(vec![cached_block.signed_response(&self.builder_keys)?]);
+            } else {
+                return Err(Error::NotFound);
+            };
+        };
+
+        let Some(info) = self.build_block(builder).await? else {
+            return Ok(vec![]);
+        };
+
+        let block_id = BlockId {
+            hash: info.block_payload.builder_commitment(&info.metadata),
+            view: state_id.parent_view,
         };
 
         let response = info.signed_response(&self.builder_keys)?;
@@ -739,6 +752,7 @@ mod tests {
         TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
     };
     use once_cell::sync::Lazy;
+    use tracing_test::traced_test;
 
     use super::*;
 
@@ -771,6 +785,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn test_signature_checks() {
         let expected_signing_keys = &SIGNING_KEYS;
         let wrong_signing_key =

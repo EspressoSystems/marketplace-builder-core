@@ -15,7 +15,7 @@ use marketplace_builder_shared::testing::constants::{
     TEST_NUM_NODES_IN_VID_COMPUTATION, TEST_PROTOCOL_MAX_BLOCK_SIZE,
 };
 use tokio::time::sleep;
-use tracing_subscriber::EnvFilter;
+use tracing_test::traced_test;
 
 use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState};
 use crate::testing::TestProxyGlobalState;
@@ -25,12 +25,8 @@ use std::time::Duration;
 /// This test simulates consensus performing as expected and builder processing a number
 /// of transactions
 #[tokio::test]
+#[traced_test]
 async fn test_builder() {
-    // Setup logging
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
-
     tracing::info!("Testing the builder core with multiple messages from the channels");
 
     // Number of views to simulate
@@ -103,12 +99,8 @@ async fn test_builder() {
 
 // This test checks that builder prunes saved blocks on decide
 #[tokio::test]
+#[traced_test]
 async fn test_pruning() {
-    // Setup logging
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
-
     // Number of views to simulate
     const NUM_ROUNDS: usize = 10;
     // View number of decide event
