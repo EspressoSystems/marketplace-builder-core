@@ -14,7 +14,9 @@ use hotshot_builder_api::v0_3::data_source::AcceptsTxnSubmits;
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::node_types::TestTypes;
 use hotshot_types::data::ViewNumber;
+use hotshot_types::traits::node_implementation::NodeType;
 use marketplace_builder_shared::block::{BlockId, BuilderStateId};
+use marketplace_builder_shared::error::Error;
 
 use crate::service::{BuilderKeys, ProxyGlobalState};
 
@@ -25,6 +27,25 @@ mod integration;
 
 const MOCK_LEADER_KEYS: LazyCell<BuilderKeys<TestTypes>> =
     LazyCell::new(|| BLSPubKey::generated_from_seed_indexed([0; 32], 0));
+
+fn sign(
+    data: &[u8],
+) -> <<TestTypes as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType {
+    <<TestTypes as NodeType>::SignatureKey as SignatureKey>::sign(&MOCK_LEADER_KEYS.1, data)
+        .unwrap()
+}
+
+// We need to extract the error strings by hand because BuildError doesn't implement Eq
+fn assert_eq_generic_err(err: BuildError, expected_err: Error<TestTypes>) {
+    let BuildError::Error(expected_err_str) = expected_err.into() else {
+        panic!("Unexpected conversion of Error to BuildError");
+    };
+    println!("{:#?}", err);
+    let BuildError::Error(err_str) = err else {
+        panic!("Unexpected BuildError by builder");
+    };
+    assert_eq!(expected_err_str, err_str);
+}
 
 struct TestProxyGlobalState(ProxyGlobalState<TestTypes>);
 
