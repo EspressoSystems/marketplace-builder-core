@@ -1,4 +1,5 @@
 use async_broadcast::broadcast;
+use hotshot_builder_api::v0_3::data_source::AcceptsTxnSubmits;
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::state_types::TestInstanceState;
 use hotshot_types::data::ViewNumber;
@@ -20,8 +21,6 @@ use std::time::Duration;
 #[tokio::test]
 #[traced_test]
 async fn block_size_increment() {
-    tracing::info!("Testing the builder core with multiple messages from the channels");
-
     // Number of views we'll need to simulate to reach protocol max block size
     // Basically compound interest formula solved for time
     let num_rounds: u64 =
@@ -117,4 +116,35 @@ async fn block_size_increment() {
             .max_block_size,
         PROTOCOL_MAX_BLOCK_SIZE
     )
+}
+
+#[tokio::test]
+#[traced_test]
+async fn huge_transactions() {
+    // Max block size for this test. As low as possible
+    // so that we don't spend a lot of time in this test
+    const PROTOCOL_MAX_BLOCK_SIZE: u64 = BlockSizeLimits::MAX_BLOCK_SIZE_FLOOR;
+
+    let global_state = GlobalState::new(
+        BuilderConfig::test(),
+        TestInstanceState::default(),
+        PROTOCOL_MAX_BLOCK_SIZE,
+        TEST_NUM_NODES_IN_VID_COMPUTATION,
+    );
+    let proxy_global_state = TestProxyGlobalState(ProxyGlobalState(Arc::clone(&global_state)));
+
+    let almost_too_big = TestTransaction::new(vec![0u8; PROTOCOL_MAX_BLOCK_SIZE as usize]);
+    let too_big = TestTransaction::new(vec![0u8; PROTOCOL_MAX_BLOCK_SIZE as usize + 1]);
+
+    proxy_global_state
+        .0
+        .submit_txns(vec![almost_too_big])
+        .await
+        .unwrap();
+
+    proxy_global_state
+        .0
+        .submit_txns(vec![too_big])
+        .await
+        .unwrap_err();
 }

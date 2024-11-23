@@ -130,10 +130,6 @@ fn order_check<T: Eq + Clone + Debug>(
 #[tokio::test]
 #[traced_test]
 async fn test_builder_order() {
-    // Setup logging
-
-    tracing::info!("Testing the builder core with multiple messages from the channels");
-
     /// Number of views to simulate, make sure it's larger than 5
     /// so that we have enough rounds to play with
     const NUM_ROUNDS: usize = 10;
@@ -256,10 +252,6 @@ async fn test_builder_order() {
 #[tokio::test]
 #[traced_test]
 async fn test_builder_order_chain_fork() {
-    // Setup logging
-
-    tracing::info!("Testing the builder core with multiple messages from the channels");
-
     // Number of views to simulate
     const NUM_ROUNDS: usize = 4;
     // Number of transactions to submit per round
@@ -409,10 +401,6 @@ async fn test_builder_order_chain_fork() {
 #[tokio::test]
 #[traced_test]
 async fn test_builder_order_should_fail() {
-    // Setup logging
-
-    tracing::info!("Testing the builder core with multiple messages from the channels");
-
     // Number of views to simulate
     const NUM_ROUNDS: usize = 10;
     // Number of transactions to submit per round

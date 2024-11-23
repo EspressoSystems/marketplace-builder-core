@@ -5,7 +5,7 @@ use hotshot_builder_api::v0_1::{
     builder::BuildError,
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
-use hotshot_types::traits::block_contents::precompute_vid_commitment;
+use hotshot_types::traits::block_contents::{precompute_vid_commitment, Transaction};
 use hotshot_types::traits::EncodeBytes;
 use hotshot_types::{
     event::EventType,
@@ -183,12 +183,12 @@ where
                     error!("Error event in HotShot: {:?}", error);
                 }
                 EventType::Transactions { transactions } => {
-                    let coordinator = Arc::clone(&self.coordinator);
+                    let this = Arc::clone(&self);
                     spawn(async move {
                         transactions
                             .into_iter()
                             .map(|txn| {
-                                coordinator.handle_transaction(ReceivedTransaction::new(
+                                this.handle_transaction(ReceivedTransaction::new(
                                     txn,
                                     TransactionSource::Public,
                                 ))
@@ -238,6 +238,16 @@ where
         app.register_module("txn_submit", private_mempool_api)?;
 
         Ok(app)
+    }
+
+    async fn handle_transaction(&self, tx: ReceivedTransaction<Types>) -> Result<(), Error<Types>> {
+        let len = tx.transaction.minimum_block_size();
+        let max_tx_len = self.block_size_limits.max_block_size();
+        if len > max_tx_len {
+            tracing::warn!(%tx.commit, %len, %max_tx_len, "Transaction too big");
+            return Err(Error::TxTooBig { len, max_tx_len });
+        }
+        self.coordinator.handle_transaction(tx).await
     }
 
     async fn wait_for_builder_state(
@@ -293,34 +303,38 @@ where
         let builder: &Arc<BuilderState<Types>> = &builder_state;
         let max_block_size = self.block_size_limits.max_block_size();
 
-        if builder.txn_queue.read().await.is_empty() && !should_prioritize_finalization {
-            // Don't build an empty block
-            return Ok(None);
-        }
-
-        let transactions_to_include = builder
-            .txn_queue
-            .read()
-            .await
-            .iter()
-            .scan(0, |total_size, tx| {
-                let prev_size = *total_size;
-                *total_size += tx.min_block_size;
-                // We will include one transaction over our target block length
-                // if it's the first transaction in queue, otherwise we'd have a possible failure
-                // state where a single transaction larger than target block state is stuck in
-                // queue and we just build empty blocks forever
-                if *total_size >= max_block_size && prev_size != 0 {
-                    None
-                } else {
-                    Some(tx.transaction.clone())
-                }
-            })
-            .collect::<Vec<_>>();
+        let transactions_to_include = {
+            let txn_queue = builder.txn_queue.read().await;
+            if txn_queue.is_empty() && !should_prioritize_finalization {
+                // Don't build an empty block
+                return Ok(None);
+            }
+            txn_queue
+                .iter()
+                .scan(0, |total_size, tx| {
+                    let prev_size = *total_size;
+                    *total_size += tx.min_block_size;
+                    // We will include one transaction over our target block length
+                    // if it's the first transaction in queue, otherwise we'd have a possible failure
+                    // state where a single transaction larger than target block state is stuck in
+                    // queue and we just build empty blocks forever
+                    if *total_size >= max_block_size && prev_size != 0 {
+                        None
+                    } else {
+                        // Note: we're going to map from ReceivedTransaction to
+                        // Transaction it contains later, so we can just clone
+                        // the Arc here to reduce the time we hold the lock
+                        Some(Arc::clone(tx))
+                    }
+                })
+                .collect::<Vec<_>>()
+        };
 
         let (payload, metadata) =
             match <Types::BlockPayload as BlockPayload<Types>>::from_transactions(
-                transactions_to_include,
+                transactions_to_include
+                    .into_iter()
+                    .map(|tx| tx.transaction.clone()),
                 &builder.validated_state,
                 &self.instance_state,
             )
@@ -404,12 +418,12 @@ where
         {
             Ok(Ok(builder)) => Some(builder),
             Err(_) => {
-                /* Timeout waiting for ideal state, get the highest view builder instead */
+                // Timeout waiting for ideal state, get the highest view builder instead
                 warn!("Couldn't find the ideal builder state");
                 self.coordinator.highest_view_builder().await
             }
             Ok(Err(e)) => {
-                /* State already decided */
+                // State already decided
                 let lowest_view = self.coordinator.lowest_view().await;
                 warn!(
                     ?lowest_view,
@@ -453,7 +467,7 @@ where
         &self,
         block_id: BlockId<Types>,
     ) -> Result<AvailableBlockData<Types>, Error<Types>> {
-        let extracted_block_info_option = {
+        let (block_payload, metadata) = {
             // We store this read lock guard separately to make it explicit
             // that this will end up holding a lock for the duration of this
             // closure.
@@ -463,22 +477,18 @@ where
             // we can perform the clone here to avoid holding the lock for
             // longer than needed.
             let mutable_state_read = self.block_store.read().await;
-            let block_info_some = mutable_state_read.get_block(&block_id);
+            let block_info = mutable_state_read
+                .get_block(&block_id)
+                .ok_or(Error::NotFound)?;
 
-            block_info_some.map(|block_info| {
-                block_info.vid_data.start();
-                (
-                    block_info.block_payload.clone(),
-                    block_info.metadata.clone(),
-                )
-            })
+            block_info.vid_data.start();
+            (
+                block_info.block_payload.clone(),
+                block_info.metadata.clone(),
+            )
         };
 
         let (pub_key, sign_key) = self.builder_keys.clone();
-
-        let Some((block_payload, metadata)) = extracted_block_info_option else {
-            return Err(Error::NotFound);
-        };
 
         // sign over the builder commitment, as the proposer can computer it based on provide block_payload
         // and the metadata
@@ -491,11 +501,12 @@ where
             .map_err(Error::Signing)?;
 
         let block_data = AvailableBlockData::<Types> {
-            block_payload: block_payload.clone(),
-            metadata: metadata.clone(),
+            block_payload,
+            metadata,
             signature: signature_over_builder_commitment,
-            sender: pub_key.clone(),
+            sender: pub_key,
         };
+
         info!("Sending Claim Block data for {block_id}",);
         Ok(block_data)
     }
@@ -714,7 +725,13 @@ where
 }
 
 #[async_trait]
-impl<Types: NodeType> AcceptsTxnSubmits<Types> for ProxyGlobalState<Types> {
+impl<Types: NodeType> AcceptsTxnSubmits<Types> for ProxyGlobalState<Types>
+where
+    for<'a> <<Types::SignatureKey as SignatureKey>::PureAssembledSignatureType as TryFrom<
+        &'a TaggedBase64,
+    >>::Error: Display,
+    for<'a> <Types::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
+{
     #[instrument(skip(self))]
     async fn submit_txns(
         &self,
@@ -724,7 +741,7 @@ impl<Types: NodeType> AcceptsTxnSubmits<Types> for ProxyGlobalState<Types> {
             .map(|txn| ReceivedTransaction::new(txn, TransactionSource::Private))
             .map(|txn| async {
                 let commit = txn.commit;
-                self.coordinator.handle_transaction(txn).await?;
+                self.0.handle_transaction(txn).await?;
                 Ok(commit)
             })
             .collect::<FuturesOrdered<_>>()

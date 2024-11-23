@@ -12,7 +12,7 @@ use crate::block::ReceivedTransaction;
 pub enum Error<Types: NodeType> {
     #[error("Signature validation failed")]
     SignatureValidation,
-    #[error("Failed to sign response")]
+    #[error(transparent)]
     Signing(<Types::BuilderSignatureKey as BuilderSignatureKey>::SignError),
     #[error("API response timed out")]
     ApiTimeout,
@@ -22,6 +22,8 @@ pub enum Error<Types: NodeType> {
     BuildBlock(<Types::BlockPayload as BlockPayload<Types>>::Error),
     #[error(transparent)]
     TxnSender(TrySendError<Arc<ReceivedTransaction<Types>>>),
+    #[error("Transaction too big ({len}/{max_tx_len})")]
+    TxTooBig { len: u64, max_tx_len: u64 },
 }
 
 impl<Types: NodeType> From<Error<Types>> for BuildError {
@@ -35,6 +37,9 @@ impl<Types: NodeType> From<Error<Types>> for BuildError {
             Error::NotFound => BuildError::NotFound,
             Error::BuildBlock(_) => BuildError::Error("Failed to build block".to_owned()),
             Error::TxnSender(_) => BuildError::Error("Transaction channel error".to_owned()),
+            Error::TxTooBig { len, max_tx_len } => {
+                BuildError::Error(format!("Transaction too big ({len}/{max_tx_len}"))
+            }
         }
     }
 }
