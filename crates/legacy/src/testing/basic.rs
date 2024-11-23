@@ -27,8 +27,6 @@ use std::time::Duration;
 #[tokio::test]
 #[traced_test]
 async fn test_builder() {
-    tracing::info!("Testing the builder core with multiple messages from the channels");
-
     // Number of views to simulate
     const NUM_ROUNDS: usize = 5;
     // Number of transactions to submit per round

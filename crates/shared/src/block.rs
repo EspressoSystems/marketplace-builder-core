@@ -124,7 +124,7 @@ where
             view_number: Types::View::genesis(),
             vid_commitment: VidCommitment::default(),
             leaf_commit: fake_commitment(),
-            builder_commitment: BuilderCommitment::from_bytes([0; 32]),
+            builder_commitment: BuilderCommitment::from_bytes([]),
             tx_number: 0,
             views_since_nonempty_block: None,
         }

@@ -4,7 +4,8 @@ use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::state_types::TestInstanceState;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::traits::node_implementation::ConsensusTime;
-use marketplace_builder_shared::block::BlockId;
+use hotshot_types::vid::VidCommitment;
+use marketplace_builder_shared::block::{BlockId, BuilderStateId};
 use marketplace_builder_shared::testing::consensus::SimulatedChainState;
 use marketplace_builder_shared::testing::constants::TEST_NUM_NODES_IN_VID_COMPUTATION;
 use tracing_test::traced_test;
@@ -124,6 +125,8 @@ async fn huge_transactions() {
     // Max block size for this test. As low as possible
     // so that we don't spend a lot of time in this test
     const PROTOCOL_MAX_BLOCK_SIZE: u64 = BlockSizeLimits::MAX_BLOCK_SIZE_FLOOR;
+    // Number of big transactions to send to the builder
+    const N_BIG_TRANSACTIONS: usize = 10;
 
     let global_state = GlobalState::new(
         BuilderConfig::test(),
@@ -138,7 +141,7 @@ async fn huge_transactions() {
 
     proxy_global_state
         .0
-        .submit_txns(vec![almost_too_big])
+        .submit_txns(vec![almost_too_big.clone(); N_BIG_TRANSACTIONS])
         .await
         .unwrap();
 
@@ -147,4 +150,18 @@ async fn huge_transactions() {
         .submit_txns(vec![too_big])
         .await
         .unwrap_err();
+
+    // Builder shouldn't exceed the maximum block size, so transactions
+    // should be included one-by-one
+    for _ in 0..N_BIG_TRANSACTIONS {
+        assert_eq!(
+            vec![almost_too_big.clone()],
+            proxy_global_state
+                .get_transactions(&BuilderStateId {
+                    parent_view: ViewNumber::genesis(),
+                    parent_commitment: VidCommitment::default(),
+                })
+                .await
+        )
+    }
 }

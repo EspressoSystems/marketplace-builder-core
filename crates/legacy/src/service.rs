@@ -407,6 +407,8 @@ where
         &self,
         state_id: BuilderStateId<Types>,
     ) -> Result<Vec<AvailableBlockInfo<Types>>, Error<Types>> {
+        let start = Instant::now();
+
         let check_period = self.max_api_waiting_time / 10;
         let time_to_wait_for_matching_builder = self.max_api_waiting_time / 2;
 
@@ -441,23 +443,41 @@ where
             };
         };
 
-        let Some(info) = self.build_block(builder).await? else {
-            return Ok(vec![]);
-        };
-
-        let block_id = BlockId {
-            hash: info.block_payload.builder_commitment(&info.metadata),
-            view: state_id.parent_view,
-        };
-
-        let response = info.signed_response(&self.builder_keys)?;
-
+        let build_block_timeout = self
+            .max_api_waiting_time
+            .saturating_sub(start.elapsed())
+            .div_f32(1.1);
+        match timeout(build_block_timeout, self.build_block(builder))
+            .await
+            .map_err(|_| Error::ApiTimeout)
         {
-            let mut mutable_state = self.block_store.write().await;
-            mutable_state.update(state_id, block_id, info);
-        }
+            // Success
+            Ok(Ok(Some(info))) => {
+                let block_id = BlockId {
+                    hash: info.block_payload.builder_commitment(&info.metadata),
+                    view: state_id.parent_view,
+                };
 
-        Ok(vec![response])
+                let response = info.signed_response(&self.builder_keys)?;
+
+                {
+                    let mut mutable_state = self.block_store.write().await;
+                    mutable_state.update(state_id, block_id, info);
+                }
+
+                Ok(vec![response])
+            }
+            // Success, but no block: we don't have transactions and aren't prioritizing finalization
+            Ok(Ok(None)) => Ok(vec![]),
+            // Error building block, try to respond with a cached one as last-ditch attempt
+            Ok(Err(e)) | Err(e) => {
+                if let Some(cached_block) = self.block_store.read().await.get_cached(&state_id) {
+                    Ok(vec![cached_block.signed_response(&self.builder_keys)?])
+                } else {
+                    Err(e)
+                }
+            }
+        }
     }
 
     #[instrument(skip_all,
@@ -732,7 +752,6 @@ where
     >>::Error: Display,
     for<'a> <Types::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
-    #[instrument(skip(self))]
     async fn submit_txns(
         &self,
         txns: Vec<<Types as NodeType>::Transaction>,
