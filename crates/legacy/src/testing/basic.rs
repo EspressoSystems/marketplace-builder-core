@@ -43,8 +43,8 @@ async fn test_builder() {
     );
 
     let (event_stream_sender, event_stream) = broadcast(1024);
-    let proxy_global_state =
-        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone());
+    let test_service =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone()).await;
     global_state.start_event_loop(event_stream);
 
     // Transactions to send
@@ -68,7 +68,7 @@ async fn test_builder() {
     #[allow(clippy::needless_range_loop)] // intent is clearer this way
     for round in 0..NUM_ROUNDS {
         // simulate transaction being submitted to the builder
-        proxy_global_state
+        test_service
             .submit_transactions(all_transactions[round].clone())
             .await;
 
@@ -79,7 +79,7 @@ async fn test_builder() {
             .await;
 
         // get response
-        let transactions = proxy_global_state.get_transactions(&builder_state_id).await;
+        let transactions = test_service.get_transactions(&builder_state_id).await;
 
         // in the next round we will use received transactions to simulate
         // the block being proposed
@@ -114,8 +114,8 @@ async fn test_pruning() {
     );
 
     let (event_stream_sender, event_stream) = broadcast(1024);
-    let proxy_global_state =
-        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone());
+    let test_service =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone()).await;
     Arc::clone(&global_state).start_event_loop(event_stream);
 
     // Transactions to send
@@ -162,7 +162,7 @@ async fn test_pruning() {
         assert_eq!(*global_state.coordinator.lowest_view().await, 0);
 
         // simulate transaction being submitted to the builder
-        proxy_global_state
+        test_service
             .submit_transactions(all_transactions[round].clone())
             .await;
 
@@ -173,7 +173,7 @@ async fn test_pruning() {
             .await;
 
         // get response
-        let transactions = proxy_global_state.get_transactions(&builder_state_id).await;
+        let transactions = test_service.get_transactions(&builder_state_id).await;
 
         // in the next round we will use received transactions to simulate
         // the block being proposed
@@ -274,12 +274,12 @@ async fn test_signature_checks() {
         TEST_NUM_NODES_IN_VID_COMPUTATION,
     );
 
-    let proxy_global_state = ProxyGlobalState(global_state);
+    let test_service = ProxyGlobalState(global_state);
 
     // Available blocks
     {
         // Verification  should fail if signature is over incorrect data
-        let err = proxy_global_state
+        let err = test_service
             .available_blocks(
                 &vid_commitment,
                 0,
@@ -292,7 +292,7 @@ async fn test_signature_checks() {
         assert_eq_generic_err(err, Error::SignatureValidation);
 
         // Verification  should also fail if signature is over correct data but by incorrect key
-        let err = proxy_global_state
+        let err = test_service
             .available_blocks(
                 &vid_commitment,
                 0,
@@ -308,7 +308,7 @@ async fn test_signature_checks() {
     // Claim block
     {
         // Verification  should fail if signature is over incorrect data
-        let err = proxy_global_state
+        let err = test_service
             .claim_block(
                 &builder_commitment,
                 0,
@@ -321,7 +321,7 @@ async fn test_signature_checks() {
         assert_eq_generic_err(err, Error::SignatureValidation);
 
         // Verification  should also fail if signature is over correct data but by incorrect key
-        let err = proxy_global_state
+        let err = test_service
             .claim_block(
                 &builder_commitment,
                 0,
@@ -337,7 +337,7 @@ async fn test_signature_checks() {
     // Claim block header input
     {
         // Verification  should fail if signature is over incorrect data
-        let err = proxy_global_state
+        let err = test_service
             .claim_block_header_input(
                 &builder_commitment,
                 0,
@@ -350,7 +350,7 @@ async fn test_signature_checks() {
         assert_eq_generic_err(err, Error::SignatureValidation);
 
         // Verification  should also fail if signature is over correct data but by incorrect key
-        let err = proxy_global_state
+        let err = test_service
             .claim_block_header_input(
                 &builder_commitment,
                 0,

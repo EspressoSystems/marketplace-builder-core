@@ -7,7 +7,10 @@ use futures::{
 use hotshot::traits::BlockPayload;
 use hotshot_types::{
     data::{DaProposal, QuorumProposal},
-    traits::{block_contents::BlockHeader, node_implementation::NodeType},
+    traits::{
+        block_contents::BlockHeader, node_implementation::NodeType,
+        signature_key::BuilderSignatureKey,
+    },
     utils::BuilderCommitment,
 };
 use tokio::{spawn, sync::Notify};
@@ -17,6 +20,13 @@ pub use rotating_set::RotatingSet;
 
 pub mod event_serivce_wrapper;
 pub use event_serivce_wrapper::EventServiceStream;
+
+/// A convenience type alias for a tuple of builder keys
+/// `(public_key, private_key)`
+pub type BuilderKeys<Types> = (
+    <Types as NodeType>::BuilderSignatureKey,
+    <<Types as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
+);
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ProposalId<Types>

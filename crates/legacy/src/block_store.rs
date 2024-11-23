@@ -5,7 +5,7 @@ use hotshot_builder_api::v0_2::block_info::AvailableBlockInfo;
 use hotshot_types::traits::signature_key::BuilderSignatureKey;
 use hotshot_types::vid::{VidCommitment, VidPrecomputeData};
 use marketplace_builder_shared::error::Error;
-use marketplace_builder_shared::utils::WaitAndKeep;
+use marketplace_builder_shared::utils::{BuilderKeys, WaitAndKeep};
 use marketplace_builder_shared::{
     block::BuilderStateId, coordinator::tiered_view_map::TieredViewMap,
 };
@@ -13,8 +13,6 @@ use marketplace_builder_shared::{
 use marketplace_builder_shared::block::BlockId;
 
 use hotshot_types::traits::node_implementation::NodeType;
-
-use crate::service::BuilderKeys;
 
 // It holds all the necessary information for a block
 #[derive(Debug, Clone)]

@@ -4,6 +4,7 @@ use marketplace_builder_shared::{
     block::{BuilderStateId, ReceivedTransaction, TransactionSource},
     coordinator::{BuilderStateCoordinator, BuilderStateLookup},
     state::BuilderState,
+    utils::BuilderKeys,
 };
 
 pub use async_broadcast::{broadcast, RecvError, TryRecvError};
@@ -41,6 +42,28 @@ pub use marketplace_builder_shared::utils::EventServiceStream;
 
 use crate::hooks::BuilderHooks;
 
+/// Configuration to initialize the builder
+#[derive(Debug, Clone)]
+pub struct BuilderConfig<Types: NodeType> {
+    /// Keys that this builder will use to sign responses
+    pub builder_keys: BuilderKeys<Types>,
+    /// Maximum time allotted for the builder to respond to an API call.
+    /// If the response isn't ready by this time, an error will be returned
+    /// to the caller.
+    pub api_timeout: Duration,
+    /// Time the builder will wait for new transactions before answering an
+    /// `available_blocks` API call if the builder doesn't have any transactions at the moment
+    /// of the call. Should be less than [`Self::api_timeout`]
+    pub tx_capture_timeout: Duration,
+    /// (Approximate) duration over which included transaction hashes will be stored
+    /// by the builder for deduplication of incoming transactions.
+    pub txn_garbage_collect_duration: Duration,
+    /// Channel capacity for incoming transactions for a single builder state.
+    pub txn_channel_capacity: usize,
+    /// Base fee; the sequencing fee for a bundle is calculated as bundle size × base fee
+    pub base_fee: u64,
+}
+
 /// The main type implementing the marketplace builder.
 pub struct GlobalState<Types, Hooks>
 where
@@ -50,11 +73,7 @@ where
     /// Coordinator we'll rely on to manage builder states
     coordinator: Arc<BuilderStateCoordinator<Types>>,
     /// Identity keys for the builder
-    builder_keys: (
-        Types::BuilderSignatureKey, // pub key
-        <<Types as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey, // private key
-    ),
-
+    builder_keys: BuilderKeys<Types>,
     /// Maximum time allotted to wait for bundle before returning an error
     api_timeout: Duration,
     /// Maximum time we're allowed to expend waiting for more transactions to
@@ -62,7 +81,26 @@ where
     tx_capture_timeout: Duration,
     /// Base fee per bundle byte
     base_fee: u64,
+    /// See [`BuilderHooks`] for more information
     hooks: Arc<Hooks>,
+}
+
+#[cfg(test)]
+impl<Types: NodeType> BuilderConfig<Types> {
+    pub(crate) fn test() -> Self {
+        use marketplace_builder_shared::testing::constants::*;
+        Self {
+            builder_keys:
+                <Types::BuilderSignatureKey as BuilderSignatureKey>::generated_from_seed_indexed(
+                    [0u8; 32], 66,
+                ),
+            api_timeout: TEST_API_TIMEOUT,
+            tx_capture_timeout: TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
+            txn_garbage_collect_duration: TEST_INCLUDED_TX_GC_PERIOD,
+            txn_channel_capacity: TEST_CHANNEL_BUFFER_SIZE,
+            base_fee: TEST_BASE_FEE,
+        }
+    }
 }
 
 impl<Types, Hooks> GlobalState<Types, Hooks>
@@ -74,27 +112,18 @@ where
     >>::Error: Display,
     for<'a> <Types::SignatureKey as TryFrom<&'a TaggedBase64>>::Error: Display,
 {
-    pub fn new(
-        builder_keys: (
-            Types::BuilderSignatureKey,
-            <<Types as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
-        ),
-        api_timeout: Duration,
-        tx_capture_timeout: Duration,
-        txn_garbage_collect_duration: Duration,
-        txn_channel_capacity: usize,
-        base_fee: u64,
-        hooks: Hooks,
-    ) -> Arc<Self> {
-        let coordinator =
-            BuilderStateCoordinator::new(txn_channel_capacity, txn_garbage_collect_duration);
+    pub fn new(config: BuilderConfig<Types>, hooks: Hooks) -> Arc<Self> {
+        let coordinator = BuilderStateCoordinator::new(
+            config.txn_channel_capacity,
+            config.txn_garbage_collect_duration,
+        );
         Arc::new(Self {
             hooks: Arc::new(hooks),
             coordinator: Arc::new(coordinator),
-            builder_keys,
-            api_timeout,
-            tx_capture_timeout,
-            base_fee,
+            builder_keys: config.builder_keys,
+            api_timeout: config.api_timeout,
+            tx_capture_timeout: config.tx_capture_timeout,
+            base_fee: config.base_fee,
         })
     }
 

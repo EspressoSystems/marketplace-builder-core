@@ -41,8 +41,8 @@ async fn test_empty_block_rate() {
     );
 
     let (event_stream_sender, event_stream) = broadcast(1024);
-    let proxy_global_state =
-        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone());
+    let test_service =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone()).await;
     global_state.start_event_loop(event_stream);
 
     let mut chain_state = SimulatedChainState::new(event_stream_sender);
@@ -56,7 +56,7 @@ async fn test_empty_block_rate() {
 
         // get response
         for _ in 0..NUM_RETRIES {
-            let available_blocks = proxy_global_state
+            let available_blocks = test_service
                 .get_available_blocks(&builder_state_id)
                 .await
                 .unwrap();
@@ -95,8 +95,8 @@ async fn test_eager_block_rate() {
     );
 
     let (event_stream_sender, event_stream) = broadcast(1024);
-    let proxy_global_state =
-        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone());
+    let test_service =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone()).await;
     global_state.start_event_loop(event_stream);
 
     let mut chain_state = SimulatedChainState::new(event_stream_sender);
@@ -107,7 +107,7 @@ async fn test_eager_block_rate() {
 
         // get response
         for _ in 0..NUM_RETRIES {
-            let available_blocks = proxy_global_state
+            let available_blocks = test_service
                 .get_available_blocks(&builder_state_id)
                 .await
                 .unwrap();
@@ -126,7 +126,7 @@ async fn test_eager_block_rate() {
 
         // get response
         for _ in 0..NUM_RETRIES {
-            let available_blocks = proxy_global_state
+            let available_blocks = test_service
                 .get_available_blocks(&builder_state_id)
                 .await
                 .unwrap();
@@ -146,7 +146,7 @@ async fn test_eager_block_rate() {
 
         // get response
         for _ in 0..NUM_RETRIES {
-            let available_blocks = proxy_global_state
+            let available_blocks = test_service
                 .get_available_blocks(&builder_state_id)
                 .await
                 .unwrap();
@@ -163,7 +163,7 @@ async fn test_eager_block_rate() {
 
         // get response
         for _ in 0..NUM_RETRIES {
-            let available_blocks = proxy_global_state
+            let available_blocks = test_service
                 .get_available_blocks(&builder_state_id)
                 .await
                 .unwrap();

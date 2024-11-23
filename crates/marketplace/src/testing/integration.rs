@@ -1,7 +1,7 @@
 //! This module implements interfaces necessary to run marketplace builder
 //! in HotShot testing harness.
 
-use std::{collections::HashMap, fmt::Display, marker::PhantomData, sync::Arc, time::Duration};
+use std::{collections::HashMap, fmt::Display, marker::PhantomData, sync::Arc};
 
 use async_trait::async_trait;
 use hotshot::types::SignatureKey;
@@ -9,10 +9,7 @@ use hotshot_testing::{
     block_builder::{BuilderTask, TestBuilderImplementation},
     test_builder::BuilderChange,
 };
-use hotshot_types::{
-    data::ViewNumber,
-    traits::{node_implementation::NodeType, signature_key::BuilderSignatureKey},
-};
+use hotshot_types::{data::ViewNumber, traits::node_implementation::NodeType};
 use tagged_base64::TaggedBase64;
 use tokio::spawn;
 use url::Url;
@@ -20,10 +17,8 @@ use vbs::version::StaticVersion;
 
 use crate::{
     hooks::{BuilderHooks, NoHooks},
-    service::GlobalState,
+    service::{BuilderConfig, GlobalState},
 };
-
-const BUILDER_CHANNEL_CAPACITY: usize = 1024;
 
 /// Testing configuration for marketplace builder
 /// Stores hooks that will be used in the builder in a type-erased manner,
@@ -72,18 +67,8 @@ where
         config: Self::Config,
         _changes: HashMap<u64, BuilderChange>,
     ) -> Box<dyn BuilderTask<Types>> {
-        let builder_key_pair = Types::BuilderSignatureKey::generated_from_seed_indexed([0; 32], 0);
-
         // Create the global state
-        let service = GlobalState::new(
-            builder_key_pair,
-            Duration::from_millis(500),
-            Duration::from_millis(10),
-            Duration::from_secs(60),
-            BUILDER_CHANNEL_CAPACITY,
-            1, // Arbitrary base fee
-            config.hooks,
-        );
+        let service = GlobalState::new(BuilderConfig::test(), config.hooks);
 
         // Create tide-disco app based on global state
         let app = Arc::clone(&service)

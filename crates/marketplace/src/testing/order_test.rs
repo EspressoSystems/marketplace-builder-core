@@ -1,31 +1,19 @@
 use async_broadcast::broadcast;
 use hotshot_builder_api::v0_3::data_source::{AcceptsTxnSubmits, BuilderDataSource};
 use hotshot_types::{bundle::Bundle, traits::node_implementation::ConsensusTime};
-use marketplace_builder_shared::{
-    block::BuilderStateId,
-    testing::{
-        consensus::SimulatedChainState,
-        constants::{
-            TEST_API_TIMEOUT, TEST_BASE_FEE, TEST_INCLUDED_TX_GC_PERIOD,
-            TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
-        },
-    },
-};
+use marketplace_builder_shared::{block::BuilderStateId, testing::consensus::SimulatedChainState};
 use tracing_test::traced_test;
 
 use crate::{
     hooks::NoHooks,
-    service::{GlobalState, ProxyGlobalState},
+    service::{BuilderConfig, GlobalState, ProxyGlobalState},
 };
 
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use hotshot_example_types::block_types::TestTransaction;
 
-use hotshot::{
-    rand::{self, seq::SliceRandom, thread_rng},
-    types::{BLSPubKey, SignatureKey},
-};
+use hotshot::rand::{self, seq::SliceRandom, thread_rng};
 
 /// [`RoundTransactionBehavior`] is an enum that is used to represent different
 /// behaviors that we may want to simulate during a round.  This applies to
@@ -135,18 +123,8 @@ async fn test_builder_order() {
     const NUM_ROUNDS: usize = 10;
     /// Number of transactions to submit per round
     const NUM_TXNS_PER_ROUND: usize = 5;
-    /// Capacity of broadcast channels
-    const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
 
-    let global_state = GlobalState::new(
-        BLSPubKey::generated_from_seed_indexed([0; 32], 0),
-        TEST_API_TIMEOUT,
-        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
-        TEST_INCLUDED_TX_GC_PERIOD,
-        CHANNEL_CAPACITY,
-        TEST_BASE_FEE,
-        NoHooks(PhantomData),
-    );
+    let global_state = GlobalState::new(BuilderConfig::test(), NoHooks(PhantomData));
     let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
 
     let (event_stream_sender, event_stream) = broadcast(1024);
@@ -256,8 +234,6 @@ async fn test_builder_order_chain_fork() {
     const NUM_ROUNDS: usize = 4;
     // Number of transactions to submit per round
     const NUM_TXNS_PER_ROUND: usize = 5;
-    // Capacity of broadcast channels
-    const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
 
     // the round we want to skip all the transactions for the fork chain
     // round 0 is pre-fork
@@ -276,15 +252,7 @@ async fn test_builder_order_chain_fork() {
         RoundTransactionBehavior::NoAdjust
     };
 
-    let global_state = GlobalState::new(
-        BLSPubKey::generated_from_seed_indexed([0; 32], 0),
-        TEST_API_TIMEOUT,
-        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
-        TEST_INCLUDED_TX_GC_PERIOD,
-        CHANNEL_CAPACITY,
-        TEST_BASE_FEE,
-        NoHooks(PhantomData),
-    );
+    let global_state = GlobalState::new(BuilderConfig::test(), NoHooks(PhantomData));
     let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
 
     let (event_stream_sender, event_stream) = broadcast(1024);
@@ -405,18 +373,8 @@ async fn test_builder_order_should_fail() {
     const NUM_ROUNDS: usize = 10;
     // Number of transactions to submit per round
     const NUM_TXNS_PER_ROUND: usize = 5;
-    // Capacity of broadcast channels
-    const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
 
-    let global_state = GlobalState::new(
-        BLSPubKey::generated_from_seed_indexed([0; 32], 0),
-        TEST_API_TIMEOUT,
-        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
-        TEST_INCLUDED_TX_GC_PERIOD,
-        CHANNEL_CAPACITY,
-        TEST_BASE_FEE,
-        NoHooks(PhantomData),
-    );
+    let global_state = GlobalState::new(BuilderConfig::test(), NoHooks(PhantomData));
     let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));
 
     let (event_stream_sender, event_stream) = broadcast(1024);

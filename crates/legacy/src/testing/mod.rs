@@ -4,6 +4,7 @@
 
 use std::cell::LazyCell;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_broadcast::Sender;
 use committable::Commitment;
@@ -20,11 +21,12 @@ use hotshot_types::data::ViewNumber;
 use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
 use marketplace_builder_shared::block::{BlockId, BuilderStateId};
 use marketplace_builder_shared::error::Error;
+use marketplace_builder_shared::utils::BuilderKeys;
 use tokio::spawn;
 use url::Url;
 use vbs::version::StaticVersion;
 
-use crate::service::{BuilderKeys, GlobalState, ProxyGlobalState};
+use crate::service::{GlobalState, ProxyGlobalState};
 
 mod basic;
 mod block_size;
@@ -63,7 +65,7 @@ struct TestServiceWrapper {
 }
 
 impl TestServiceWrapper {
-    fn new(
+    async fn new(
         global_state: Arc<GlobalState<TestTypes>>,
         event_stream_sender: Sender<Event<TestTypes>>,
     ) -> Self {
@@ -71,10 +73,12 @@ impl TestServiceWrapper {
         let url: Url = format!("http://localhost:{port}").parse().unwrap();
         let app = Arc::clone(&global_state).into_app().unwrap();
         spawn(app.serve(url.clone(), StaticVersion::<0, 1> {}));
+        let client = BuilderClient::new(url);
+        assert!(client.connect(Duration::from_secs(1)).await);
         Self {
             event_sender: event_stream_sender,
             proxy_global_state: ProxyGlobalState(global_state),
-            client: BuilderClient::new(url),
+            client,
         }
     }
 }

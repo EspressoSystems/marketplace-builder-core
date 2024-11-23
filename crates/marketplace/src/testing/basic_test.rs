@@ -1,15 +1,11 @@
 use async_broadcast::broadcast;
-use hotshot::types::{BLSPubKey, SignatureKey};
 use hotshot_builder_api::v0_3::data_source::{AcceptsTxnSubmits, BuilderDataSource};
 
 use hotshot_example_types::block_types::TestTransaction;
-use marketplace_builder_shared::testing::constants::{
-    TEST_API_TIMEOUT, TEST_BASE_FEE, TEST_INCLUDED_TX_GC_PERIOD, TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
-};
 use tracing_test::traced_test;
 
 use crate::hooks::NoHooks;
-use crate::service::{GlobalState, ProxyGlobalState};
+use crate::service::{BuilderConfig, GlobalState, ProxyGlobalState};
 use marketplace_builder_shared::testing::consensus::SimulatedChainState;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -22,16 +18,9 @@ async fn test_builder() {
     const NUM_ROUNDS: usize = 5;
     // Number of transactions to submit per round
     const NUM_TXNS_PER_ROUND: usize = 4;
-    // Capacity of broadcast channels
-    const CHANNEL_CAPACITY: usize = NUM_ROUNDS * 5;
 
     let global_state = Arc::new(GlobalState::new(
-        BLSPubKey::generated_from_seed_indexed([0; 32], 0),
-        TEST_API_TIMEOUT,
-        TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
-        TEST_INCLUDED_TX_GC_PERIOD,
-        CHANNEL_CAPACITY,
-        TEST_BASE_FEE,
+        BuilderConfig::test(),
         NoHooks(PhantomData),
     ));
     let proxy_global_state = ProxyGlobalState(Arc::clone(&global_state));

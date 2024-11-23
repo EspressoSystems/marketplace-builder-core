@@ -20,7 +20,7 @@ use hotshot_types::{
 use marketplace_builder_shared::coordinator::BuilderStateLookup;
 use marketplace_builder_shared::error::Error;
 use marketplace_builder_shared::state::BuilderState;
-use marketplace_builder_shared::utils::WaitAndKeep;
+use marketplace_builder_shared::utils::{BuilderKeys, WaitAndKeep};
 use tide_disco::app::AppError;
 use tokio::spawn;
 use tokio::time::{sleep, timeout};
@@ -64,11 +64,6 @@ const VID_RESPONSE_TARGET_MARGIN_DIVISOR: u32 = 10;
 /// transactions by producing empty blocks rather than avoiding the creation
 /// of them, following the proposal that contains transactions.
 pub(crate) const ALLOW_EMPTY_BLOCK_PERIOD: u64 = 3;
-
-pub type BuilderKeys<Types> = (
-    <Types as NodeType>::BuilderSignatureKey, // pub key
-    <<Types as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey, // private key
-);
 
 /// Configuration to initialize the builder
 #[derive(Debug, Clone)]

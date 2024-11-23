@@ -53,8 +53,8 @@ async fn block_size_increment() {
     );
 
     let (event_stream_sender, event_stream) = broadcast(1024);
-    let proxy_global_state =
-        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone());
+    let test_service =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender.clone()).await;
     Arc::clone(&global_state).start_event_loop(event_stream);
 
     // set up state to track between simulated consensus rounds
@@ -77,7 +77,7 @@ async fn block_size_increment() {
         );
 
         // simulate transaction being submitted to the builder
-        proxy_global_state
+        test_service
             .submit_transactions(vec![TestTransaction::default()])
             .await;
 
@@ -86,7 +86,7 @@ async fn block_size_increment() {
         let builder_state_id = chain_state.simulate_consensus_round(None).await;
 
         // Get response. Called through
-        let mut available_states = proxy_global_state
+        let mut available_states = test_service
             .get_available_blocks(&builder_state_id)
             .await
             .unwrap();
@@ -97,7 +97,7 @@ async fn block_size_increment() {
                 view: builder_state_id.parent_view,
             };
             // Get header input, this should trigger block size limits increment
-            proxy_global_state
+            test_service
                 .claim_block_header_input(&block_id)
                 .await
                 .expect("Failed to claim header input");
@@ -131,19 +131,19 @@ async fn huge_transactions() {
         TEST_NUM_NODES_IN_VID_COMPUTATION,
     );
     let (event_stream_sender, event_stream) = broadcast(1024);
-    let proxy_global_state =
-        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender);
+    let test_service =
+        TestServiceWrapper::new(Arc::clone(&global_state), event_stream_sender).await;
     Arc::clone(&global_state).start_event_loop(event_stream);
 
     let almost_too_big = TestTransaction::new(vec![0u8; PROTOCOL_MAX_BLOCK_SIZE as usize]);
     let too_big = TestTransaction::new(vec![0u8; PROTOCOL_MAX_BLOCK_SIZE as usize + 1]);
 
-    proxy_global_state
+    test_service
         .submit_transactions_private(vec![almost_too_big.clone(); N_BIG_TRANSACTIONS])
         .await
         .unwrap();
 
-    proxy_global_state
+    test_service
         .submit_transactions_private(vec![too_big])
         .await
         .unwrap_err();
@@ -152,7 +152,7 @@ async fn huge_transactions() {
     // should be included one-by-one
     assert_eq!(
         vec![almost_too_big],
-        proxy_global_state
+        test_service
             .get_transactions(&BuilderStateId {
                 parent_view: ViewNumber::genesis(),
                 parent_commitment: VidCommitment::default(),
