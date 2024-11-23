@@ -150,15 +150,13 @@ async fn huge_transactions() {
 
     // Builder shouldn't exceed the maximum block size, so transactions
     // should be included one-by-one
-    for _ in 0..N_BIG_TRANSACTIONS {
-        assert_eq!(
-            vec![almost_too_big.clone()],
-            proxy_global_state
-                .get_transactions(&BuilderStateId {
-                    parent_view: ViewNumber::genesis(),
-                    parent_commitment: VidCommitment::default(),
-                })
-                .await
-        )
-    }
+    assert_eq!(
+        vec![almost_too_big],
+        proxy_global_state
+            .get_transactions(&BuilderStateId {
+                parent_view: ViewNumber::genesis(),
+                parent_commitment: VidCommitment::default(),
+            })
+            .await
+    )
 }

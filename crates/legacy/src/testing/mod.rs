@@ -80,6 +80,8 @@ impl TestServiceWrapper {
 }
 
 impl TestServiceWrapper {
+    /// Proxies request to get available blocks to underlying [`ProxyGlobalState`],
+    /// taking care of signing
     pub(crate) async fn get_available_blocks(
         &self,
         state_id: &BuilderStateId<TestTypes>,
@@ -94,6 +96,8 @@ impl TestServiceWrapper {
             .await
     }
 
+    /// Proxies request to get claim block header input to underlying [`ProxyGlobalState`],
+    /// taking care of signing
     pub(crate) async fn claim_block_header_input(
         &self,
         block_id: &BlockId<TestTypes>,
@@ -108,6 +112,13 @@ impl TestServiceWrapper {
             .await
     }
 
+    /// Combines get available block request and claim block request to
+    /// get transactions a leader would've received for the round.
+    ///
+    /// Panics on errors.
+    ///
+    /// Requests are routed through HotShot's HTTP API client to check
+    /// compatibility
     pub(crate) async fn get_transactions(
         &self,
         state_id: &BuilderStateId<TestTypes>,
@@ -141,6 +152,7 @@ impl TestServiceWrapper {
         block.block_payload.transactions
     }
 
+    /// Emulates submission of transactions through HotShot gossiping
     pub(crate) async fn submit_transactions_public(&self, transactions: Vec<TestTransaction>) {
         self.event_sender
             .broadcast(Event {
@@ -151,6 +163,7 @@ impl TestServiceWrapper {
             .unwrap();
     }
 
+    /// Submits transactions through private mempool interface of [`ProxyGlobalState`]
     pub(crate) async fn submit_transactions_private(
         &self,
         transactions: Vec<TestTransaction>,
@@ -158,6 +171,7 @@ impl TestServiceWrapper {
         self.proxy_global_state.submit_txns(transactions).await
     }
 
+    /// Submits transactions randomly either through public or private mempool
     pub(crate) async fn submit_transactions(&self, transactions: Vec<TestTransaction>) {
         if thread_rng().gen() {
             self.submit_transactions_public(transactions).await
