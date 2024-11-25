@@ -74,6 +74,7 @@ where
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use tracing_test::traced_test;
