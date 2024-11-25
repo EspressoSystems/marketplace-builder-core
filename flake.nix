@@ -68,6 +68,7 @@
             cargo-udeps
             cargo-sort
             cargo-nextest
+            cargo-mutants
 
             cmake
           ]
