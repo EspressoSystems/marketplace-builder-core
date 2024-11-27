@@ -105,13 +105,9 @@ pub struct ParentBlockReferences<Types: NodeType> {
     /// Builder commitment of the parent block payload
     pub builder_commitment: BuilderCommitment,
     /// Number of transactions included in the parent block
-    pub tx_number: usize,
-    /// Number of views since the last non-empty block, if known
-    /// Can be interpreted as offset from parent block to the
-    /// last non-empty one, i.e. 0 indicates that the parent block is
-    /// not empty, and 1 would indicate that this block is empty,
-    /// but grandparent isn't
-    pub views_since_nonempty_block: Option<u64>,
+    pub tx_count: usize,
+    /// Last known view that had a block with transactions
+    pub last_nonempty_view: Option<Types::View>,
 }
 
 impl<Types> ParentBlockReferences<Types>
@@ -125,8 +121,8 @@ where
             vid_commitment: VidCommitment::default(),
             leaf_commit: fake_commitment(),
             builder_commitment: BuilderCommitment::from_bytes([]),
-            tx_number: 0,
-            views_since_nonempty_block: None,
+            tx_count: 0,
+            last_nonempty_view: None,
         }
     }
 }

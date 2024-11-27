@@ -160,6 +160,8 @@ impl TestServiceWrapper {
     pub(crate) async fn submit_transactions_public(&self, transactions: Vec<TestTransaction>) {
         self.event_sender
             .broadcast(Event {
+                // This field is never actually used in the builder, so we can just use
+                // an arbitrary value
                 view_number: ViewNumber::genesis(),
                 event: EventType::Transactions { transactions },
             })

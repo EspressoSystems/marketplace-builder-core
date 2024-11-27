@@ -6,7 +6,7 @@ use hotshot_types::traits::node_implementation::NodeType;
 
 /// A trait for hooks into the builder service. Used to further customize
 /// builder behaviour in ways not possible in builder core.
-/// If you don't such customisation, use [`NoHooks`].
+/// If you don't need such customisation, use [`NoHooks`].
 ///
 /// A simple example filtering incoming transactions based on some imaginary
 /// application-specific magic byte:

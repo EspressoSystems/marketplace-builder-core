@@ -5,16 +5,29 @@ use std::sync::atomic::Ordering;
 #[derive(Debug, Clone, Copy, bytemuck::NoUninit)]
 #[repr(C)]
 pub(crate) struct MutableState {
+    /// Current block size limits
     pub max_block_size: u64,
+    /// Last time we've incremented the max block size, obtained
+    /// as [`coarsetime::Instant::as_ticks()`]
     pub last_block_size_increment: u64,
 }
 
-/// Adjustable limits for block size ceiled by
-/// maximum block size allowed by the protocol
+/// Adjustable limits for block size ceiled by maximum block size allowed by the protocol.
+/// We will avoid build blocks over this size limit for performance reasons: computing VID
+/// for bigger blocks could be too costly and lead to API timeouts.
+///
+/// Will be decremented if we fail to respond to `claim_block_header_input` request in time,
+/// and periodically incremented in two cases
+/// - we've served a response to `claim_block_header_input` in time and the block we've served
+///   was truncated because of our current max block size policy.
+/// - we've served a response to `claim_block_header_input` in time and [`Self::increment_period`]
+///   has passed since last time we've incremented the block limits
 #[derive(Debug)]
 pub struct BlockSizeLimits {
     pub(crate) mutable_state: Atomic<MutableState>,
+    /// Maximum block size as defined by protocol. We'll never increment beyound that
     pub protocol_max_block_size: u64,
+    /// Period between optimistic increments of the block size
     pub increment_period: Duration,
 }
 

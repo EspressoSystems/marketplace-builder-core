@@ -52,9 +52,18 @@ use tagged_base64::TaggedBase64;
 use tide_disco::{method::ReadState, App};
 use tokio::task::JoinHandle;
 
-// We will not increment max block value if we aren't able to serve a response
-// with a margin below [`ProxyGlobalState::max_api_waiting_time`]
-// more than [`ProxyGlobalState::max_api_waiting_time`] / `VID_RESPONSE_TARGET_MARGIN_DIVISOR`
+/// Proportion of overall allotted time to wait for optimal builder state
+/// to appear before resorting to highest view builder state
+const BUILDER_STATE_EXACT_MATCH_DIVISOR: u32 = 2;
+
+/// This constant governs duration of sleep in various retry loops
+/// in the API. If we're re-trying something with a timeout of `X`,
+/// we will sleep for `X / RETRY_LOOP_RESOLUTION` between attempts.
+const RETRY_LOOP_RESOLUTION: u32 = 10;
+
+/// We will not increment max block value if we aren't able to serve a response
+/// with a margin below [`GlobalState::max_api_waiting_time`]
+/// more than [`GlobalState::max_api_waiting_time`] / `VID_RESPONSE_TARGET_MARGIN_DIVISOR`
 const VID_RESPONSE_TARGET_MARGIN_DIVISOR: u32 = 10;
 
 /// [`ALLOW_EMPTY_BLOCK_PERIOD`] is a constant that is used to determine the
@@ -254,7 +263,7 @@ where
             match self.coordinator.lookup_builder_state(state_id).await {
                 BuilderStateLookup::Found(builder) => break Ok(builder),
                 BuilderStateLookup::Decided => {
-                    return Err(Error::NotFound);
+                    return Err(Error::AlreadyDecided);
                 }
                 BuilderStateLookup::NotFound => {
                     sleep(check_period).await;
@@ -272,7 +281,7 @@ where
         builder_state: Arc<BuilderState<Types>>,
     ) -> Result<Option<BlockInfo<Types>>, Error<Types>> {
         let timeout_after = Instant::now() + self.maximize_txn_capture_timeout;
-        let sleep_interval = self.maximize_txn_capture_timeout / 10;
+        let sleep_interval = self.maximize_txn_capture_timeout / RETRY_LOOP_RESOLUTION;
 
         while Instant::now() <= timeout_after {
             let queue_populated = builder_state.collect_txns(timeout_after).await;
@@ -288,11 +297,14 @@ where
         // If the parent block had transactions included and [`ALLOW_EMPTY_BLOCK_PERIOD`] views has not
         // passed since, we will allow building empty blocks. This is done to allow for faster finalization
         // of previous blocks that have had transactions included in them.
-        let should_prioritize_finalization = builder_state.parent_block_references.tx_number != 0
+        let should_prioritize_finalization = builder_state.parent_block_references.tx_count != 0
             && builder_state
                 .parent_block_references
-                .views_since_nonempty_block
-                .map(|value| value < ALLOW_EMPTY_BLOCK_PERIOD)
+                .last_nonempty_view
+                .map(|nonempty_view| {
+                    nonempty_view.saturating_sub(*builder_state.parent_block_references.view_number)
+                        < ALLOW_EMPTY_BLOCK_PERIOD
+                })
                 .unwrap_or(false);
 
         let builder: &Arc<BuilderState<Types>> = &builder_state;
@@ -404,8 +416,9 @@ where
     ) -> Result<Vec<AvailableBlockInfo<Types>>, Error<Types>> {
         let start = Instant::now();
 
-        let check_period = self.max_api_waiting_time / 10;
-        let time_to_wait_for_matching_builder = self.max_api_waiting_time / 2;
+        let check_period = self.max_api_waiting_time / RETRY_LOOP_RESOLUTION;
+        let time_to_wait_for_matching_builder =
+            self.max_api_waiting_time / BUILDER_STATE_EXACT_MATCH_DIVISOR;
 
         let builder = match timeout(
             time_to_wait_for_matching_builder,

@@ -138,7 +138,11 @@ where
         pruned
     }
 
-    /// This function should be called whenever new transactions are received from HotShot.
+    /// Enqueue new transaction in all builder states managed by this coordinator.
+    ///
+    /// Builder states will automatically filter transactions already included from
+    /// their point of view when dequeing transactions.
+    ///
     /// <div class="warning">
     ///
     ///   Important: [`BuilderState`]s do not automatically remove transactions from the channel.
