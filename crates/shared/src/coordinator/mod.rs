@@ -756,13 +756,16 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn test_transaction_status() {
+        // Lower for this test not to spend too much time here
+        const CHANNEL_BUFFER_SIZE: usize = 32;
+
         let coordinator = BuilderStateCoordinator::new(
-            TEST_CHANNEL_BUFFER_SIZE,
+            CHANNEL_BUFFER_SIZE,
             TEST_INCLUDED_TX_GC_PERIOD,
             TEST_TX_STATUS_CACHE_CAPACITY,
         );
 
-        let enqueued_transactions = (0..TEST_CHANNEL_BUFFER_SIZE)
+        let enqueued_transactions = (0..CHANNEL_BUFFER_SIZE)
             .map(|_| mock::transaction())
             .collect::<Vec<_>>();
 
@@ -829,14 +832,17 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn test_transaction_overflow() {
+        // Lower for this test not to spend too much time here
+        const CHANNEL_BUFFER_SIZE: usize = 32;
+
         let coordinator = BuilderStateCoordinator::new(
-            TEST_CHANNEL_BUFFER_SIZE,
+            CHANNEL_BUFFER_SIZE,
             TEST_INCLUDED_TX_GC_PERIOD,
             TEST_TX_STATUS_CACHE_CAPACITY,
         );
 
         // Coordinator should handle transactions while there's space in the buffer
-        for _ in 0..TEST_CHANNEL_BUFFER_SIZE {
+        for _ in 0..CHANNEL_BUFFER_SIZE {
             coordinator
                 .handle_transaction(ReceivedTransaction::new(
                     mock::transaction(),
@@ -866,7 +872,7 @@ mod tests {
             .await;
 
         // After clearing the channel, coordinator should handle transactions again
-        for _ in 0..TEST_CHANNEL_BUFFER_SIZE {
+        for _ in 0..CHANNEL_BUFFER_SIZE {
             coordinator
                 .handle_transaction(ReceivedTransaction::new(
                     mock::transaction(),
