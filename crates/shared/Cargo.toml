@@ -25,6 +25,7 @@ hotshot-types = { workspace = true }
 jf-vid = { workspace = true }
 nonempty-collections = { workspace = true }
 once_cell = { workspace = true }
+quick_cache = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true }

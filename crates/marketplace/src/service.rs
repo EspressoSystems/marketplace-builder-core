@@ -16,9 +16,12 @@ use futures::{
     TryStreamExt,
 };
 use hotshot::types::Event;
-use hotshot_builder_api::v0_3::{
-    builder::{define_api, submit_api, BuildError, Error as BuilderApiError},
-    data_source::{AcceptsTxnSubmits, BuilderDataSource},
+use hotshot_builder_api::{
+    v0_2::builder::TransactionStatus,
+    v0_3::{
+        builder::{define_api, submit_api, BuildError, Error as BuilderApiError},
+        data_source::{AcceptsTxnSubmits, BuilderDataSource},
+    },
 };
 use hotshot_types::bundle::Bundle;
 use hotshot_types::traits::block_contents::{BuilderFee, Transaction};
@@ -60,6 +63,8 @@ pub struct BuilderConfig<Types: NodeType> {
     pub txn_garbage_collect_duration: Duration,
     /// Channel capacity for incoming transactions for a single builder state.
     pub txn_channel_capacity: usize,
+    /// Capacity of cache storing information for transaction status API
+    pub tx_status_cache_capacity: usize,
     /// Base fee; the sequencing fee for a bundle is calculated as bundle size × base fee
     pub base_fee: u64,
 }
@@ -99,6 +104,7 @@ impl<Types: NodeType> BuilderConfig<Types> {
             txn_garbage_collect_duration: TEST_INCLUDED_TX_GC_PERIOD,
             txn_channel_capacity: TEST_CHANNEL_BUFFER_SIZE,
             base_fee: TEST_BASE_FEE,
+            tx_status_cache_capacity: TEST_TX_STATUS_CACHE_CAPACITY,
         }
     }
 }
@@ -116,6 +122,7 @@ where
         let coordinator = BuilderStateCoordinator::new(
             config.txn_channel_capacity,
             config.txn_garbage_collect_duration,
+            config.tx_status_cache_capacity,
         );
         Arc::new(Self {
             hooks: Arc::new(hooks),
@@ -408,6 +415,13 @@ where
             .collect::<FuturesOrdered<_>>()
             .try_collect()
             .await
+    }
+
+    async fn txn_status(
+        &self,
+        txn_hash: Commitment<<Types as NodeType>::Transaction>,
+    ) -> Result<TransactionStatus, BuildError> {
+        Ok(self.coordinator.tx_status(&txn_hash))
     }
 }
 

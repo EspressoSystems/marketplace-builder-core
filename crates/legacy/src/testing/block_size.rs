@@ -1,4 +1,6 @@
 use async_broadcast::broadcast;
+use committable::Committable;
+use hotshot_builder_api::v0_1::builder::TransactionStatus;
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_example_types::state_types::TestInstanceState;
 use hotshot_types::data::ViewNumber;
@@ -137,6 +139,7 @@ async fn huge_transactions() {
 
     let almost_too_big = TestTransaction::new(vec![0u8; PROTOCOL_MAX_BLOCK_SIZE as usize]);
     let too_big = TestTransaction::new(vec![0u8; PROTOCOL_MAX_BLOCK_SIZE as usize + 1]);
+    let too_big_commitment = too_big.commit();
 
     test_service
         .submit_transactions_private(vec![almost_too_big.clone(); N_BIG_TRANSACTIONS])
@@ -147,6 +150,15 @@ async fn huge_transactions() {
         .submit_transactions_private(vec![too_big])
         .await
         .unwrap_err();
+
+    // Should also update the tx status
+    assert!(matches!(
+        test_service
+            .proxy_global_state
+            .coordinator
+            .tx_status(&too_big_commitment),
+        TransactionStatus::Rejected { .. }
+    ));
 
     // Builder shouldn't exceed the maximum block size, so transactions
     // should be included one-by-one

@@ -1,8 +1,7 @@
 use hotshot::types::Event;
-use hotshot_builder_api::v0_1::builder::{define_api, submit_api, Error as BuilderApiError};
 use hotshot_builder_api::v0_1::{
     block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
-    builder::BuildError,
+    builder::{define_api, submit_api, BuildError, Error as BuilderApiError, TransactionStatus},
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
 use hotshot_types::traits::block_contents::{precompute_vid_commitment, Transaction};
@@ -95,6 +94,8 @@ pub struct BuilderConfig<Types: NodeType> {
     pub txn_garbage_collect_duration: Duration,
     /// Channel capacity for incoming transactions for a single builder state.
     pub txn_channel_capacity: usize,
+    /// Capacity of cache storing information for transaction status API
+    pub tx_status_cache_capacity: usize,
     /// Base fee; the sequencing fee for a block is calculated as block size × base fee
     pub base_fee: u64,
 }
@@ -113,20 +114,30 @@ impl<Types: NodeType> BuilderConfig<Types> {
             maximize_txn_capture_timeout: TEST_MAXIMIZE_TX_CAPTURE_TIMEOUT,
             txn_garbage_collect_duration: TEST_INCLUDED_TX_GC_PERIOD,
             txn_channel_capacity: TEST_CHANNEL_BUFFER_SIZE,
+            tx_status_cache_capacity: TEST_TX_STATUS_CACHE_CAPACITY,
             base_fee: TEST_BASE_FEE,
         }
     }
 }
 
 pub struct GlobalState<Types: NodeType> {
+    /// Underlying coordinator, responsible for builder state lifecycle
     pub(crate) coordinator: Arc<BuilderStateCoordinator<Types>>,
+    /// Keys that this builder will use to sign responses
     pub(crate) builder_keys: BuilderKeys<Types>,
-    pub(crate) max_api_waiting_time: Duration,
+    /// Stores blocks built by this builder
     pub(crate) block_store: RwLock<BlockStore<Types>>,
+    /// Limits on block size. See [`BlockSizeLimits`] documentation for more details.
     pub(crate) block_size_limits: BlockSizeLimits,
-    pub(crate) maximize_txn_capture_timeout: Duration,
+    /// Number of DA nodes used in VID computation
     pub(crate) num_nodes: AtomicUsize,
+    /// Instance state, used to construct new blocks
     pub(crate) instance_state: Types::InstanceState,
+    /// See [`BuilderConfig::max_api_waiting_time`]
+    pub(crate) max_api_waiting_time: Duration,
+    /// See [`BuilderConfig::maximize_txn_capture_timeout`]
+    pub(crate) maximize_txn_capture_timeout: Duration,
+    /// See [`BuilderConfig::base_fee`]
     pub(crate) base_fee: u64,
 }
 
@@ -147,6 +158,7 @@ where
             coordinator: Arc::new(BuilderStateCoordinator::new(
                 config.txn_channel_capacity,
                 config.txn_garbage_collect_duration,
+                config.tx_status_cache_capacity,
             )),
             block_store: RwLock::new(BlockStore::new()),
             block_size_limits: BlockSizeLimits::new(
@@ -249,7 +261,14 @@ where
         let max_tx_len = self.block_size_limits.max_block_size();
         if len > max_tx_len {
             tracing::warn!(%tx.commit, %len, %max_tx_len, "Transaction too big");
-            return Err(Error::TxTooBig { len, max_tx_len });
+            let error = Error::TxTooBig { len, max_tx_len };
+            self.coordinator.update_txn_status(
+                &tx.commit,
+                TransactionStatus::Rejected {
+                    reason: error.to_string(),
+                },
+            );
+            return Err(error);
         }
         self.coordinator.handle_transaction(tx).await
     }
@@ -774,6 +793,13 @@ where
             .collect::<FuturesOrdered<_>>()
             .try_collect()
             .await
+    }
+
+    async fn txn_status(
+        &self,
+        txn_hash: Commitment<<Types as NodeType>::Transaction>,
+    ) -> Result<TransactionStatus, BuildError> {
+        Ok(self.coordinator.tx_status(&txn_hash))
     }
 }
 
