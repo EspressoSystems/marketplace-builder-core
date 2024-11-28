@@ -1,5 +1,5 @@
 use async_broadcast::broadcast;
-use hotshot_builder_api::v0_3::data_source::{AcceptsTxnSubmits, BuilderDataSource};
+use hotshot_builder_api::v0_99::data_source::{AcceptsTxnSubmits, BuilderDataSource};
 
 use hotshot_example_types::block_types::TestTransaction;
 use tracing_test::traced_test;
