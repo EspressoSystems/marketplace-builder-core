@@ -3,10 +3,9 @@
 use std::time::Instant;
 
 use committable::{Commitment, Committable};
-use hotshot_types::data::fake_commitment;
+use hotshot_types::data::{fake_commitment, Leaf2};
 use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
-    data::Leaf,
     traits::{block_contents::Transaction, node_implementation::NodeType},
     utils::BuilderCommitment,
     vid::VidCommitment,
@@ -101,7 +100,7 @@ pub struct ParentBlockReferences<Types: NodeType> {
     /// VID commitment of the parent block payload
     pub vid_commitment: VidCommitment,
     /// Leaf commitment of the parent leaf
-    pub leaf_commit: Commitment<Leaf<Types>>,
+    pub leaf_commit: Commitment<Leaf2<Types>>,
     /// Builder commitment of the parent block payload
     pub builder_commitment: BuilderCommitment,
     /// Number of transactions included in the parent block

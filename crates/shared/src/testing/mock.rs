@@ -9,14 +9,17 @@ use hotshot_example_types::{
     node_types::{TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
+use hotshot_types::data::QuorumProposal2;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::event::LeafInfo;
+use hotshot_types::simple_certificate::QuorumCertificate2;
+use hotshot_types::simple_vote::QuorumData2;
 use hotshot_types::traits::block_contents::{vid_commitment, GENESIS_VID_NUM_STORAGE_NODES};
 use hotshot_types::{
-    data::{random_commitment, DaProposal, Leaf, QuorumProposal},
+    data::{random_commitment, DaProposal, Leaf, Leaf2},
     message::UpgradeLock,
     simple_certificate::QuorumCertificate,
-    simple_vote::{QuorumData, VersionedVoteData},
+    simple_vote::VersionedVoteData,
     traits::node_implementation::{ConsensusTime, NodeType},
     traits::BlockPayload,
     utils::BuilderCommitment,
@@ -49,7 +52,7 @@ pub async fn decide_leaf_chain_with_transactions(
 ) -> Arc<Vec<LeafInfo<TestTypes>>> {
     let (da_proposal, quorum_proposal) =
         proposals_with_transactions(decided_view, transactions).await;
-    let mut leaf = Leaf::from_quorum_proposal(&quorum_proposal);
+    let mut leaf = Leaf2::from_quorum_proposal(&quorum_proposal);
     let payload = <TestBlockPayload as BlockPayload<TestTypes>>::from_bytes(
         &da_proposal.encoded_transactions,
         &da_proposal.metadata,
@@ -64,7 +67,7 @@ pub async fn decide_leaf_chain_with_transactions(
 }
 
 /// Create mock pair of DA and Quorum proposals
-pub async fn proposals(view: u64) -> (DaProposal<TestTypes>, QuorumProposal<TestTypes>) {
+pub async fn proposals(view: u64) -> (DaProposal<TestTypes>, QuorumProposal2<TestTypes>) {
     let transaction = transaction();
     proposals_with_transactions(view, vec![transaction]).await
 }
@@ -73,7 +76,7 @@ pub async fn proposals(view: u64) -> (DaProposal<TestTypes>, QuorumProposal<Test
 pub async fn proposals_with_transactions(
     view: u64,
     transactions: Vec<TestTransaction>,
-) -> (DaProposal<TestTypes>, QuorumProposal<TestTypes>) {
+) -> (DaProposal<TestTypes>, QuorumProposal2<TestTypes>) {
     let view_number = <TestTypes as NodeType>::View::new(view);
     let upgrade_lock = UpgradeLock::<TestTypes, TestVersions>::new();
     let validated_state = TestValidatedState::default();
@@ -89,7 +92,9 @@ pub async fn proposals_with_transactions(
     let encoded_transactions = TestTransaction::encode(&transactions);
 
     let header = TestBlockHeader::new(
-        &Leaf::<TestTypes>::genesis(&Default::default(), &Default::default()).await,
+        &Leaf::<TestTypes>::genesis(&Default::default(), &Default::default())
+            .await
+            .into(),
         vid_commitment(&encoded_transactions, GENESIS_VID_NUM_STORAGE_NODES),
         <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(&payload, &metadata),
         metadata,
@@ -99,18 +104,21 @@ pub async fn proposals_with_transactions(
         &TestValidatedState::default(),
         &TestInstanceState::default(),
     )
-    .await;
-    let parent_proposal = QuorumProposal {
+    .await
+    .to_qc2();
+    let parent_proposal = QuorumProposal2 {
         block_header: header,
         view_number: ViewNumber::new(view_number.saturating_sub(1)),
         justify_qc: genesis_qc,
         upgrade_certificate: None,
-        proposal_certificate: None,
+        view_change_evidence: None,
+        drb_seed: [0; 96],
+        drb_result: [0; 32],
     };
-    let leaf = Leaf::from_quorum_proposal(&parent_proposal);
+    let leaf = Leaf2::from_quorum_proposal(&parent_proposal);
 
-    let quorum_data = QuorumData {
-        leaf_commit: leaf.commit(&upgrade_lock).await,
+    let quorum_data = QuorumData2 {
+        leaf_commit: leaf.commit(),
     };
 
     let versioned_data = VersionedVoteData::<_, _, _>::new_infallible(
@@ -123,7 +131,7 @@ pub async fn proposals_with_transactions(
     let commitment = Commitment::from_raw(versioned_data.commit().into());
 
     let justify_qc =
-        QuorumCertificate::new(quorum_data, commitment, view_number, None, PhantomData);
+        QuorumCertificate2::new(quorum_data, commitment, view_number, None, PhantomData);
 
     (
         DaProposal {
@@ -131,12 +139,14 @@ pub async fn proposals_with_transactions(
             metadata,
             view_number,
         },
-        QuorumProposal {
+        QuorumProposal2 {
             block_header: leaf.block_header().clone(),
             view_number,
             justify_qc,
             upgrade_certificate: None,
-            proposal_certificate: None,
+            view_change_evidence: None,
+            drb_seed: [0; 96],
+            drb_result: [0; 32],
         },
     )
 }
