@@ -13,8 +13,8 @@ use hotshot::{
     types::{BLSPubKey, SignatureKey},
 };
 use hotshot_builder_api::{
-    v0_2::{block_info::AvailableBlockInfo, data_source::BuilderDataSource},
-    v0_3::{builder::BuildError, data_source::AcceptsTxnSubmits},
+    v0_1::{block_info::AvailableBlockInfo, data_source::BuilderDataSource},
+    v0_1::{builder::BuildError, data_source::AcceptsTxnSubmits},
 };
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
@@ -22,7 +22,7 @@ use hotshot_example_types::{
     state_types::{TestInstanceState, TestValidatedState},
 };
 use hotshot_types::{
-    data::{DaProposal, QuorumProposal, ViewNumber},
+    data::{DaProposal, QuorumProposal2, ViewNumber},
     message::Proposal,
     simple_certificate::QuorumCertificate,
     traits::{
@@ -313,16 +313,19 @@ async fn progress_round_with_transactions(
             random: 0,
         };
 
-        let qc_proposal = QuorumProposal::<TestTypes> {
+        let qc_proposal = QuorumProposal2::<TestTypes> {
             block_header,
             view_number: next_view,
             justify_qc: QuorumCertificate::<TestTypes>::genesis::<TestVersions>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
-            .await,
+            .await
+            .to_qc2(),
             upgrade_certificate: None,
-            proposal_certificate: None,
+            view_change_evidence: None,
+            drb_seed: [0; 96],
+            drb_result: [0; 32],
         };
 
         let payload_vid_commitment =
