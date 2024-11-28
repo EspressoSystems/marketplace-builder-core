@@ -5,7 +5,7 @@ use hotshot_builder_api::v0_1::data_source::BuilderDataSource;
 use hotshot_example_types::block_types::{TestBlockHeader, TestMetadata, TestTransaction};
 use hotshot_example_types::node_types::{TestTypes, TestVersions};
 use hotshot_example_types::state_types::{TestInstanceState, TestValidatedState};
-use hotshot_types::data::{Leaf, QuorumProposal, ViewNumber};
+use hotshot_types::data::{Leaf2, QuorumProposal2, ViewNumber};
 use hotshot_types::event::LeafInfo;
 use hotshot_types::simple_certificate::QuorumCertificate;
 use hotshot_types::traits::block_contents::BlockHeader;
@@ -186,8 +186,10 @@ async fn test_pruning() {
     // everything else is boilerplate.
 
     let mock_qc =
-        QuorumCertificate::genesis::<TestVersions>(&Default::default(), &Default::default()).await;
-    let leaf = Leaf::from_quorum_proposal(&QuorumProposal {
+        QuorumCertificate::genesis::<TestVersions>(&Default::default(), &Default::default())
+            .await
+            .to_qc2();
+    let leaf = Leaf2::from_quorum_proposal(&QuorumProposal2 {
         block_header: <TestBlockHeader as BlockHeader<TestTypes>>::genesis(
             &Default::default(),
             Default::default(),
@@ -196,10 +198,12 @@ async fn test_pruning() {
                 num_transactions: 0,
             },
         ),
-        view_number: ViewNumber::new(DECIDE_VIEW), // <- This is the only thing we're interested in
+        view_number: ViewNumber::new(DECIDE_VIEW),
         justify_qc: mock_qc.clone(),
         upgrade_certificate: None,
-        proposal_certificate: None,
+        view_change_evidence: None,
+        drb_seed: [0; 96],
+        drb_result: [0; 32],
     });
     event_stream_sender
         .broadcast(hotshot::types::Event {
