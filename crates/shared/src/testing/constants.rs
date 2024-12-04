@@ -28,6 +28,8 @@ pub const TEST_CHANNEL_BUFFER_SIZE: usize = 81920;
 /// This is an arbitrary default value for testing.
 pub const TEST_TX_STATUS_CACHE_CAPACITY: usize = 10_000_000;
 
+pub const TEST_MAX_TX_NUM: usize = TEST_TX_STATUS_CACHE_CAPACITY;
+
 /// Governs the included transaction GC period used in tests.
 /// This is an arbitrary default value for testing.
 pub const TEST_INCLUDED_TX_GC_PERIOD: Duration = Duration::from_secs(1);

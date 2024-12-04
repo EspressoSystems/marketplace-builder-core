@@ -3100,6 +3100,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-testing",
  "hotshot-types",
+ "lru 0.12.5",
  "marketplace-builder-shared",
  "num_cpus",
  "once_cell",
