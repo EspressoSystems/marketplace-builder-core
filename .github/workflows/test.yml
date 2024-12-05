@@ -16,7 +16,7 @@ jobs:
   test:
     strategy:
       matrix:
-        flags: ["--cfg legacy_refactored", ""]
+        flags: ["--cfg legacy_builder_refactored", ""]
     env:
       RUSTFLAGS: "${{ matrix.flags }}"
       RUSTDOCFLAGS: "${{ matrix.flags }}"
