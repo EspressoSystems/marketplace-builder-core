@@ -1644,6 +1644,8 @@ mod test {
     };
     use hotshot_types::data::Leaf2;
     use hotshot_types::data::QuorumProposal2;
+    use hotshot_types::drb::INITIAL_DRB_RESULT;
+    use hotshot_types::drb::INITIAL_DRB_SEED_INPUT;
     use hotshot_types::traits::block_contents::Transaction;
     use hotshot_types::{
         data::{DaProposal, Leaf, ViewNumber},
@@ -4287,8 +4289,8 @@ mod test {
                 .to_qc2(),
                 upgrade_certificate: None,
                 view_change_evidence: None,
-                drb_seed: [0; 32],
-                drb_result: [0; 32],
+                drb_seed: INITIAL_DRB_SEED_INPUT,
+                drb_result: INITIAL_DRB_RESULT,
             }
         };
 
@@ -4360,8 +4362,8 @@ mod test {
                 .to_qc2(),
                 upgrade_certificate: None,
                 view_change_evidence: None,
-                drb_seed: [0; 32],
-                drb_result: [0; 32],
+                drb_seed: INITIAL_DRB_SEED_INPUT,
+                drb_result: INITIAL_DRB_RESULT,
             }
         };
 
@@ -4424,8 +4426,8 @@ mod test {
                 .to_qc2(),
                 upgrade_certificate: None,
                 view_change_evidence: None,
-                drb_seed: [0; 32],
-                drb_result: [0; 32],
+                drb_seed: INITIAL_DRB_SEED_INPUT,
+                drb_result: INITIAL_DRB_RESULT,
             }
         };
 

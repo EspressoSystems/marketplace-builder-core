@@ -23,6 +23,7 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{DaProposal, QuorumProposal2, ViewNumber},
+    drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::Proposal,
     simple_certificate::QuorumCertificate,
     traits::{
@@ -324,8 +325,8 @@ async fn progress_round_with_transactions(
             .to_qc2(),
             upgrade_certificate: None,
             view_change_evidence: None,
-            drb_seed: [0; 32],
-            drb_result: [0; 32],
+            drb_seed: INITIAL_DRB_SEED_INPUT,
+            drb_result: INITIAL_DRB_RESULT,
         };
 
         let payload_vid_commitment =
