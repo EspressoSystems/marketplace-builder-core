@@ -90,7 +90,7 @@ pub async fn proposals(view: u64) -> (DaProposal<TestTypes>, QuorumProposal2<Tes
         justify_qc: genesis_qc,
         upgrade_certificate: None,
         view_change_evidence: None,
-        drb_seed: [0; 96],
+        drb_seed: [0; 32],
         drb_result: [0; 32],
     };
     let leaf = Leaf2::from_quorum_proposal(&parent_proposal);
@@ -123,7 +123,7 @@ pub async fn proposals(view: u64) -> (DaProposal<TestTypes>, QuorumProposal2<Tes
             justify_qc,
             upgrade_certificate: None,
             view_change_evidence: None,
-            drb_seed: [0; 96],
+            drb_seed: [0; 32],
             drb_result: [0; 32],
         },
     )

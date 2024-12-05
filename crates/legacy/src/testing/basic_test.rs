@@ -187,7 +187,7 @@ mod tests {
                 justify_qc: previous_jc.clone(),
                 upgrade_certificate: None,
                 view_change_evidence: None,
-                drb_seed: [0; 96],
+                drb_seed: [0; 32],
                 drb_result: [0; 32],
             }
         };
@@ -389,7 +389,7 @@ mod tests {
                         justify_qc: justify_qc.clone(),
                         upgrade_certificate: None,
                         view_change_evidence: None,
-                        drb_seed: [0; 96],
+                        drb_seed: [0; 32],
                         drb_result: [0; 32],
                     };
 
