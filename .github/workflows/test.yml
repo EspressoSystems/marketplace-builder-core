@@ -14,12 +14,7 @@ concurrency:
 
 jobs:
   test:
-    strategy:
-      matrix:
-        flags: ["--cfg legacy_builder_refactored", ""]
     env:
-      RUSTFLAGS: "${{ matrix.flags }}"
-      RUSTDOCFLAGS: "${{ matrix.flags }}"
       RUST_LOG: info
     runs-on: ubuntu-latest
     steps:
