@@ -2,15 +2,19 @@
 resolver = "2"
 members = ["crates/*"]
 
+[workspace.package]
+version = "0.1.57"
+edition = "2021"
+
 [workspace.dependencies]
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "f62b557" }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "f62b557" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", branch = "sishan/tx_status_api" }
-hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "f62b557" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "f62b557" }
-hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "f62b557" }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "f62b557" }
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", rev = "f62b557" }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.56" }
+hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
+hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
 
 anyhow = "1"
 async-broadcast = "0.7"
@@ -46,10 +50,6 @@ url = "2.5"
 vbs = "0.1"
 vec1 = "1.12"
 tracing-subscriber = "0.3"
-
-[workspace.package]
-version = "0.1.56"
-edition = "2021"
 
 [workspace.lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
