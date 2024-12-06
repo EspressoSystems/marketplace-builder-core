@@ -1,6 +1,6 @@
 pub use hotshot::traits::election::static_committee::StaticCommittee;
 pub use hotshot_types::{
-    data::{DaProposal, EpochNumber, Leaf, QuorumProposal, ViewNumber},
+    data::{DaProposal, EpochNumber, Leaf, ViewNumber},
     message::Proposal,
     signature_key::BLSPubKey,
     simple_certificate::{QuorumCertificate, SimpleCertificate, SuccessThreshold},
@@ -23,9 +23,11 @@ mod tests {
     use hotshot_builder_api::v0_2::data_source::BuilderDataSource;
     use hotshot_example_types::auction_results_provider_types::TestAuctionResult;
     use hotshot_example_types::node_types::TestVersions;
+    use hotshot_types::data::{Leaf2, QuorumProposal2};
+    use hotshot_types::drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT};
+    use hotshot_types::simple_vote::QuorumData2;
     use hotshot_types::{
         signature_key::BuilderKey,
-        simple_vote::QuorumData,
         traits::block_contents::{vid_commitment, BlockHeader},
         utils::BuilderCommitment,
     };
@@ -46,7 +48,6 @@ mod tests {
     use crate::builder_state::{
         DaProposalMessage, DecideMessage, QuorumProposalMessage, TransactionSource,
     };
-    use crate::implementation::LegacyCommit;
     use crate::service::{
         handle_received_txns, GlobalState, ProxyGlobalState, ReceivedTransaction,
     };
@@ -133,7 +134,7 @@ mod tests {
             ParentBlockReferences {
                 view_number: ViewNumber::new(0),
                 vid_commitment: initial_commitment,
-                leaf_commit: Commitment::<Leaf<TestTypes>>::default_commitment_no_preimage(),
+                leaf_commit: Commitment::<Leaf2<TestTypes>>::default_commitment_no_preimage(),
                 builder_commitment: BuilderCommitment::from_bytes([]),
                 // Unused in old legacy builder:
                 last_nonempty_view: None,
@@ -171,9 +172,10 @@ mod tests {
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
-            .await;
+            .await
+            .to_qc2();
 
-            QuorumProposal::<TestTypes> {
+            QuorumProposal2::<TestTypes> {
                 block_header: TestBlockHeader {
                     block_number: 0,
                     payload_commitment: previous_commitment,
@@ -187,7 +189,9 @@ mod tests {
                 view_number: ViewNumber::new(0),
                 justify_qc: previous_jc.clone(),
                 upgrade_certificate: None,
-                proposal_certificate: None,
+                view_change_evidence: None,
+                drb_seed: INITIAL_DRB_SEED_INPUT,
+                drb_result: INITIAL_DRB_RESULT,
             }
         };
 
@@ -355,10 +359,10 @@ mod tests {
                         let _metadata = <TestBlockHeader as BlockHeader<TestTypes>>::metadata(
                             &previous_quorum_proposal.block_header,
                         );
-                        let leaf = Leaf::from_quorum_proposal(&previous_quorum_proposal);
+                        let leaf = Leaf2::from_quorum_proposal(&previous_quorum_proposal);
 
-                        let q_data = QuorumData::<TestTypes> {
-                            leaf_commit: leaf.legacy_commit(),
+                        let q_data = QuorumData2::<TestTypes> {
+                            leaf_commit: leaf.commit(),
                         };
 
                         let previous_quorum_view_number =
@@ -371,7 +375,7 @@ mod tests {
                             ViewNumber::new(1 + previous_justify_qc.view_number.u64())
                         };
                         // form a justify qc
-                        SimpleCertificate::<TestTypes, QuorumData<TestTypes>, SuccessThreshold>::new(
+                        SimpleCertificate::<TestTypes, QuorumData2<TestTypes>, SuccessThreshold>::new(
                             q_data.clone(),
                             q_data.commit(),
                             view_number,
@@ -382,12 +386,14 @@ mod tests {
 
                     tracing::debug!("Iteration: {} justify_qc: {:?}", round, justify_qc);
 
-                    let quorum_proposal = QuorumProposal::<TestTypes> {
+                    let quorum_proposal = QuorumProposal2::<TestTypes> {
                         block_header,
                         view_number: ViewNumber::new(round as u64),
                         justify_qc: justify_qc.clone(),
                         upgrade_certificate: None,
-                        proposal_certificate: None,
+                        view_change_evidence: None,
+                        drb_seed: INITIAL_DRB_SEED_INPUT,
+                        drb_result: INITIAL_DRB_RESULT,
                     };
 
                     let payload_vid_commitment =
@@ -416,13 +422,12 @@ mod tests {
                 // This may not be necessary for this test
                 let decide_message = {
                     let leaf = match round {
-                        0 => {
-                            Leaf::genesis(
-                                &TestValidatedState::default(),
-                                &TestInstanceState::default(),
-                            )
-                            .await
-                        }
+                        0 => Leaf::genesis(
+                            &TestValidatedState::default(),
+                            &TestInstanceState::default(),
+                        )
+                        .await
+                        .into(),
                         _ => {
                             let block_payload = BlockPayload::<TestTypes>::from_bytes(
                                 &encoded_transactions,
@@ -430,7 +435,7 @@ mod tests {
                                     &quorum_certificate_message.proposal.data.block_header,
                                 ),
                             );
-                            let mut current_leaf = Leaf::from_quorum_proposal(
+                            let mut current_leaf = Leaf2::from_quorum_proposal(
                                 &quorum_certificate_message.proposal.data,
                             );
                             current_leaf
