@@ -33,14 +33,14 @@
       let
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
-        rustToolchain = pkgs.rust-bin.stable.latest.minimal.override {
-          extensions = [
-            "rustfmt"
-            "clippy"
-            "llvm-tools-preview"
-            "rust-src"
-          ];
-        };
+        extensions = [
+          "rustfmt"
+          "clippy"
+          "llvm-tools-preview"
+          "rust-src"
+        ];
+        rustToolchain = pkgs.rust-bin.stable.latest.minimal.override { inherit extensions; };
+        rustToolchainNightly = pkgs.rust-bin.nightly."2024-09-01".default.override { inherit extensions; };
         cargo-llvm-cov =
           if pkgs.stdenv.isDarwin then
             (pkgs.cargo-llvm-cov.overrideAttrs (_: {
@@ -68,6 +68,7 @@
             cargo-udeps
             cargo-sort
             cargo-nextest
+            cargo-mutants
 
             cmake
           ]
@@ -155,7 +156,7 @@
           perfShell = pkgs.mkShell {
             inherit shellHook;
             buildInputs = [
-              rustToolchain
+              rustToolchainNightly
               cargo-llvm-cov
             ] ++ rustDeps;
 

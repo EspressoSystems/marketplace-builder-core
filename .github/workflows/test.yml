@@ -14,9 +14,14 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        flags: ["--cfg legacy_builder_refactored", ""]
     env:
+      RUSTFLAGS: "${{ matrix.flags }}"
+      RUSTDOCFLAGS: "${{ matrix.flags }}"
       RUST_LOG: info
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -42,7 +47,6 @@ jobs:
         timeout-minutes: 60
 
   test-ignored:
-    if: false
     runs-on: ubuntu-latest
     env:
       RUST_MIN_STACK: 64000000
