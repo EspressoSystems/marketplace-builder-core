@@ -11,6 +11,12 @@ on:
 
 jobs:
   nix:
+    strategy:
+      matrix:
+        flags: ["--cfg legacy_builder_refactored", ""]
+    env:
+      RUSTFLAGS: "${{ matrix.flags }}"
+      RUSTDOCFLAGS: "${{ matrix.flags }}"
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
