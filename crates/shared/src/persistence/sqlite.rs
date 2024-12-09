@@ -67,8 +67,7 @@ impl BuilderPersistence for SqliteTxnDb {
         let rows = sqlx::query(
             r#"
             SELECT id, tx_data, created_at FROM transactions
-            WHERE created_at < ? 
-            ORDER BY created_at DESC LIMIT 1;
+            WHERE created_at <= ? ;
             "#,
         )
         .bind(target_timestamp)
@@ -120,9 +119,15 @@ mod test {
             "In test_persistence_append_and_load_txn, it should be able to initiate a sqlite db.",
         );
 
+        db.clear()
+            .await
+            .expect("In test_persistence_remove_txn, it should be able to clear all transactions.");
+
         // Append a few transactions
-        db.append(vec![1, 2, 3]).await.expect("In test_persistence_append_and_load_txn, there shouldn't be any error when doing append");
-        db.append(vec![4, 5, 6]).await.expect("In test_persistence_append_and_load_txn, there shouldn't be any error when doing append");
+        let test_tx_data_list = vec![vec![1, 2, 3], vec![4, 5, 6]];
+        for tx in test_tx_data_list.clone() {
+            db.append(tx).await.expect("In test_persistence_append_and_load_txn, there shouldn't be any error when doing append");
+        }
 
         // Set timeout_after to the current time
         let timeout_after = Instant::now();
@@ -130,7 +135,7 @@ mod test {
         // Simulate some delay
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-        // Append more transactions
+        // Append one more transaction
         db.append(vec![7, 8, 9]).await.expect("In test_persistence_append_and_load_txn, there shouldn't be any error when doing append");
 
         // Load transactions before timeout_after
@@ -139,11 +144,7 @@ mod test {
         );
         tracing::debug!("Transaction data before timeout: {:?}", tx_data_list);
 
-        // Sishan TODO: add assertion
-        // assert_eq!(
-        //         storage.load_transaction().await.unwrap(),
-        //         Some(test_transaction.clone())
-        // );
+        assert_eq!(tx_data_list, test_tx_data_list);
 
         db.clear()
             .await
@@ -158,31 +159,32 @@ mod test {
             .await
             .expect("In test_persistence_remove_txn, it should be able to initiate a sqlite db.");
 
+        db.clear()
+            .await
+            .expect("In test_persistence_remove_txn, it should be able to clear all transactions.");
+
         // Append some transactions
-        db.append(vec![1, 2, 3]).await.expect(
-            "In test_persistence_remove_txn, there shouldn't be any error when doing append",
-        );
-        db.append(vec![4, 5, 6]).await.expect(
-            "In test_persistence_remove_txn, there shouldn't be any error when doing append",
-        );
-        db.append(vec![7, 8, 9]).await.expect(
-            "In test_persistence_remove_txn, there shouldn't be any error when doing append",
-        );
+        let test_tx_data_list = vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]];
+        for tx in test_tx_data_list.clone() {
+            db.append(tx).await.expect(
+                "In test_persistence_remove_txn, there shouldn't be any error when doing append",
+            );
+        }
 
         // Load all transactions
-
-        let all_transactions = db
+        let mut all_transactions = db
             .load(Instant::now())
             .await
             .expect("In test_persistence_remove_txn, it should be able to load some transactions.");
         tracing::debug!("All transactions before removal: {:?}", all_transactions);
+        assert_eq!(all_transactions, test_tx_data_list);
 
         // Remove a specific transaction
-        tracing::debug!("\nRemoving transaction [4, 5, 6]...");
-        if let Err(e) = db.remove(vec![4, 5, 6]).await {
+        let tx_to_remove = test_tx_data_list[1].clone();
+        if let Err(e) = db.remove(tx_to_remove).await {
             panic!("Failed to remove transaction: {}", e);
         } else {
-            tracing::debug!("Transaction [4, 5, 6] removed.");
+            tracing::debug!("Transaction removed.");
         }
 
         // Load all transactions after removal
@@ -192,11 +194,11 @@ mod test {
             .await
             .expect("In test_persistence_remove_txn, it should be able to load some transactions.");
         tracing::debug!(
-            "\nAll transactions after removal: {:?}",
+            "All transactions after removal: {:?}",
             remaining_transactions
         );
-
-        // Sishan TODO: add assertion
+        all_transactions.remove(1);
+        assert_eq!(remaining_transactions, all_transactions);
 
         db.clear()
             .await
