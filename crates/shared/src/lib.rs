@@ -3,6 +3,7 @@
 pub mod block;
 pub mod coordinator;
 pub mod error;
+pub mod persistence;
 pub mod state;
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub mod testing;
