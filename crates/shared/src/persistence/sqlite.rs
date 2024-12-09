@@ -1,41 +1,17 @@
-
-#![cfg(feature = "sqlite")]
-
+use super::get_sqlite_test_db_path;
+use super::BuilderPersistence;
 use anyhow::Result;
 use async_trait::async_trait;
-use serde::Serialize;
+use chrono::{DateTime, Utc};
+use sqlx::Row;
 use sqlx::SqlitePool;
+use std::time::{Instant, SystemTime};
 
-// Sishan TODO: link to the transaction type we already had
 #[derive(Debug)]
-struct BuilderDbTransaction {
-    id: i64,
-    tx_data: Vec<u8>,
-    created_at: Instance,
-}
-
 pub struct SqliteTxnDb {
     pool: SqlitePool,
 }
-
-trait BuilderPersistence {
-    async fn new(database_url: String) -> Result<Self, sqlx::Error>;
-    async fn append(
-        &self,
-        tx_data: Vec<u8>,
-    ) -> Result<(), sqlx::Error>;
-    async fn load(
-        &self,
-        timeout_after: Instance,
-    ) -> Result<Option<Vec<u8>>, sqlx::Error>;
-    async fn remove(
-        &self,
-        tx: Vec<u8>,
-    ) -> Result<()>;
-}
-
-#[async_trait]
-impl BuilderPersistence for SqliteTxnDb {
+impl SqliteTxnDb {
     async fn new(database_url: String) -> Result<Self, sqlx::Error> {
         let pool = SqlitePool::connect(&database_url).await?;
         // it will handle the default CURRENT_TIMESTAMP automatically and assign to transaction's created_at
@@ -53,8 +29,18 @@ impl BuilderPersistence for SqliteTxnDb {
         Ok(Self { pool })
     }
 
-    async fn append(&self, tx_data: Vec<u8>) -> Result<(), sqlx::Error>
-    {
+    async fn clear(&self) -> Result<(), sqlx::Error> {
+        // Execute a SQL statement to delete all rows from the `transactions` table
+        sqlx::query("DELETE FROM transactions")
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl BuilderPersistence for SqliteTxnDb {
+    async fn append(&self, tx_data: Vec<u8>) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
             INSERT INTO transactions (tx_data) VALUES (?);
@@ -66,8 +52,7 @@ impl BuilderPersistence for SqliteTxnDb {
         Ok(())
     }
 
-    async fn load(&self, timeout_after: Instance) -> Result<Vec<Vec<u8>>, sqlx::Error>
-    {
+    async fn load(&self, timeout_after: Instant) -> Result<Vec<Vec<u8>>, sqlx::Error> {
         // Convert Instant to SystemTime
         let now = SystemTime::now();
         let elapsed = timeout_after.elapsed();
@@ -113,24 +98,32 @@ impl BuilderPersistence for SqliteTxnDb {
             Err(sqlx::Error::RowNotFound)
         }
     }
-
 }
 
 #[cfg(test)]
-mod test{
+mod test {
+    use super::get_sqlite_test_db_path;
+    use super::BuilderPersistence;
+    use super::SqliteTxnDb;
     use std::time::Instant;
 
     /// This test checks we can set up sqlite properly
     /// and can do basic append() and load()
     #[tokio::test]
-	pub async fn test_persistence_append_and_load_txn<P: TestablePersistence>() {
-		// Initialize the database
-        let db = SqliteTxnDb::new("sqlite://transactions.db").await?;
+    async fn test_persistence_append_and_load_txn() {
+        // Initialize the database
+        tracing::debug!(
+            "get_sqlite_test_db_path() = {:?}",
+            get_sqlite_test_db_path()
+        );
+        let db = SqliteTxnDb::new(get_sqlite_test_db_path()).await.expect(
+            "In test_persistence_append_and_load_txn, it should be able to initiate a sqlite db.",
+        );
 
         // Append a few transactions
-        db.append(vec![1, 2, 3]).await?;
-        db.append(vec![4, 5, 6]).await?;
-    
+        db.append(vec![1, 2, 3]).await.expect("In test_persistence_append_and_load_txn, there shouldn't be any error when doing append");
+        db.append(vec![4, 5, 6]).await.expect("In test_persistence_append_and_load_txn, there shouldn't be any error when doing append");
+
         // Set timeout_after to the current time
         let timeout_after = Instant::now();
 
@@ -138,56 +131,75 @@ mod test{
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
         // Append more transactions
-        db.append(vec![7, 8, 9]).await?;
+        db.append(vec![7, 8, 9]).await.expect("In test_persistence_append_and_load_txn, there shouldn't be any error when doing append");
 
         // Load transactions before timeout_after
-        let tx_data_list = db.load(timeout_after).await?;
-        println!("Transaction data before timeout:");
-        for tx_data in tx_data_list {
-            println!("{:?}", tx_data);
-        }
-        
+        let tx_data_list = db.load(timeout_after).await.expect(
+            "In test_persistence_append_and_load_txn, it should be able to load some transactions.",
+        );
+        tracing::debug!("Transaction data before timeout: {:?}", tx_data_list);
 
         // Sishan TODO: add assertion
         // assert_eq!(
         //         storage.load_transaction().await.unwrap(),
         //         Some(test_transaction.clone())
         // );
-	}
+
+        db.clear()
+            .await
+            .expect("In test_persistence_remove_txn, it should be able to clear all transactions.");
+    }
 
     #[tokio::test]
     /// This test checks we can remove transaction from database properly
-	pub async fn test_persistence_remove_txn<P: TestablePersistence>() {
+    async fn test_persistence_remove_txn() {
         // Initialize the database
-        let db = SqliteTxnDb::new("sqlite://transactions.db").await?;
+        let db = SqliteTxnDb::new(get_sqlite_test_db_path())
+            .await
+            .expect("In test_persistence_remove_txn, it should be able to initiate a sqlite db.");
 
         // Append some transactions
-        db.append(vec![1, 2, 3]).await?;
-        db.append(vec![4, 5, 6]).await?;
-        db.append(vec![7, 8, 9]).await?;
+        db.append(vec![1, 2, 3]).await.expect(
+            "In test_persistence_remove_txn, there shouldn't be any error when doing append",
+        );
+        db.append(vec![4, 5, 6]).await.expect(
+            "In test_persistence_remove_txn, there shouldn't be any error when doing append",
+        );
+        db.append(vec![7, 8, 9]).await.expect(
+            "In test_persistence_remove_txn, there shouldn't be any error when doing append",
+        );
 
         // Load all transactions
-        println!("All transactions before removal:");
-        let all_transactions = db.load(Instant::now()).await?;
-        for tx_data in &all_transactions {
-            println!("{:?}", tx_data);
-        }
+
+        let all_transactions = db
+            .load(Instant::now())
+            .await
+            .expect("In test_persistence_remove_txn, it should be able to load some transactions.");
+        tracing::debug!("All transactions before removal: {:?}", all_transactions);
 
         // Remove a specific transaction
-        println!("\nRemoving transaction [4, 5, 6]...");
+        tracing::debug!("\nRemoving transaction [4, 5, 6]...");
         if let Err(e) = db.remove(vec![4, 5, 6]).await {
-            eprintln!("Failed to remove transaction: {}", e);
+            panic!("Failed to remove transaction: {}", e);
         } else {
-            println!("Transaction [4, 5, 6] removed.");
+            tracing::debug!("Transaction [4, 5, 6] removed.");
         }
 
         // Load all transactions after removal
-        println!("\nAll transactions after removal:");
-        let remaining_transactions = db.load(Instant::now()).await?;
-        for tx_data in remaining_transactions {
-            println!("{:?}", tx_data);
-        }
 
-        Ok(())
+        let remaining_transactions = db
+            .load(Instant::now())
+            .await
+            .expect("In test_persistence_remove_txn, it should be able to load some transactions.");
+        tracing::debug!(
+            "\nAll transactions after removal: {:?}",
+            remaining_transactions
+        );
+
+        // Sishan TODO: add assertion
+
+        db.clear()
+            .await
+            .expect("In test_persistence_remove_txn, it should be able to clear all transactions.");
     }
 }
