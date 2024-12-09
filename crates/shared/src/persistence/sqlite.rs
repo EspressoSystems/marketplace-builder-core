@@ -1,4 +1,3 @@
-use super::get_sqlite_test_db_path;
 use super::BuilderPersistence;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -7,11 +6,15 @@ use sqlx::Row;
 use sqlx::SqlitePool;
 use std::time::{Instant, SystemTime};
 
+#[allow(unused_imports)]
+use super::get_sqlite_test_db_path;
+
 #[derive(Debug)]
 pub struct SqliteTxnDb {
     pool: SqlitePool,
 }
 impl SqliteTxnDb {
+    #[allow(dead_code)]
     async fn new(database_url: String) -> Result<Self, sqlx::Error> {
         let pool = SqlitePool::connect(&database_url).await?;
         // it will handle the default CURRENT_TIMESTAMP automatically and assign to transaction's created_at
@@ -29,6 +32,7 @@ impl SqliteTxnDb {
         Ok(Self { pool })
     }
 
+    #[allow(dead_code)]
     async fn clear(&self) -> Result<(), sqlx::Error> {
         // Execute a SQL statement to delete all rows from the `transactions` table
         sqlx::query("DELETE FROM transactions")
