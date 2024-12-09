@@ -29,3 +29,6 @@ mutants.out.old/
 # OSX
 **/.DS_Store
 
+# Local database file for testing
+*.db
+
