@@ -46,6 +46,7 @@ url = "2.5"
 vbs = "0.1"
 vec1 = "1.12"
 tracing-subscriber = "0.3"
+sqlx = { version = "^0.8", features = ["postgres", "sqlite", "macros"] }
 
 [workspace.package]
 version = "0.1.56"

@@ -4874,6 +4874,7 @@ dependencies = [
  "portpicker",
  "rand 0.8.5",
  "serde",
+ "sqlx",
  "surf-disco",
  "tide-disco",
  "tokio",

@@ -33,6 +33,7 @@ url = { workspace = true }
 vbs = { workspace = true }
 vec1 = { workspace = true }
 tracing-subscriber = { workspace = true }
+sqlx = { workspace = true }
 
 [dev-dependencies]
 portpicker = "0.1.1"
