@@ -34,9 +34,8 @@ jobs:
         run: |
           git config --global --add safe.directory "$PWD"
           nix develop .#perfShell -c \
-            cargo llvm-cov --profile=release --all-features --all-targets \
-                           --lcov --output-path lcov.info --no-cfg-coverage \
-                           -- --test-threads 2
+            cargo llvm-cov nextest -j 2 --release --all-features --all-targets \
+                           --branch --lcov --output-path lcov.info \
 
       - uses: coverallsapp/github-action@master
         with:

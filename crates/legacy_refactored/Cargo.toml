@@ -1,5 +1,5 @@
 [package]
-name = "hotshot-builder-core"
+name = "hotshot-builder-core-refactored"
 version = { workspace = true }
 edition = { workspace = true }
 

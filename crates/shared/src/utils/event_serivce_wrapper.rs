@@ -1,98 +1,20 @@
 use std::{future::Future, pin::Pin};
 
-use std::{
-    collections::HashSet,
-    hash::Hash,
-    mem,
-    time::{Duration, Instant},
-};
+use std::time::Duration;
 
 use anyhow::Context;
 use either::Either::{self, Left, Right};
 use futures::stream::unfold;
 use futures::{Stream, StreamExt};
-use hotshot::traits::BlockPayload;
 use hotshot::types::Event;
 use hotshot_events_service::events::Error as EventStreamError;
-use hotshot_types::data::{DaProposal, QuorumProposal};
-use hotshot_types::traits::block_contents::BlockHeader;
 use hotshot_types::traits::node_implementation::NodeType;
-use hotshot_types::utils::BuilderCommitment;
 use surf_disco::client::HealthStatus;
 use surf_disco::Client;
 use tokio::time::{sleep, timeout};
 use tracing::{error, warn};
 use url::Url;
 use vbs::version::StaticVersionType;
-
-/// A set that allows for time-based garbage collection,
-/// implemented as three sets that are periodically shifted right.
-/// Garbage collection is triggered by calling [`Self::rotate`].
-#[derive(Clone, Debug)]
-pub struct RotatingSet<T>
-where
-    T: PartialEq + Eq + Hash + Clone,
-{
-    fresh: HashSet<T>,
-    stale: HashSet<T>,
-    expiring: HashSet<T>,
-    pub last_rotation: Instant,
-    pub period: Duration,
-}
-
-impl<T> RotatingSet<T>
-where
-    T: PartialEq + Eq + Hash + Clone,
-{
-    /// Construct a new `RotatingSet`
-    pub fn new(period: Duration) -> Self {
-        Self {
-            fresh: HashSet::new(),
-            stale: HashSet::new(),
-            expiring: HashSet::new(),
-            last_rotation: Instant::now(),
-            period,
-        }
-    }
-
-    /// Returns `true` if the key is contained in the set
-    pub fn contains(&self, key: &T) -> bool {
-        self.fresh.contains(key) || self.stale.contains(key) || self.expiring.contains(key)
-    }
-
-    /// Insert a `key` into the set. Doesn't trigger garbage collection
-    pub fn insert(&mut self, value: T) {
-        self.fresh.insert(value);
-    }
-
-    /// Force garbage collection, even if the time elapsed since
-    ///  the last garbage collection is less than `self.period`
-    pub fn force_rotate(&mut self) {
-        let now_stale = mem::take(&mut self.fresh);
-        let now_expiring = mem::replace(&mut self.stale, now_stale);
-        self.expiring = now_expiring;
-        self.last_rotation = Instant::now();
-    }
-
-    /// Trigger garbage collection.
-    pub fn rotate(&mut self) -> bool {
-        if self.last_rotation.elapsed() > self.period {
-            self.force_rotate();
-            true
-        } else {
-            false
-        }
-    }
-}
-
-impl<T> Extend<T> for RotatingSet<T>
-where
-    T: PartialEq + Eq + Hash + Clone,
-{
-    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        self.fresh.extend(iter)
-    }
-}
 
 type EventServiceConnection<Types, ApiVer> = surf_disco::socket::Connection<
     Event<Types>,
@@ -161,21 +83,32 @@ impl<Types: NodeType, ApiVer: StaticVersionType + 'static> EventServiceStream<Ty
         let stream = unfold(this, |mut this| async move {
             loop {
                 match &mut this.connection {
-                    Left(connection) => match connection.next().await {
-                        Some(Ok(event)) => {
-                            return Some((event, this));
+                    Left(connection) => {
+                        match tokio::time::timeout(Self::RETRY_PERIOD, connection.next()).await {
+                            Ok(Some(Ok(event))) => {
+                                return Some((event, this));
+                            }
+                            Ok(Some(Err(err))) => {
+                                warn!(?err, "Error in event stream");
+                                continue;
+                            }
+                            Ok(None) => {
+                                warn!("Event stream ended, attempting reconnection");
+                                let fut = Self::connect_inner(this.api_url.clone());
+                                let _ =
+                                    std::mem::replace(&mut this.connection, Right(Box::pin(fut)));
+                                continue;
+                            }
+                            Err(_) => {
+                                // Timeout occurred, reconnect
+                                warn!("Timeout waiting for next event; reconnecting");
+                                let fut = Self::connect_inner(this.api_url.clone());
+                                let _ =
+                                    std::mem::replace(&mut this.connection, Right(Box::pin(fut)));
+                                continue;
+                            }
                         }
-                        Some(Err(err)) => {
-                            warn!(?err, "Error in event stream");
-                            continue;
-                        }
-                        None => {
-                            warn!("Event stream ended, attempting reconnection");
-                            let fut = Self::connect_inner(this.api_url.clone());
-                            let _ = std::mem::replace(&mut this.connection, Right(Box::pin(fut)));
-                            continue;
-                        }
-                    },
+                    }
                     Right(reconnection) => match reconnection.await {
                         Ok(connection) => {
                             let _ = std::mem::replace(&mut this.connection, Left(connection));
@@ -197,6 +130,7 @@ impl<Types: NodeType, ApiVer: StaticVersionType + 'static> EventServiceStream<Ty
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use std::{
@@ -218,6 +152,7 @@ mod tests {
     use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
     use tide_disco::{method::ReadState, App};
     use tokio::{spawn, task::JoinHandle, time::timeout};
+    use tracing::debug;
     use url::Url;
     use vbs::version::StaticVersion;
 
@@ -281,7 +216,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn event_stream_wrapper() {
+    async fn test_event_stream_wrapper() {
         const TIMEOUT: Duration = Duration::from_secs(3);
 
         let url: Url = format!(
@@ -323,46 +258,57 @@ mod tests {
             .await
             .expect_err("API is reachable, but is on wrong path");
     }
-}
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct ProposalId<Types>
-where
-    Types: NodeType,
-{
-    view_number: Types::View,
-    builder_commitment: BuilderCommitment,
-}
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_event_stream_wrapper_with_idle_timeout() {
+        const TIMEOUT: Duration = Duration::from_secs(3);
 
-impl<Types> ProposalId<Types>
-where
-    Types: NodeType,
-{
-    pub fn from_quorum_proposal(proposal: &QuorumProposal<Types>) -> Self {
-        Self {
-            builder_commitment: proposal.block_header.builder_commitment(),
-            view_number: proposal.view_number,
-        }
-    }
-
-    pub fn from_da_proposal(proposal: &DaProposal<Types>) -> Self {
-        let builder_commitment = <Types::BlockPayload as BlockPayload<Types>>::from_bytes(
-            &proposal.encoded_transactions,
-            &proposal.metadata,
+        let url: Url = format!(
+            "http://localhost:{}",
+            portpicker::pick_unused_port().unwrap()
         )
-        .builder_commitment(&proposal.metadata);
+        .parse()
+        .unwrap();
 
-        Self {
-            builder_commitment,
-            view_number: proposal.view_number,
+        let app_handle = run_app("hotshot-events", url.clone());
+
+        let mut stream = EventServiceStream::<TestTypes, MockVersion>::connect(url.clone())
+            .await
+            .unwrap();
+
+        // The stream should work when the server is running
+        timeout(TIMEOUT, stream.next())
+            .await
+            .expect("When mock event server is spawned, stream should work")
+            .unwrap();
+
+        // Simulate idle timeout by stopping the server and waiting
+        app_handle.abort();
+        tokio::time::sleep(
+            EventServiceStream::<TestTypes, MockVersion>::RETRY_PERIOD + Duration::from_millis(500),
+        )
+        .await; // Wait longer than idle timeout
+                // Check whether stream returns Err(_) after idle timeout
+        match timeout(
+            EventServiceStream::<TestTypes, MockVersion>::RETRY_PERIOD,
+            stream.next(),
+        )
+        .await
+        {
+            Ok(Some(_)) => panic!("Expected error after idle timeout but got an event"),
+            Ok(None) => panic!("Expected error but got None"),
+            Err(err) => debug!("Stream returned an error after idle timeout: {:?}", err),
         }
-    }
 
-    pub fn view_number(&self) -> <Types as NodeType>::View {
-        self.view_number
-    }
+        // Stream should reconnect after idle timeout
+        let new_app_handle = run_app("hotshot-events", url.clone());
 
-    pub fn builder_commitment(&self) -> &BuilderCommitment {
-        &self.builder_commitment
+        timeout(TIMEOUT, stream.next())
+            .await
+            .expect("After idle timeout, stream should reconnect when the server restarts")
+            .unwrap();
+
+        // Cleanup
+        new_app_handle.abort();
     }
 }
