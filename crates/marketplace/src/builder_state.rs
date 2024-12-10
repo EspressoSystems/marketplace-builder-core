@@ -216,7 +216,7 @@ pub struct BuilderState<Types: NodeType> {
 /// 3. If we can't find any [`BuilderState`]s that match the view number
 ///    and leaf commitment, then we should return for the maximum stored view
 ///    number that is smaller than the current [`QuorumProposal2`].
-/// 4. If there is is only one [`BuilderState`] stored in the [`GlobalState`], then
+/// 4. If there is only one [`BuilderState`] stored in the [`GlobalState`], then
 ///    we should return that [`BuilderState`] as the best fit.
 /// 5. If none of the other criteria match, we return an empty result as it is
 ///    unclear what to do in this case.
