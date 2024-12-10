@@ -168,7 +168,7 @@ where
     /// Enqueue new transaction in all builder states managed by this coordinator.
     ///
     /// Builder states will automatically filter transactions already included from
-    /// their point of view when dequeing transactions.
+    /// their point of view when dequeuing transactions.
     ///
     /// <div class="warning">
     ///
@@ -210,7 +210,7 @@ where
         Ok(())
     }
 
-    /// This function should be called whenever new DA Proposal is recieved from HotShot.
+    /// This function should be called whenever new DA Proposal is received from HotShot.
     /// Coordinator uses matching Quorum and DA proposals to track creation of new blocks
     /// and spawning corresponding builder states for those.
     pub async fn handle_da_proposal(&self, da_proposal: DaProposal<Types>) {
@@ -219,7 +219,7 @@ where
             .await;
     }
 
-    /// This function should be called whenever new Quorum Proposal is recieved from HotShot.
+    /// This function should be called whenever new Quorum Proposal is received from HotShot.
     /// Coordinator uses matching Quorum and DA proposals to track creation of new blocks
     /// and spawning corresponding builder states for those.
     pub async fn handle_quorum_proposal(&self, quorum_proposal: QuorumProposal2<Types>) {
@@ -383,7 +383,7 @@ where
     /// 3. If we can't find any [`BuilderState`]s that match the view number
     ///    and leaf commitment, then we should return for the maximum stored view
     ///    number that is smaller than the current [`QuorumProposal2`].
-    /// 4. If there is is only one [`BuilderState`] stored in the coordinator, then
+    /// 4. If there is only one [`BuilderState`] stored in the coordinator, then
     ///    we should return that [`BuilderState`] as the best fit.
     /// 5. If none of the other criteria match, we return an empty result as it is
     ///    unclear what to do in this case.
