@@ -8,11 +8,11 @@ pub mod sqlite;
 /// The trait BuilderPersistence defined needed functions to maintain persistence of builder-related data
 #[async_trait]
 pub trait BuilderPersistence {
-    /// Append a transaction in Vec<u8> to persistence mempool
+    /// Append a transaction to persistence mempool
     async fn append(&self, tx_data: Vec<u8>) -> Result<(), sqlx::Error>;
     /// Load all the transactions whose `created_at` is before or equal to `before_instant`
     async fn load(&self, before_instant: Instant) -> Result<Vec<Vec<u8>>, sqlx::Error>;
-    /// Remove a transaction in Vec<u8> from the persistence mempool
+    /// Remove a transaction from the persistence mempool
     async fn remove(&self, tx: Vec<u8>) -> Result<(), sqlx::Error>;
 }
 
