@@ -44,6 +44,7 @@ sha2 = "0.10"
 snafu = "0.8"
 surf-disco = "0.9"
 tagged-base64 = "0.4"
+tempfile = "3.7"
 tide-disco = "0.9"
 thiserror = "2.0"
 tokio = "1"
@@ -55,6 +56,7 @@ url = "2.5"
 vbs = "0.1"
 vec1 = "1.12"
 tracing-subscriber = "0.3"
+sqlx = { version = "^0.8", features = ["postgres", "sqlite", "macros"] }
 
 [workspace.lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [
