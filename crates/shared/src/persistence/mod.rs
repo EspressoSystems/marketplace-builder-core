@@ -5,10 +5,14 @@ use std::time::Instant;
 
 pub mod sqlite;
 
+/// The trait BuilderPersistence defined needed functions to maintain persistence of builder-related data
 #[async_trait]
 pub trait BuilderPersistence {
+    /// Append a transaction in Vec<u8> to persistence mempool
     async fn append(&self, tx_data: Vec<u8>) -> Result<(), sqlx::Error>;
+    /// Load all the transactions whose `created_at` is before or equal to `timeout_after`
     async fn load(&self, timeout_after: Instant) -> Result<Vec<Vec<u8>>, sqlx::Error>;
+    /// Remove a transaction in Vec<u8> from the persistence mempool
     async fn remove(&self, tx: Vec<u8>) -> Result<(), sqlx::Error>;
 }
 

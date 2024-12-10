@@ -8,13 +8,15 @@ use sqlx::Row;
 use sqlx::SqlitePool;
 use std::time::{Instant, SystemTime};
 
+/// Struct of transaction database in sqlite
 #[derive(Debug)]
 pub struct SqliteTxnDb {
     pool: SqlitePool,
 }
 impl SqliteTxnDb {
+    /// New a SqliteTxnDb by calling with the database_url
     #[allow(dead_code)]
-    async fn new(database_url: String) -> Result<Self, sqlx::Error> {
+    pub async fn new(database_url: String) -> Result<Self, sqlx::Error> {
         let pool = SqlitePool::connect(&database_url).await?;
         // it will handle the default CURRENT_TIMESTAMP automatically and assign to transaction's created_at
         sqlx::query(
@@ -31,8 +33,9 @@ impl SqliteTxnDb {
         Ok(Self { pool })
     }
 
+    /// Clear all the data in this SqliteTxnDb database
     #[allow(dead_code)]
-    async fn clear(&self) -> Result<(), sqlx::Error> {
+    pub async fn clear(&self) -> Result<(), sqlx::Error> {
         // Execute a SQL statement to delete all rows from the `transactions` table
         sqlx::query("DELETE FROM transactions")
             .execute(&self.pool)
