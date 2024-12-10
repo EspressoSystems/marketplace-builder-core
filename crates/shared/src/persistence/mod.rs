@@ -1,5 +1,6 @@
+use anyhow::Context;
 use async_trait::async_trait;
-use std::env;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 pub mod sqlite;
@@ -11,13 +12,23 @@ pub trait BuilderPersistence {
     async fn remove(&self, tx: Vec<u8>) -> Result<(), sqlx::Error>;
 }
 
-pub fn get_sqlite_test_db_path() -> String {
-    // Sishan TODO: make it more clean and find a more reliable way
-    let current_dir = env::current_dir().expect("Failed to get current working directory");
-    let mut path = current_dir.clone();
-    path.push("src/persistence"); // Add "persistence" directory
-    path.push("test_data"); // Add "test_data" directory
-    path.push("sqlite"); // Add "sqlite" directory
-    path.push("transactions.db"); // Database file name
-    path.to_string_lossy().to_string()
+pub fn build_sqlite_path(path: &Path) -> anyhow::Result<PathBuf> {
+    let sub_dir = path.join("sqlite");
+
+    // if `sqlite` sub dir does not exist then create it
+    if !sub_dir.exists() {
+        std::fs::create_dir_all(&sub_dir)
+            .with_context(|| format!("failed to create directory: {:?}", sub_dir))?;
+    }
+
+    // Return the full path to the SQLite database file
+    let db_path = sub_dir.join("database.sqlite");
+
+    // Ensure the file exists (create it if it doesn’t)
+    if !db_path.exists() {
+        std::fs::File::create(&db_path)
+            .with_context(|| format!("Failed to create SQLite database file: {:?}", db_path))?;
+    }
+
+    Ok(db_path)
 }

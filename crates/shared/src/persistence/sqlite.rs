@@ -1,3 +1,5 @@
+#[allow(unused_imports)]
+use super::build_sqlite_path;
 use super::BuilderPersistence;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -5,9 +7,6 @@ use chrono::{DateTime, Utc};
 use sqlx::Row;
 use sqlx::SqlitePool;
 use std::time::{Instant, SystemTime};
-
-#[allow(unused_imports)]
-use super::get_sqlite_test_db_path;
 
 #[derive(Debug)]
 pub struct SqliteTxnDb {
@@ -105,21 +104,23 @@ impl BuilderPersistence for SqliteTxnDb {
 
 #[cfg(test)]
 mod test {
-    use super::get_sqlite_test_db_path;
+    use super::build_sqlite_path;
     use super::BuilderPersistence;
     use super::SqliteTxnDb;
     use std::time::Instant;
+    use tempfile::tempdir;
 
     /// This test checks we can set up sqlite properly
     /// and can do basic append() and load()
     #[tokio::test]
     async fn test_persistence_append_and_load_txn() {
+        // Create a temporary directory
+        let tmp_dir = tempdir().expect("In test_persistence_append_and_load_txn, should be able to create a temporary directory.");
+        // Construct the database path
+        let db_path = build_sqlite_path(tmp_dir.path()).expect("In test_persistence_append_and_load_txn, should be able to create a temporary database file.");
+        let database_url = format!("sqlite://{}", db_path.to_str().expect("In test_persistence_append_and_load_txn, should be able to convert temporary database file path to string."));
         // Initialize the database
-        tracing::debug!(
-            "get_sqlite_test_db_path() = {:?}",
-            get_sqlite_test_db_path()
-        );
-        let db = SqliteTxnDb::new(get_sqlite_test_db_path()).await.expect(
+        let db = SqliteTxnDb::new(database_url).await.expect(
             "In test_persistence_append_and_load_txn, it should be able to initiate a sqlite db.",
         );
 
@@ -158,8 +159,17 @@ mod test {
     #[tokio::test]
     /// This test checks we can remove transaction from database properly
     async fn test_persistence_remove_txn() {
+        // Create a temporary directory
+        let tmp_dir = tempdir().expect(
+            "In test_persistence_remove_txn, should be able to create a temporary directory.",
+        );
+        // Construct the database path
+        let db_path = build_sqlite_path(tmp_dir.path()).expect(
+            "In test_persistence_remove_txn, should be able to create a temporary database file.",
+        );
+        let database_url = format!("sqlite://{}", db_path.to_str().expect("In test_persistence_remove_txn, should be able to convert temporary database file path to string."));
         // Initialize the database
-        let db = SqliteTxnDb::new(get_sqlite_test_db_path())
+        let db = SqliteTxnDb::new(database_url)
             .await
             .expect("In test_persistence_remove_txn, it should be able to initiate a sqlite db.");
 
