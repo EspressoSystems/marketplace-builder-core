@@ -8,7 +8,7 @@
 // 2. Serves a proposer(leader)'s request to provide the full blocks information
 // 3. Serves a proposer(leader)'s request to provide the block header information
 
-// It also provides one API services external users:
+// It also provides one API services for external users:
 // 1. Serves a user's request to submit a private transaction
 
 // providing the core services to support above API services
