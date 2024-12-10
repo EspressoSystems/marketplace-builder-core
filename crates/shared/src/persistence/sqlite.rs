@@ -14,8 +14,7 @@ pub struct SqliteTxnDb {
     pool: SqlitePool,
 }
 impl SqliteTxnDb {
-    /// New a SqliteTxnDb by calling with the database_url
-    #[allow(dead_code)]
+    /// New a `SqliteTxnDb` by calling with `database_url`
     pub async fn new(database_url: String) -> Result<Self, sqlx::Error> {
         let pool = SqlitePool::connect(&database_url).await?;
         // it will handle the default CURRENT_TIMESTAMP automatically and assign to transaction's created_at
@@ -33,8 +32,7 @@ impl SqliteTxnDb {
         Ok(Self { pool })
     }
 
-    /// Clear all the data in this SqliteTxnDb database
-    #[allow(dead_code)]
+    /// Clear all the data in this `SqliteTxnDb` database
     pub async fn clear(&self) -> Result<(), sqlx::Error> {
         // Execute a SQL statement to delete all rows from the `transactions` table
         sqlx::query("DELETE FROM transactions")
@@ -58,10 +56,10 @@ impl BuilderPersistence for SqliteTxnDb {
         Ok(())
     }
 
-    async fn load(&self, timeout_after: Instant) -> Result<Vec<Vec<u8>>, sqlx::Error> {
+    async fn load(&self, before_instant: Instant) -> Result<Vec<Vec<u8>>, sqlx::Error> {
         // Convert Instant to SystemTime
         let now = SystemTime::now();
-        let elapsed = timeout_after.elapsed();
+        let elapsed = before_instant.elapsed();
         let target_time = now - elapsed;
 
         // Convert SystemTime to a format SQLite understands (RFC 3339)
@@ -137,8 +135,8 @@ mod test {
             db.append(tx).await.expect("In test_persistence_append_and_load_txn, there shouldn't be any error when doing append");
         }
 
-        // Set timeout_after to the current time
-        let timeout_after = Instant::now();
+        // Set before_instant to the current time
+        let before_instant = Instant::now();
 
         // Simulate some delay
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
@@ -146,8 +144,8 @@ mod test {
         // Append one more transaction
         db.append(vec![7, 8, 9]).await.expect("In test_persistence_append_and_load_txn, there shouldn't be any error when doing append");
 
-        // Load transactions before timeout_after
-        let tx_data_list = db.load(timeout_after).await.expect(
+        // Load transactions before before_instant
+        let tx_data_list = db.load(before_instant).await.expect(
             "In test_persistence_append_and_load_txn, it should be able to load some transactions.",
         );
         tracing::debug!("Transaction data before timeout: {:?}", tx_data_list);
