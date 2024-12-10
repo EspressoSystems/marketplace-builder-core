@@ -99,7 +99,7 @@ mod tests {
         let multiplication_factor = 5;
         const NUM_NODES_IN_VID_COMPUTATION: usize = 4;
 
-        // settingup the broadcast channels i.e [From hostshot: (tx, decide, da, quorum, )], [From api:(req - broadcast, res - mpsc channel) ]
+        // setting up the broadcast channels i.e [From hostshot: (tx, decide, da, quorum, )], [From api:(req - broadcast, res - mpsc channel) ]
         let (decide_sender, decide_receiver) =
             broadcast::<MessageType<TestTypes>>(num_test_messages * multiplication_factor);
         let (da_sender, da_receiver) =
@@ -112,7 +112,7 @@ mod tests {
             num_test_messages * multiplication_factor,
         );
         let tx_queue = VecDeque::new();
-        // generate the keys for the buidler
+        // generate the keys for the builder
         let seed = [201_u8; 32];
         let (builder_pub_key, builder_private_key) =
             BLSPubKey::generated_from_seed_indexed(seed, 2011_u64);
