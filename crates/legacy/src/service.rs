@@ -75,7 +75,7 @@ pub struct ReceivedTransaction<Types: NodeType> {
     pub tx: Types::Transaction,
     // transaction's hash
     pub commit: Commitment<Types::Transaction>,
-    // transaction's esitmated length
+    // transaction's estimated length
     pub len: u64,
     // transaction's source
     pub source: TransactionSource,
@@ -1138,7 +1138,7 @@ impl<Types: NodeType> AcceptsTxnSubmits<Types> for ProxyGlobalState<Types> {
         );
 
         // NOTE: ideally we want to respond with original Vec<Result>
-        // instead of Result<Vec> not to loose any information,
+        // instead of Result<Vec> not to lose any information,
         //  but this requires changes to builder API
         response.into_iter().collect()
     }
