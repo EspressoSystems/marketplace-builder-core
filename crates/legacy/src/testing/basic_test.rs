@@ -1,6 +1,6 @@
 pub use hotshot::traits::election::static_committee::StaticCommittee;
 pub use hotshot_types::{
-    data::{DaProposal, EpochNumber, Leaf, ViewNumber},
+    data::{EpochNumber, Leaf, ViewNumber},
     message::Proposal,
     signature_key::BLSPubKey,
     simple_certificate::{QuorumCertificate, SimpleCertificate, SuccessThreshold},
@@ -23,7 +23,7 @@ mod tests {
     use hotshot_builder_api::v0_2::data_source::BuilderDataSource;
     use hotshot_example_types::auction_results_provider_types::TestAuctionResult;
     use hotshot_example_types::node_types::TestVersions;
-    use hotshot_types::data::{Leaf2, QuorumProposal2};
+    use hotshot_types::data::{DaProposal2, Leaf2, QuorumProposal2};
     use hotshot_types::drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT};
     use hotshot_types::simple_vote::QuorumData2;
     use hotshot_types::{
@@ -93,6 +93,7 @@ mod tests {
             type Membership = StaticCommittee<Self>;
             type BuilderSignatureKey = BuilderKey;
             type AuctionResult = TestAuctionResult;
+            const EPOCH_HEIGHT: u64 = 1000; // arbitrary
         }
         // no of test messages to send
         let num_test_messages = 5;
@@ -192,6 +193,7 @@ mod tests {
                 view_change_evidence: None,
                 drb_seed: INITIAL_DRB_SEED_INPUT,
                 drb_result: INITIAL_DRB_RESULT,
+                next_epoch_justify_qc: None,
             }
         };
 
@@ -290,12 +292,13 @@ mod tests {
 
                 // Prepare the DA proposal message
                 let da_proposal_message = {
-                    let da_proposal = DaProposal {
+                    let da_proposal = DaProposal2 {
                         encoded_transactions: encoded_transactions.clone().into(),
                         metadata: TestMetadata {
                             num_transactions: encoded_transactions.len() as u64,
                         },
                         view_number: ViewNumber::new(round as u64),
+                        epoch: EpochNumber::genesis(), // TODO: check if this is okay
                     };
                     let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
                     let seed = [round as u8; 32];
@@ -363,6 +366,7 @@ mod tests {
 
                         let q_data = QuorumData2::<TestTypes> {
                             leaf_commit: leaf.commit(),
+                            epoch: EpochNumber::genesis(), // TODO: check if this is okay
                         };
 
                         let previous_quorum_view_number =
@@ -394,6 +398,7 @@ mod tests {
                         view_change_evidence: None,
                         drb_seed: INITIAL_DRB_SEED_INPUT,
                         drb_result: INITIAL_DRB_RESULT,
+                        next_epoch_justify_qc: None,
                     };
 
                     let payload_vid_commitment =

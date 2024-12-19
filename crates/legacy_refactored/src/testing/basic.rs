@@ -205,6 +205,7 @@ async fn test_pruning() {
         view_change_evidence: None,
         drb_seed: INITIAL_DRB_SEED_INPUT,
         drb_result: INITIAL_DRB_RESULT,
+        next_epoch_justify_qc: None, // TODO
     });
     event_stream_sender
         .broadcast(hotshot::types::Event {

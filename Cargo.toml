@@ -7,14 +7,14 @@ version = "0.1.58"
 edition = "2021"
 
 [workspace.dependencies]
-hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
-hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
-hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", tag = "0.1.56" }
-hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
-hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
-hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
-hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
-hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", tag = "0.5.82" }
+hotshot = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "bump/0.5.83" }
+hotshot-builder-api = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "bump/0.5.83" }
+hotshot-events-service = { git = "https://github.com/EspressoSystems/hotshot-events-service.git", branch = "ma/hotshot-0.5.83" }
+hotshot-macros = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "bump/0.5.83" }
+hotshot-task-impls = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "bump/0.5.83" }
+hotshot-testing = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "bump/0.5.83" }
+hotshot-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "bump/0.5.83" }
+hotshot-example-types = { git = "https://github.com/EspressoSystems/HotShot.git", branch = "bump/0.5.83" }
 
 anyhow = "1"
 async-broadcast = "0.7"
