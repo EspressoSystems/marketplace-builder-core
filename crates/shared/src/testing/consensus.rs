@@ -17,7 +17,7 @@ use hotshot_example_types::{
     state_types::{TestInstanceState, TestValidatedState},
 };
 use hotshot_types::{
-    data::{DaProposal, Leaf2, QuorumProposal2, ViewNumber},
+    data::{DaProposal2, EpochNumber, Leaf2, QuorumProposal2, ViewNumber},
     drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::Proposal,
     simple_certificate::{QuorumCertificate, SimpleCertificate, SuccessThreshold},
@@ -27,6 +27,7 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 
 pub struct SimulatedChainState {
+    epoch: EpochNumber,
     round: ViewNumber,
     previous_quorum_proposal: Option<QuorumProposal2<TestTypes>>,
     event_stream_sender: Sender<Event<TestTypes>>,
@@ -35,6 +36,7 @@ pub struct SimulatedChainState {
 impl SimulatedChainState {
     pub fn new(event_stream_sender: Sender<Event<TestTypes>>) -> Self {
         Self {
+            epoch: EpochNumber::genesis(),
             round: ViewNumber::genesis(),
             previous_quorum_proposal: None,
             event_stream_sender,
@@ -75,10 +77,11 @@ impl SimulatedChainState {
             )
             .expect("Failed to sign payload commitment while preparing DA proposal");
 
-        let da_proposal = DaProposal {
+        let da_proposal = DaProposal2 {
             encoded_transactions: encoded_transactions.into(),
             metadata,
             view_number: self.round,
+            epoch: self.epoch,
         };
 
         let block_header = TestBlockHeader {
@@ -101,6 +104,7 @@ impl SimulatedChainState {
                 let prev_justify_qc = &prev_proposal.justify_qc;
                 let quorum_data = QuorumData2::<TestTypes> {
                     leaf_commit: Committable::commit(&Leaf2::from_quorum_proposal(prev_proposal)),
+                    epoch: self.epoch,
                 };
 
                 // form a justify qc
@@ -125,6 +129,7 @@ impl SimulatedChainState {
             drb_seed: INITIAL_DRB_SEED_INPUT,
 
             drb_result: INITIAL_DRB_RESULT,
+            next_epoch_justify_qc: None,
         };
 
         let quorum_proposal_event = EventType::QuorumProposal {

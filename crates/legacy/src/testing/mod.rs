@@ -13,7 +13,7 @@ use hotshot::{
     types::{BLSPubKey, SignatureKey},
 };
 use hotshot_types::{
-    data::{DaProposal, Leaf2, QuorumProposal2, ViewNumber},
+    data::{DaProposal2, EpochNumber, Leaf2, QuorumProposal2, ViewNumber},
     drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::Proposal,
     simple_certificate::{QuorumCertificate, SimpleCertificate, SuccessThreshold},
@@ -139,12 +139,13 @@ pub async fn calc_proposal_msg(
 
     // Prepare the DA proposal message
     let da_proposal_message: DaProposalMessage<TestTypes> = {
-        let da_proposal = DaProposal {
+        let da_proposal = DaProposal2 {
             encoded_transactions: encoded_transactions.clone().into(),
             metadata: TestMetadata {
                 num_transactions: encoded_transactions.len() as u64,
             },
             view_number: ViewNumber::new(round as u64),
+            epoch: EpochNumber::new(1),
         };
         let encoded_transactions_hash = Sha256::digest(&encoded_transactions);
         let da_signature =
@@ -184,6 +185,7 @@ pub async fn calc_proposal_msg(
             let prev_justify_qc = &prev_proposal.justify_qc;
             let quorum_data = QuorumData2::<TestTypes> {
                 leaf_commit: Leaf2::from_quorum_proposal(prev_proposal).commit(),
+                epoch: EpochNumber::new(1),
             };
 
             // form a justify qc
@@ -207,6 +209,7 @@ pub async fn calc_proposal_msg(
         view_change_evidence: None,
         drb_seed: INITIAL_DRB_SEED_INPUT,
         drb_result: INITIAL_DRB_RESULT,
+        next_epoch_justify_qc: None, // TODO
     };
 
     let quorum_signature =
