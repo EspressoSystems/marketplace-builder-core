@@ -13,8 +13,6 @@ use hotshot_types::data::DaProposal2;
 use hotshot_types::data::EpochNumber;
 use hotshot_types::data::QuorumProposal2;
 use hotshot_types::data::ViewNumber;
-use hotshot_types::drb::INITIAL_DRB_RESULT;
-use hotshot_types::drb::INITIAL_DRB_SEED_INPUT;
 use hotshot_types::event::LeafInfo;
 use hotshot_types::simple_certificate::QuorumCertificate2;
 use hotshot_types::simple_vote::QuorumData2;
@@ -117,8 +115,7 @@ pub async fn proposals_with_transactions(
         justify_qc: genesis_qc,
         upgrade_certificate: None,
         view_change_evidence: None,
-        drb_seed: INITIAL_DRB_SEED_INPUT,
-        drb_result: INITIAL_DRB_RESULT,
+        next_drb_result: None,
         next_epoch_justify_qc: None,
     };
     let leaf = Leaf2::from_quorum_proposal(&parent_proposal);
@@ -153,8 +150,7 @@ pub async fn proposals_with_transactions(
             justify_qc,
             upgrade_certificate: None,
             view_change_evidence: None,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
-            drb_result: INITIAL_DRB_RESULT,
+            next_drb_result: None,
             next_epoch_justify_qc: None,
         },
     )

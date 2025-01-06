@@ -18,7 +18,6 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{DaProposal2, EpochNumber, Leaf2, QuorumProposal2, ViewNumber},
-    drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::Proposal,
     simple_certificate::{QuorumCertificate, SimpleCertificate, SuccessThreshold},
     simple_vote::QuorumData2,
@@ -126,9 +125,8 @@ impl SimulatedChainState {
             justify_qc: justify_qc.clone(),
             upgrade_certificate: None,
             view_change_evidence: None,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
 
-            drb_result: INITIAL_DRB_RESULT,
+            next_drb_result: None,
             next_epoch_justify_qc: None,
         };
 
