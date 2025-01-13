@@ -24,7 +24,6 @@ mod tests {
     use hotshot_example_types::auction_results_provider_types::TestAuctionResult;
     use hotshot_example_types::node_types::TestVersions;
     use hotshot_types::data::{DaProposal2, Leaf2, QuorumProposal2};
-    use hotshot_types::drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT};
     use hotshot_types::simple_vote::QuorumData2;
     use hotshot_types::{
         signature_key::BuilderKey,
@@ -93,7 +92,6 @@ mod tests {
             type Membership = StaticCommittee<Self>;
             type BuilderSignatureKey = BuilderKey;
             type AuctionResult = TestAuctionResult;
-            const EPOCH_HEIGHT: u64 = 1000; // arbitrary
         }
         // no of test messages to send
         let num_test_messages = 5;
@@ -191,9 +189,8 @@ mod tests {
                 justify_qc: previous_jc.clone(),
                 upgrade_certificate: None,
                 view_change_evidence: None,
-                drb_seed: INITIAL_DRB_SEED_INPUT,
-                drb_result: INITIAL_DRB_RESULT,
                 next_epoch_justify_qc: None,
+                next_drb_result: None,
             }
         };
 
@@ -396,9 +393,8 @@ mod tests {
                         justify_qc: justify_qc.clone(),
                         upgrade_certificate: None,
                         view_change_evidence: None,
-                        drb_seed: INITIAL_DRB_SEED_INPUT,
-                        drb_result: INITIAL_DRB_RESULT,
                         next_epoch_justify_qc: None,
+                        next_drb_result: None,
                     };
 
                     let payload_vid_commitment =

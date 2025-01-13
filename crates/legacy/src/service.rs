@@ -1646,8 +1646,6 @@ mod test {
     use hotshot_types::data::EpochNumber;
     use hotshot_types::data::Leaf2;
     use hotshot_types::data::QuorumProposal2;
-    use hotshot_types::drb::INITIAL_DRB_RESULT;
-    use hotshot_types::drb::INITIAL_DRB_SEED_INPUT;
     use hotshot_types::traits::block_contents::Transaction;
     use hotshot_types::{
         data::{Leaf, ViewNumber},
@@ -4336,9 +4334,8 @@ mod test {
                 .to_qc2(),
                 upgrade_certificate: None,
                 view_change_evidence: None,
-                drb_seed: INITIAL_DRB_SEED_INPUT,
-                drb_result: INITIAL_DRB_RESULT,
                 next_epoch_justify_qc: None,
+                next_drb_result: None,
             }
         };
 
@@ -4410,9 +4407,8 @@ mod test {
                 .to_qc2(),
                 upgrade_certificate: None,
                 view_change_evidence: None,
-                drb_seed: INITIAL_DRB_SEED_INPUT,
-                drb_result: INITIAL_DRB_RESULT,
                 next_epoch_justify_qc: None,
+                next_drb_result: None,
             }
         };
 
@@ -4475,9 +4471,8 @@ mod test {
                 .to_qc2(),
                 upgrade_certificate: None,
                 view_change_evidence: None,
-                drb_seed: INITIAL_DRB_SEED_INPUT,
-                drb_result: INITIAL_DRB_RESULT,
                 next_epoch_justify_qc: None,
+                next_drb_result: None,
             }
         };
 
