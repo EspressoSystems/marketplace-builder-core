@@ -1238,6 +1238,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cbor4ii"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "189a2a2e5eec2f203b2bb8bc4c2db55c7253770d2c6bf3ae5f79ace5a15c305f"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2847,8 +2856,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.83#0cad9270f22138fe15f0cefd5d3b587ab495aea6"
+version = "0.5.84"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -2886,12 +2895,13 @@ dependencies = [
  "url",
  "utils",
  "vbs",
+ "workspace-hack",
 ]
 
 [[package]]
 name = "hotshot-builder-api"
 version = "0.1.7"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.83#0cad9270f22138fe15f0cefd5d3b587ab495aea6"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
 dependencies = [
  "async-trait",
  "clap",
@@ -2905,6 +2915,7 @@ dependencies = [
  "tide-disco",
  "toml",
  "vbs",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -2988,7 +2999,7 @@ dependencies = [
 [[package]]
 name = "hotshot-events-service"
 version = "0.1.57"
-source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?tag=0.1.57#176c1f2166fa77951c3ebed404135ec8f7386010"
+source = "git+https://github.com/EspressoSystems/hotshot-events-service.git?branch=hotshot%2Frc-0.5.84#33c17e6c84fb549ceccc4fa8deceb015fef2d1d7"
 dependencies = [
  "async-broadcast",
  "async-lock 2.8.0",
@@ -3014,8 +3025,8 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.83#0cad9270f22138fe15f0cefd5d3b587ab495aea6"
+version = "0.5.84"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
 dependencies = [
  "anyhow",
  "async-lock 3.4.0",
@@ -3035,12 +3046,13 @@ dependencies = [
  "tokio",
  "url",
  "vbs",
+ "workspace-hack",
 ]
 
 [[package]]
 name = "hotshot-fakeapi"
-version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.83#0cad9270f22138fe15f0cefd5d3b587ab495aea6"
+version = "0.5.84"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
 dependencies = [
  "anyhow",
  "async-lock 3.4.0",
@@ -3053,23 +3065,25 @@ dependencies = [
  "tokio",
  "toml",
  "vbs",
+ "workspace-hack",
 ]
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.83#0cad9270f22138fe15f0cefd5d3b587ab495aea6"
+version = "0.5.84"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
 dependencies = [
  "derive_builder",
  "proc-macro2",
  "quote",
  "syn 2.0.95",
+ "workspace-hack",
 ]
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.83#0cad9270f22138fe15f0cefd5d3b587ab495aea6"
+version = "0.5.84"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
 dependencies = [
  "async-broadcast",
  "async-trait",
@@ -3077,12 +3091,13 @@ dependencies = [
  "tokio",
  "tracing",
  "utils",
+ "workspace-hack",
 ]
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.83#0cad9270f22138fe15f0cefd5d3b587ab495aea6"
+version = "0.5.84"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3111,12 +3126,13 @@ dependencies = [
  "utils",
  "vbs",
  "vec1",
+ "workspace-hack",
 ]
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.83#0cad9270f22138fe15f0cefd5d3b587ab495aea6"
+version = "0.5.84"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3152,12 +3168,13 @@ dependencies = [
  "url",
  "vbs",
  "vec1",
+ "workspace-hack",
 ]
 
 [[package]]
 name = "hotshot-types"
 version = "0.1.11"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.83#0cad9270f22138fe15f0cefd5d3b587ab495aea6"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
 dependencies = [
  "anyhow",
  "ark-bn254",
@@ -3207,6 +3224,7 @@ dependencies = [
  "utils",
  "vbs",
  "vec1",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -4365,15 +4383,15 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.83#0cad9270f22138fe15f0cefd5d3b587ab495aea6"
+version = "0.5.84"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
 dependencies = [
  "anyhow",
  "async-lock 3.4.0",
  "async-trait",
  "bincode",
  "blake3",
- "cbor4ii",
+ "cbor4ii 1.0.0",
  "delegate",
  "derive_builder",
  "derive_more 1.0.0",
@@ -4389,6 +4407,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.19",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -4422,7 +4441,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1356c9e376a94a75ae830c42cdaea3d4fe1290ba409a22c809033d1b7dcab0a6"
 dependencies = [
  "async-trait",
- "cbor4ii",
+ "cbor4ii 0.3.3",
  "futures",
  "futures-bounded",
  "futures-timer",
@@ -8201,10 +8220,11 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "utils"
-version = "0.5.79"
-source = "git+https://github.com/EspressoSystems/HotShot.git?tag=0.5.83#0cad9270f22138fe15f0cefd5d3b587ab495aea6"
+version = "0.5.84"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
 dependencies = [
  "tracing",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -8751,6 +8771,97 @@ checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
 dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "workspace-hack"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/HotShot.git?branch=bump%2F0.5.84#d16a0457dd2460fc1be3e3c9d63decc2a4687721"
+dependencies = [
+ "ark-bls12-377",
+ "ark-bls12-381",
+ "ark-bn254",
+ "ark-bw6-761",
+ "ark-crypto-primitives",
+ "ark-ff",
+ "ark-relations",
+ "ark-serialize",
+ "ark-std",
+ "arrayvec",
+ "async-std",
+ "async-tungstenite",
+ "base64 0.13.1",
+ "base64 0.22.1",
+ "byteorder",
+ "bytes",
+ "concurrent-queue",
+ "crossbeam-utils",
+ "crunchy",
+ "crypto-common",
+ "data-encoding",
+ "derive_more 1.0.0",
+ "derive_more-impl",
+ "digest 0.10.7",
+ "digest 0.9.0",
+ "displaydoc",
+ "downcast-rs",
+ "either",
+ "event-listener 5.3.1",
+ "event-listener-strategy",
+ "form_urlencoded",
+ "futures",
+ "futures-channel",
+ "futures-core",
+ "futures-executor",
+ "futures-io",
+ "futures-sink",
+ "futures-task",
+ "futures-util",
+ "generic-array",
+ "getrandom 0.2.15",
+ "hashbrown 0.14.5",
+ "hashbrown 0.15.2",
+ "idna",
+ "itertools 0.12.1",
+ "jf-relation",
+ "jf-rescue",
+ "jf-signature",
+ "jf-utils",
+ "libp2p-identity",
+ "libsecp256k1-core",
+ "log",
+ "memchr",
+ "multihash",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand 0.8.5",
+ "regex",
+ "regex-automata 0.4.9",
+ "regex-syntax 0.8.5",
+ "rustls-pki-types",
+ "serde",
+ "sha2 0.9.9",
+ "sha3",
+ "smallvec",
+ "sqlx-core",
+ "sqlx-sqlite",
+ "standback",
+ "subtle",
+ "syn 2.0.95",
+ "time 0.3.37",
+ "tokio",
+ "toml_datetime",
+ "toml_edit",
+ "tracing",
+ "tracing-core",
+ "tracing-log 0.2.0",
+ "tracing-subscriber 0.3.19",
+ "tungstenite",
+ "uint",
+ "url",
+ "zerocopy",
+ "zeroize",
 ]
 
 [[package]]
