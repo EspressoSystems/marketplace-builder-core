@@ -18,7 +18,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// This tests simulates size limits being decreased lower than our capacity
+/// This test simulates size limits being decreased lower than our capacity
 /// and then checks that size limits return to protocol maximum over time
 #[tokio::test]
 #[traced_test]

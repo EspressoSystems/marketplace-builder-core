@@ -171,7 +171,7 @@ pub struct BuilderState<Types: NodeType> {
     /// locally spawned builder Commitements
     pub builder_commitments: HashSet<(BuilderStateId<Types>, BuilderCommitment)>,
 
-    /// timeout for maximising the txns in the block
+    /// timeout for maximizing the txns in the block
     pub maximize_txn_capture_timeout: Duration,
 
     /// constant fee that the builder will offer per byte of data sequenced
@@ -244,7 +244,7 @@ pub struct BuilderState<Types: NodeType> {
 /// 3. If we can't find any [`BuilderState`]s that match the view number
 ///    and leaf commitment, then we should return for the maximum stored view
 ///    number that is smaller than the current [`QuorumProposal2`].
-/// 4. If there is is only one [`BuilderState`] stored in the [`GlobalState`], then
+/// 4. If there is only one [`BuilderState`] stored in the [`GlobalState`], then
 ///    we should return that [`BuilderState`] as the best fit.
 /// 5. If none of the other criteria match, we return an empty result as it is
 ///    unclear what to do in this case.
@@ -388,7 +388,7 @@ impl<Types: NodeType> BuilderState<Types> {
             quorum_proposal.data.view_number.u64(),
         );
 
-        // We are a best fit if we are contained within the returned set of
+        // We are the best fit if we are contained within the returned set of
         // best [BuilderState]s to extend from.
         best_builder_states_to_extend.contains(&BuilderStateId {
             parent_commitment: self.parent_block_references.vid_commitment,
@@ -486,9 +486,9 @@ impl<Types: NodeType> BuilderState<Types> {
 
         // Two cases to handle:
         // Case 1: Bootstrapping phase
-        // Case 2: No intended builder state exist
+        // Case 2: No intended builder state exists
         // To handle both cases, we can have the highest view number builder state running
-        // and only doing the insertion if and only if intended builder state for a particulat view is not present
+        // and only doing the insertion if and only if intended builder state for a particular view is not present
         // check the presence of quorum_proposal.data.view_number-1 in the spawned_builder_states list
         let quorum_proposal = &quorum_msg.proposal;
         let view_number = quorum_proposal.data.view_number;
@@ -524,7 +524,7 @@ impl<Types: NodeType> BuilderState<Types> {
 
         // also make sure we clone for the same view number( check incase payload commitments are same)
         if da_proposal_info.view_number != view_number {
-            tracing::debug!("Not spawning a clone despite matching DA and quorum payload commitments, as they corresponds to different view numbers");
+            tracing::debug!("Not spawning a clone despite matching DA and quorum payload commitments, as they correspond to different view numbers");
             return;
         }
 
