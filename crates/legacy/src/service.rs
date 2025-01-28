@@ -8,7 +8,7 @@ use hotshot_builder_api::{
     v0_2::builder::TransactionStatus,
 };
 use hotshot_types::{
-    data::{DaProposal2, Leaf2, QuorumProposal2},
+    data::{DaProposal2, Leaf2, QuorumProposalWrapper},
     event::EventType,
     message::Proposal,
     traits::{
@@ -17,12 +17,10 @@ use hotshot_types::{
         signature_key::{BuilderSignatureKey, SignatureKey},
     },
     utils::BuilderCommitment,
-    vid::{VidCommitment, VidPrecomputeData},
+    vid::VidCommitment,
 };
 use lru::LruCache;
 use vbs::version::StaticVersionType;
-
-use marketplace_builder_shared::block::{BlockId, BuilderStateId, ParentBlockReferences};
 
 use crate::builder_state::{
     BuildBlockInfo, DaProposalMessage, DecideMessage, QuorumProposalMessage, TransactionSource,
@@ -37,6 +35,7 @@ use async_trait::async_trait;
 use committable::{Commitment, Committable};
 use futures::stream::StreamExt;
 use futures::{future::BoxFuture, Stream};
+use marketplace_builder_shared::block::{BlockId, BuilderStateId, ParentBlockReferences};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
@@ -50,9 +49,6 @@ use tokio::{
     time::{sleep, timeout},
 };
 
-// We will not increment max block value if we aren't able to serve a response
-// with a margin below [`ProxyGlobalState::max_api_waiting_time`]
-// more than [`ProxyGlobalState::max_api_waiting_time`] / `VID_RESPONSE_TARGET_MARGIN_DIVISOR`
 const VID_RESPONSE_TARGET_MARGIN_DIVISOR: u32 = 10;
 
 // It holds all the necessary information for a block
@@ -61,7 +57,7 @@ pub struct BlockInfo<Types: NodeType> {
     pub block_payload: Types::BlockPayload,
     pub metadata: <<Types as NodeType>::BlockPayload as BlockPayload<Types>>::Metadata,
     pub vid_trigger: Arc<RwLock<Option<oneshot::Sender<TriggerStatus>>>>,
-    pub vid_receiver: Arc<RwLock<WaitAndKeep<(VidCommitment, VidPrecomputeData)>>>,
+    pub vid_receiver: Arc<RwLock<WaitAndKeep<VidCommitment>>>,
     pub offered_fee: u64,
     // Could we have included more transactions with this block, but chose not to?
     pub truncated: bool,
@@ -983,7 +979,7 @@ impl<Types: NodeType> ProxyGlobalState<Types> {
             }
 
             match response_received {
-                Ok((vid_commitment, vid_precompute_data)) => {
+                Ok(vid_commitment) => {
                     // sign over the vid commitment
                     let signature_over_vid_commitment =
                         <Types as NodeType>::BuilderSignatureKey::sign_builder_message(
@@ -1002,7 +998,6 @@ impl<Types: NodeType> ProxyGlobalState<Types> {
 
                     let response = AvailableBlockHeaderInput::<Types> {
                         vid_commitment,
-                        vid_precompute_data,
                         fee_signature: signature_over_fee_info,
                         message_signature: signature_over_vid_commitment,
                         sender: pub_key.clone(),
@@ -1373,7 +1368,7 @@ enum HandleQuorumEventError<Types: NodeType> {
 /// still open.
 async fn handle_quorum_event<Types: NodeType>(
     quorum_channel_sender: &BroadcastSender<MessageType<Types>>,
-    quorum_proposal: Arc<Proposal<Types, QuorumProposal2<Types>>>,
+    quorum_proposal: Arc<Proposal<Types, QuorumProposalWrapper<Types>>>,
     sender: <Types as NodeType>::SignatureKey,
 ) {
     // We're explicitly not inspecting this error, as this function is not
@@ -1395,13 +1390,13 @@ async fn handle_quorum_event<Types: NodeType>(
 /// This function is the implementation for [`handle_quorum_event`].
 async fn handle_quorum_event_implementation<Types: NodeType>(
     quorum_channel_sender: &BroadcastSender<MessageType<Types>>,
-    quorum_proposal: Arc<Proposal<Types, QuorumProposal2<Types>>>,
+    quorum_proposal: Arc<Proposal<Types, QuorumProposalWrapper<Types>>>,
     sender: <Types as NodeType>::SignatureKey,
 ) -> Result<(), HandleQuorumEventError<Types>> {
     tracing::debug!(
         "QuorumProposal: Leader: {:?} for the view: {:?}",
         sender,
-        quorum_proposal.data.view_number
+        quorum_proposal.data.view_number()
     );
 
     let leaf = Leaf2::from_quorum_proposal(&quorum_proposal.data);
@@ -1409,7 +1404,7 @@ async fn handle_quorum_event_implementation<Types: NodeType>(
     if !sender.validate(&quorum_proposal.signature, leaf.commit().as_ref()) {
         tracing::error!(
             "Validation Failure on QuorumProposal for view {:?}: Leader for the current view: {:?}",
-            quorum_proposal.data.view_number,
+            quorum_proposal.data.view_number(),
             sender
         );
         return Err(HandleQuorumEventError::SignatureValidationFailed);
@@ -1419,7 +1414,7 @@ async fn handle_quorum_event_implementation<Types: NodeType>(
         proposal: quorum_proposal,
         sender,
     };
-    let view_number = quorum_msg.proposal.data.view_number;
+    let view_number = quorum_msg.proposal.data.view_number();
     tracing::debug!(
         "Sending Quorum proposal to the builder states for view {:?}",
         view_number
@@ -1645,15 +1640,14 @@ mod test {
     use hotshot_types::data::DaProposal2;
     use hotshot_types::data::EpochNumber;
     use hotshot_types::data::Leaf2;
-    use hotshot_types::data::QuorumProposal2;
+    use hotshot_types::data::{QuorumProposal2, QuorumProposalWrapper};
     use hotshot_types::traits::block_contents::Transaction;
     use hotshot_types::{
         data::{Leaf, ViewNumber},
         message::Proposal,
         simple_certificate::QuorumCertificate,
         traits::{
-            block_contents::{precompute_vid_commitment, vid_commitment},
-            node_implementation::ConsensusTime,
+            block_contents::vid_commitment, node_implementation::ConsensusTime,
             signature_key::BuilderSignatureKey,
         },
         utils::BuilderCommitment,
@@ -2223,12 +2217,15 @@ mod test {
         {
             // This ensures that the vid_sender that is stored is still the
             // same, or links to the vid_receiver that we submitted.
-            let (vid_commitment, vid_precompute) =
-                precompute_vid_commitment(&[1, 2, 3, 4, 5], TEST_NUM_NODES_IN_VID_COMPUTATION);
+            let vid_commitment = hotshot_types::traits::block_contents::vid_commitment(
+                &[1, 2, 3, 4, 5],
+                TEST_NUM_NODES_IN_VID_COMPUTATION,
+            );
+
             assert_eq!(
-                vid_sender.send((vid_commitment, vid_precompute.clone())),
+                vid_sender.send(vid_commitment),
                 Ok(()),
-                "The vid_sender should be able to send the vid commitment and precompute"
+                "The vid_sender should be able to send the vid commitment"
             );
 
             let mut vid_receiver_write_lock_guard =
@@ -2237,18 +2234,14 @@ mod test {
             // Get and Keep object
 
             match vid_receiver_write_lock_guard.get().await {
-                Ok((received_vid_commitment, received_vid_precompute)) => {
+                Ok(received_vid_commitment) => {
                     assert_eq!(
                         received_vid_commitment, vid_commitment,
                         "The received vid commitment should match the expected vid commitment"
                     );
-                    assert_eq!(
-                        received_vid_precompute, vid_precompute,
-                        "The received vid precompute should match the expected vid precompute"
-                    );
                 }
                 _ => {
-                    panic!("did not receive the expected vid commitment and precompute from vid_receiver_write_lock_guard");
+                    panic!("did not receive the expected vid commitment from vid_receiver_write_lock_guard");
                 }
             }
         }
@@ -2482,19 +2475,20 @@ mod test {
         {
             // This ensures that the vid_sender that is stored is still the
             // same, or links to the vid_receiver that we submitted.
-            let (vid_commitment, vid_precompute) =
-                precompute_vid_commitment(&[1, 2, 3, 4, 5], TEST_NUM_NODES_IN_VID_COMPUTATION);
+            let vid_commitment = hotshot_types::traits::block_contents::vid_commitment(
+                &[1, 2, 3, 4, 5],
+                TEST_NUM_NODES_IN_VID_COMPUTATION,
+            );
+
             assert_eq!(
-                vid_sender_2.send((vid_commitment, vid_precompute.clone())),
+                vid_sender_2.send(vid_commitment),
                 Ok(()),
-                "The vid_sender should be able to send the vid commitment and precompute"
+                "The vid_sender should be able to send the vid commitment"
             );
 
             assert!(
-                vid_sender_1
-                    .send((vid_commitment, vid_precompute.clone()))
-                    .is_err(),
-                "The vid_sender should not be able to send the vid commitment and precompute"
+                vid_sender_1.send(vid_commitment).is_err(),
+                "The vid_sender should not be able to send the vid commitment"
             );
 
             let mut vid_receiver_write_lock_guard =
@@ -2503,18 +2497,14 @@ mod test {
             // Get and Keep object
 
             match vid_receiver_write_lock_guard.get().await {
-                Ok((received_vid_commitment, received_vid_precompute)) => {
+                Ok(received_vid_commitment) => {
                     assert_eq!(
                         received_vid_commitment, vid_commitment,
                         "The received vid commitment should match the expected vid commitment"
                     );
-                    assert_eq!(
-                        received_vid_precompute, vid_precompute,
-                        "The received vid precompute should match the expected vid precompute"
-                    );
                 }
                 _ => {
-                    panic!("did not receive the expected vid commitment and precompute from vid_receiver_write_lock_guard");
+                    panic!("did not receive the expected vid commitment from vid_receiver_write_lock_guard");
                 }
             }
         }
@@ -3802,7 +3792,6 @@ mod test {
         ));
 
         let commitment = BuilderCommitment::from_bytes([0; 256]);
-
         let signature = BLSPubKey::sign(&leader_private_key, commitment.as_ref()).unwrap();
 
         let result = state
@@ -4107,7 +4096,10 @@ mod test {
         });
 
         vid_sender
-            .send(precompute_vid_commitment(&[1, 2, 3, 4], 2))
+            .send(hotshot_types::traits::block_contents::vid_commitment(
+                &[1, 2, 3, 4],
+                2,
+            ))
             .unwrap();
 
         let result = claim_block_header_input_join_handle.await;
@@ -4140,7 +4132,7 @@ mod test {
             <BLSPubKey as BuilderSignatureKey>::generated_from_seed_indexed([0; 32], 1);
         let (da_channel_sender, _) = async_broadcast::broadcast(10);
         let view_number = ViewNumber::new(10);
-        let epoch = EpochNumber::new(1);
+        let epoch = Some(EpochNumber::new(1));
 
         let da_proposal = DaProposal2::<TestTypes> {
             encoded_transactions: Arc::new([1, 2, 3, 4, 5, 6]),
@@ -4198,7 +4190,7 @@ mod test {
         };
 
         let view_number = ViewNumber::new(10);
-        let epoch = EpochNumber::new(1);
+        let epoch = Some(EpochNumber::new(1));
 
         let da_proposal = DaProposal2::<TestTypes> {
             encoded_transactions: Arc::new([1, 2, 3, 4, 5, 6]),
@@ -4247,7 +4239,7 @@ mod test {
             <BLSPubKey as BuilderSignatureKey>::generated_from_seed_indexed([0; 32], 0);
         let (da_channel_sender, da_channel_receiver) = async_broadcast::broadcast(10);
         let view_number = ViewNumber::new(10);
-        let epoch = EpochNumber::new(1);
+        let epoch = Some(EpochNumber::new(1));
 
         let da_proposal = DaProposal2::<TestTypes> {
             encoded_transactions: Arc::new([1, 2, 3, 4, 5, 6]),
@@ -4323,19 +4315,22 @@ mod test {
             .await
             .into();
 
-            QuorumProposal2::<TestTypes> {
-                block_header: leaf.block_header().clone(),
-                view_number,
-                justify_qc: QuorumCertificate::genesis::<TestVersions>(
-                    &TestValidatedState::default(),
-                    &TestInstanceState::default(),
-                )
-                .await
-                .to_qc2(),
-                upgrade_certificate: None,
-                view_change_evidence: None,
-                next_epoch_justify_qc: None,
-                next_drb_result: None,
+            QuorumProposalWrapper::<TestTypes> {
+                proposal: QuorumProposal2::<TestTypes> {
+                    block_header: leaf.block_header().clone(),
+                    view_number,
+                    justify_qc: QuorumCertificate::genesis::<TestVersions>(
+                        &TestValidatedState::default(),
+                        &TestInstanceState::default(),
+                    )
+                    .await
+                    .to_qc2(),
+                    upgrade_certificate: None,
+                    view_change_evidence: None,
+                    next_epoch_justify_qc: None,
+                    next_drb_result: None,
+                },
+                with_epoch: false,
             }
         };
 
@@ -4396,19 +4391,22 @@ mod test {
             .await
             .into();
 
-            QuorumProposal2::<TestTypes> {
-                block_header: leaf.block_header().clone(),
-                view_number,
-                justify_qc: QuorumCertificate::genesis::<TestVersions>(
-                    &TestValidatedState::default(),
-                    &TestInstanceState::default(),
-                )
-                .await
-                .to_qc2(),
-                upgrade_certificate: None,
-                view_change_evidence: None,
-                next_epoch_justify_qc: None,
-                next_drb_result: None,
+            QuorumProposalWrapper::<TestTypes> {
+                proposal: QuorumProposal2::<TestTypes> {
+                    block_header: leaf.block_header().clone(),
+                    view_number,
+                    justify_qc: QuorumCertificate::genesis::<TestVersions>(
+                        &TestValidatedState::default(),
+                        &TestInstanceState::default(),
+                    )
+                    .await
+                    .to_qc2(),
+                    upgrade_certificate: None,
+                    view_change_evidence: None,
+                    next_epoch_justify_qc: None,
+                    next_drb_result: None,
+                },
+                with_epoch: false,
             }
         };
 
@@ -4460,19 +4458,22 @@ mod test {
             .await
             .into();
 
-            QuorumProposal2::<TestTypes> {
-                block_header: leaf.block_header().clone(),
-                view_number,
-                justify_qc: QuorumCertificate::genesis::<TestVersions>(
-                    &TestValidatedState::default(),
-                    &TestInstanceState::default(),
-                )
-                .await
-                .to_qc2(),
-                upgrade_certificate: None,
-                view_change_evidence: None,
-                next_epoch_justify_qc: None,
-                next_drb_result: None,
+            QuorumProposalWrapper::<TestTypes> {
+                proposal: QuorumProposal2::<TestTypes> {
+                    block_header: leaf.block_header().clone(),
+                    view_number,
+                    justify_qc: QuorumCertificate::genesis::<TestVersions>(
+                        &TestValidatedState::default(),
+                        &TestInstanceState::default(),
+                    )
+                    .await
+                    .to_qc2(),
+                    upgrade_certificate: None,
+                    view_change_evidence: None,
+                    next_epoch_justify_qc: None,
+                    next_drb_result: None,
+                },
+                with_epoch: false,
             }
         };
 

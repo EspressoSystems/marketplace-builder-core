@@ -141,22 +141,24 @@ mod tests {
         let num_successful_views = 45;
         let min_txns_per_view = 5;
 
-        run_test::<MarketplaceTestVersions, MarketplaceBuilderImpl>(
-            TestDescription {
-                completion_task_description:
-                    CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
-                        TimeBasedCompletionTaskDescription {
-                            duration: Duration::from_secs(60),
-                        },
-                    ),
-                overall_safety_properties: OverallSafetyPropertiesDescription {
-                    num_successful_views,
-                    num_failed_views: 5,
-                    ..Default::default()
+        let mut metadata = TestDescription {
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                TimeBasedCompletionTaskDescription {
+                    duration: Duration::from_secs(60),
                 },
-                epoch_height: 0,
-                ..TestDescription::default()
+            ),
+            overall_safety_properties: OverallSafetyPropertiesDescription {
+                num_successful_views,
+                num_failed_views: 5,
+                ..Default::default()
             },
+            ..TestDescription::default()
+        };
+
+        metadata.test_config.epoch_height = 0;
+
+        run_test::<MarketplaceTestVersions, MarketplaceBuilderImpl>(
+            metadata,
             BuilderValidationConfig {
                 expected_txn_num: num_successful_views * min_txns_per_view,
             },
@@ -181,7 +183,7 @@ mod tests {
         Versions: [MarketplaceTestVersions],
         Ignore: true,
         Metadata: {
-            TestDescription {
+            let mut metadata = TestDescription {
                 validate_transactions : hotshot_testing::test_builder::nonempty_block_threshold((90,100)),
                 txn_description : hotshot_testing::txn_task::TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(10)),
                 completion_task_description : CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
@@ -189,14 +191,17 @@ mod tests {
                                 duration: Duration::from_secs(120),
                             },
                 ),
-                epoch_height: 0,
                 overall_safety_properties: OverallSafetyPropertiesDescription {
                     num_successful_views: 50,
                     num_failed_views: 5,
                     ..Default::default()
                 },
                 ..Default::default()
-            }
+            };
+
+            metadata.test_config.epoch_height = 0;
+
+            metadata
         },
     );
 }

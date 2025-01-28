@@ -4,7 +4,7 @@ use hotshot_builder_api::v0_1::{
     builder::{define_api, submit_api, BuildError, Error as BuilderApiError, TransactionStatus},
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
-use hotshot_types::traits::block_contents::{precompute_vid_commitment, Transaction};
+use hotshot_types::traits::block_contents::Transaction;
 use hotshot_types::traits::EncodeBytes;
 use hotshot_types::{
     event::EventType,
@@ -404,7 +404,7 @@ where
 
         let fut = async move {
             let join_handle = tokio::task::spawn_blocking(move || {
-                precompute_vid_commitment(&encoded_txns, num_nodes)
+                hotshot_types::traits::block_contents::vid_commitment(&encoded_txns, num_nodes)
             });
             join_handle.await.unwrap()
         };
@@ -528,7 +528,6 @@ where
                 .get_block(&block_id)
                 .ok_or(Error::NotFound)?;
 
-            block_info.vid_data.start();
             (
                 block_info.block_payload.clone(),
                 block_info.metadata.clone(),
@@ -589,7 +588,7 @@ where
             vid_data = block_info.vid_data.clone();
         };
 
-        let (vid_commitment, vid_precompute_data) = vid_data.resolve().await;
+        let vid_commitment = vid_data.resolve().await;
 
         // sign over the vid commitment
         let signature_over_vid_commitment =
@@ -609,7 +608,6 @@ where
 
         let response = AvailableBlockHeaderInput::<Types> {
             vid_commitment,
-            vid_precompute_data,
             fee_signature: signature_over_fee_info,
             message_signature: signature_over_vid_commitment,
             sender: self.builder_keys.0.clone(),
