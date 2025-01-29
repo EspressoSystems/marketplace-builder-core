@@ -1220,7 +1220,7 @@ mod test {
             .spawned_builder_states
             .contains_key(&builder_state_id)
         {
-            panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
+            panic!("global_state shouldn't have corresponding builder_state_id without matching quorum proposal.");
         }
 
         // sub-test two
@@ -1243,7 +1243,7 @@ mod test {
             .spawned_builder_states
             .contains_key(&builder_state_id_1)
         {
-            panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
+            panic!("global_state shouldn't have corresponding builder_state_id without matching quorum proposal.");
         }
 
         // sub-test three
@@ -1277,7 +1277,7 @@ mod test {
         {
             tracing::debug!("global_state updated successfully");
         } else {
-            panic!("global_state should have cooresponding builder_state_id as now we have matching quorum proposal.");
+            panic!("global_state should have corresponding builder_state_id as now we have matching quorum proposal.");
         }
     }
 
@@ -1342,7 +1342,7 @@ mod test {
             .spawned_builder_states
             .contains_key(&builder_state_id)
         {
-            panic!("global_state shouldn't have cooresponding builder_state_id without matching quorum proposal.");
+            panic!("global_state shouldn't have corresponding builder_state_id without matching quorum proposal.");
         }
 
         // sub-test two
@@ -1380,7 +1380,7 @@ mod test {
         {
             tracing::debug!("global_state updated successfully");
         } else {
-            panic!("global_state should have cooresponding builder_state_id as now we have matching da proposal.");
+            panic!("global_state should have corresponding builder_state_id as now we have matching da proposal.");
         }
     }
 
