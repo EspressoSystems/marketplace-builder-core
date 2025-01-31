@@ -3,15 +3,19 @@ use hotshot_types::{
     message::Proposal,
     traits::{
         block_contents::{BlockHeader, BlockPayload},
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         EncodeBytes,
     },
     utils::BuilderCommitment,
     vid::VidCommitment,
 };
-use marketplace_builder_shared::block::{BlockId, BuilderStateId, ParentBlockReferences};
+use marketplace_builder_shared::{
+    block::{BlockId, BuilderStateId, ParentBlockReferences},
+    Version01,
+};
 
 use committable::{Commitment, Committable};
+use vbs::version::StaticVersionType;
 
 use crate::service::{GlobalState, ReceivedTransaction};
 use async_broadcast::broadcast;
@@ -806,7 +810,12 @@ impl<Types: NodeType> BuilderState<Types> {
             };
 
             let join_handle = spawn_blocking(move || {
-                hotshot_types::traits::block_contents::vid_commitment(&encoded_txns, num_nodes)
+                // TODO (jparr721) - This will need to change later
+                hotshot_types::traits::block_contents::vid_commitment::<Version01>(
+                    &encoded_txns,
+                    num_nodes,
+                    <Version01 as Versions>::Base::VERSION,
+                )
             });
 
             let vidc = join_handle.await.unwrap();

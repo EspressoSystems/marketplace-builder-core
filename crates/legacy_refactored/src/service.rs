@@ -4,8 +4,8 @@ use hotshot_builder_api::v0_1::{
     builder::{define_api, submit_api, BuildError, Error as BuilderApiError, TransactionStatus},
     data_source::{AcceptsTxnSubmits, BuilderDataSource},
 };
-use hotshot_types::traits::block_contents::Transaction;
 use hotshot_types::traits::EncodeBytes;
+use hotshot_types::traits::{block_contents::Transaction, node_implementation::Versions};
 use hotshot_types::{
     event::EventType,
     traits::{
@@ -16,15 +16,15 @@ use hotshot_types::{
     utils::BuilderCommitment,
     vid::VidCommitment,
 };
-use marketplace_builder_shared::coordinator::BuilderStateLookup;
 use marketplace_builder_shared::error::Error;
 use marketplace_builder_shared::state::BuilderState;
 use marketplace_builder_shared::utils::{BuilderKeys, WaitAndKeep};
+use marketplace_builder_shared::{coordinator::BuilderStateLookup, Version01};
 use tide_disco::app::AppError;
 use tokio::spawn;
 use tokio::time::{sleep, timeout};
 use tracing::{error, info, instrument, trace, warn};
-use vbs::version::StaticVersion;
+use vbs::version::{StaticVersion, StaticVersionType};
 
 use marketplace_builder_shared::{
     block::{BlockId, BuilderStateId, ReceivedTransaction, TransactionSource},
@@ -404,7 +404,11 @@ where
 
         let fut = async move {
             let join_handle = tokio::task::spawn_blocking(move || {
-                hotshot_types::traits::block_contents::vid_commitment(&encoded_txns, num_nodes)
+                hotshot_types::traits::block_contents::vid_commitment::<Version01>(
+                    &encoded_txns,
+                    num_nodes,
+                    <Version01 as Versions>::Base::VERSION,
+                )
             });
             join_handle.await.unwrap()
         };

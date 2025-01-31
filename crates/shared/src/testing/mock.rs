@@ -16,6 +16,7 @@ use hotshot_types::event::LeafInfo;
 use hotshot_types::simple_certificate::QuorumCertificate2;
 use hotshot_types::simple_vote::QuorumData2;
 use hotshot_types::traits::block_contents::{vid_commitment, GENESIS_VID_NUM_STORAGE_NODES};
+use hotshot_types::traits::node_implementation::Versions;
 use hotshot_types::{
     data::{random_commitment, Leaf, Leaf2},
     message::UpgradeLock,
@@ -24,10 +25,11 @@ use hotshot_types::{
     traits::node_implementation::{ConsensusTime, NodeType},
     traits::BlockPayload,
     utils::BuilderCommitment,
-    vid::vid_scheme,
+    vid::advz_scheme,
 };
 use jf_vid::VidScheme;
 use rand::{distributions::Standard, thread_rng, Rng};
+use vbs::version::StaticVersionType;
 
 use crate::block::ParentBlockReferences;
 use crate::state::BuilderState;
@@ -94,10 +96,14 @@ pub async fn proposals_with_transactions(
     let encoded_transactions = TestTransaction::encode(&transactions);
 
     let header = TestBlockHeader::new(
-        &Leaf::<TestTypes>::genesis(&Default::default(), &Default::default())
+        &Leaf::<TestTypes>::genesis::<TestVersions>(&Default::default(), &Default::default())
             .await
             .into(),
-        vid_commitment(&encoded_transactions, GENESIS_VID_NUM_STORAGE_NODES),
+        vid_commitment::<TestVersions>(
+            &encoded_transactions,
+            GENESIS_VID_NUM_STORAGE_NODES,
+            <TestVersions as Versions>::Base::VERSION,
+        ),
         <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(&payload, &metadata),
         metadata,
     );
@@ -179,7 +185,7 @@ pub fn parent_references(view: u64) -> ParentBlockReferences<TestTypes> {
     ParentBlockReferences {
         view_number: <TestTypes as NodeType>::View::new(view),
         leaf_commit: random_commitment(rng),
-        vid_commitment: vid_scheme(TEST_NUM_NODES_IN_VID_COMPUTATION)
+        vid_commitment: advz_scheme(TEST_NUM_NODES_IN_VID_COMPUTATION)
             .commit_only(rng.sample_iter(Standard).take(100).collect::<Vec<_>>())
             .unwrap(),
         builder_commitment: BuilderCommitment::from_bytes(
